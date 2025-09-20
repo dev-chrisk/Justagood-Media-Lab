@@ -1,3 +1,5 @@
+[![Laravel Forge Site Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fforge.laravel.com%2Fsite-badges%2F1095eb7a-00d8-4eab-87b6-95ff6044429a%3Fdate%3D1%26label%3D1%26commit%3D1&style=plastic)](https://forge.laravel.com/servers/960996/sites/2857405)
+
 # Media Library - Laravel 10 Application
 
 A modern media library application built with Laravel 10, featuring movie, TV series, and game management with image storage and external API integration.
