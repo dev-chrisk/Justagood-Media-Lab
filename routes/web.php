@@ -55,7 +55,7 @@ Route::get('/', function () {
 
 // Serve static frontend files
 Route::get('/{path}', function ($path) {
-    $frontendPath = base_path("../frontend/{$path}");
+    $frontendPath = base_path("public/frontend/{$path}");
     if (File::exists($frontendPath)) {
         $mimeType = match (pathinfo($path, PATHINFO_EXTENSION)) {
             'css' => 'text/css',
