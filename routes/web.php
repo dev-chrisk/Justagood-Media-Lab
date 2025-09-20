@@ -46,7 +46,7 @@ Route::post('fetch-api', [MediaController::class, 'fetchApi'])->withoutMiddlewar
 
 // Serve the frontend files
 Route::get('/', function () {
-    $frontendPath = base_path('../frontend/index.html');
+    $frontendPath = base_path('public/frontend/index.html');
     if (File::exists($frontendPath)) {
         return File::get($frontendPath);
     }

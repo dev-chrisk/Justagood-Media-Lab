@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media Library</title>
+<link rel="stylesheet" href="styles/style.css">
+</head>
+<body>
+<header>
+    <h1>Media Library</h1>
+    <div class="controls">
+        <div class="controls-row">
+            <div class="controls-group">
+                <button id="btnGames" class="cat-btn">Games <span id="countGames" class="count-badge">0</span></button>
+                <button id="btnSeries" class="cat-btn">Series <span id="countSeries" class="count-badge">0</span></button>
+                <button id="btnMovies" class="cat-btn">Movies <span id="countMovies" class="count-badge">0</span></button>
+                <button id="btnGamesNew" class="cat-btn">Games <span class="tag-new">New</span></button>
+                <button id="btnSeriesNew" class="cat-btn">Series <span class="tag-new">New</span></button>
+                <button id="btnMoviesNew" class="cat-btn">Movies <span class="tag-new">New</span></button>
+                <button id="btnCalendar" class="cat-btn">📅 Calendar</button>
+            </div>
+            <div class="controls-group search-group">
+                <div class="search-wrapper">
+                    <input type="text" id="searchInput" placeholder="Search title..." />
+                    <button id="searchClear" title="Clear">×</button>
+                </div>
+            </div>
+            <div class="controls-group" id="playtimeGroup">
+                <label>Spielzeit:</label>
+                <div class="playtime-wrapper">
+                    <input type="number" id="playMin" min="0" placeholder="min" style="width:80px">-
+                    <input type="number" id="playMax" min="0" placeholder="max" style="width:80px">
+                </div>
+            </div>
+            <div class="controls-group" id="airingGroup" style="display:none;">
+                <label>Airing Status:</label>
+                <div class="airing-wrapper">
+                    <button id="airingAll" class="filter-chip active">All</button>
+                    <button id="airingTrue" class="filter-chip">Airing</button>
+                    <button id="airingFalse" class="filter-chip">Finished</button>
+                </div>
+            </div>
+            <div class="controls-group">
+                <div class="view-mode-group">
+                    <button id="viewGrid">Grid</button>
+                    <button id="viewList">List</button>
+                    <button id="viewCompact">Compact</button>
+                </div>
+                <span class="slider-inline"><span class="slider-title">Columns</span><input type="range" id="gridSlider" min="1" max="15" value="10" title="Columns (Grid mode)"><span id="columnDisplay" style="color: #1a73e8; font-weight: bold; margin-left: 8px;">10</span></span>
+                <span class="slider-inline"><span class="slider-title">Size</span><input type="range" id="sizeSlider" min="0.5" max="1.5" step="0.05" value="1" title="Card Size"></span>
+            </div>
+            <div class="controls-group">
+                <label>Display:</label>
+                <div class="toggle-group">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="showImages" checked>
+                        <span class="toggle-text">Images</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="showRatings" checked>
+                        <span class="toggle-text">Ratings</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="showPlatforms" checked>
+                        <span class="toggle-text">Platforms</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="showGenres" checked>
+                        <span class="toggle-text">Genres</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="landscapeMode" title="Switch to landscape orientation">
+                        <span class="toggle-text">Landscape</span>
+                    </label>
+                </div>
+                <span class="slider-inline"><span class="slider-title">Animation</span><input type="range" id="animationSlider" min="0" max="2" step="0.1" value="1" title="Animation Speed"></span>
+            </div>
+            <div class="controls-group">
+            <select id="sortSelect">
+                    <option value="order_asc" selected>Original order ↑</option>
+                    <option value="order_desc">Original order ↓</option>
+                <option value="title_asc">Title A-Z</option>
+                <option value="title_desc">Title Z-A</option>
+                <option value="release_asc">Release ↑</option>
+                <option value="release_desc">Release ↓</option>
+                <option value="rating_asc">Rating ↑</option>
+                <option value="rating_desc">Rating ↓</option>
+                    <option value="discovered_asc">Entdeckt am ↑</option>
+                    <option value="discovered_desc">Entdeckt am ↓</option>
+            </select>
+            </div>
+            <div id="filterBar" class="controls-group filter-bar">
+                <button id="filterExpandBtn" class="filter-expand-btn" title="Filter erweitern/zusammenklappen">+</button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div id="grid" class="grid"></div>
+</main>
+
+<!-- Edit/Add Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h2 id="modalTitle">Edit / Add Item</h2>
+        <input type="hidden" id="editId">
+        <label>Category:
+            <select id="editCategory">
+                <option value="game">Game</option>
+                <option value="series">Series</option>
+                <option value="movie">Movie</option>
+                <option value="games_new">Games New</option>
+                <option value="series_new">Series New</option>
+                <option value="movie_new">Movies New</option>
+            </select>
+        </label>
+        <label>Title: 
+            <div class="autocomplete-container">
+                <input type="text" id="editTitle" autocomplete="off">
+                <div id="autocompleteResults" class="autocomplete-results"></div>
+            </div>
+        </label>
+        <label>Release: <input type="text" id="editRelease"></label>
+        <label>Rating: <input type="number" id="editRating" step="0.1" min="0" max="10"></label>
+        <label>Views: <input type="number" id="editCount" min="0"></label>
+        <label>Platforms: <input type="text" id="editPlatforms"></label>
+        <label>Genre: <input type="text" id="editGenre"></label>
+        <label>Link: <input type="text" id="editLink"></label>
+        <label>Path: <input type="text" id="editPath" placeholder="images/movies/filename.jpg"></label>
+        <label>Entdeckt am: <input type="date" id="editDiscovered"></label>
+        <label>Spielzeit (Minuten): <input type="number" id="editPlaytime" min="0" step="1"></label>
+        <label>Is Airing: 
+            <select id="editIsAiring">
+                <option value="false">Finished</option>
+                <option value="true">Airing</option>
+            </select>
+        </label>
+        <label>Next Season (if airing): <input type="number" id="editNextSeason" min="1"></label>
+        <label>Next Season Release: <input type="date" id="editNextSeasonRelease"></label>
+        <label>Image URL: <input type="text" id="editImageUrl" placeholder="https://..."></label>
+        <div class="image-actions">
+            <button id="openImagePicker">Choose Image from Server…</button>
+            <input type="file" id="uploadImageInput" accept="image/*" style="display:none">
+            <button id="uploadImageBtn">Upload Image…</button>
+        </div>
+        <label><input type="checkbox" id="checkApi"> Fetch from API</label>
+        <div class="api-search-options" style="display:none;">
+            <label>IMDb ID: <input type="text" id="editImdbId" placeholder="tt1234567"></label>
+            <label>TMDb ID: <input type="text" id="editTmdbId" placeholder="12345"></label>
+        </div>
+        <button id="checkInfoBtn">Check Infos</button>
+        <p id="apiMessage"></p>
+        <p id="checkInfoMessage"></p>
+        <details class="api-debug"><summary>API Debug</summary>
+            <pre id="apiDebugPre" style="white-space:pre-wrap; max-height:200px; overflow:auto;"></pre>
+        </details>
+        <div class="sticky-buttons">
+            <div class="modal-buttons">
+                <button id="saveEdit">Save</button>
+                <button id="deleteFromEditBtn">Delete</button>
+                <button id="cancelEdit">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="detailModal" class="modal">
+    <div class="modal-content detail-content">
+        <div class="detail-grid">
+            <div class="detail-left">
+                <img id="detailImage" alt="" />
+            </div>
+            <div class="detail-right">
+                <h2 id="detailTitle"></h2>
+                <div class="detail-row editable-row">
+                    <label>Release</label>
+                    <input type="date" id="detailReleaseInput" class="detail-input" style="display:none;">
+                    <span id="detailRelease"></span>
+                </div>
+                <div class="detail-row editable-row">
+                    <label>Rating</label>
+                    <div class="rating-container">
+                        <div class="star-rating" id="detailStarRating"></div>
+                        <span id="detailRating"></span>
+                    </div>
+                </div>
+                <div class="detail-row editable-row" data-cat="game">
+                    <label>Spielzeit</label>
+                    <input type="number" id="detailPlaytimeInput" class="detail-input" min="0" style="display:none;">
+                    <span id="detailPlaytime"></span>
+                </div>
+                <div class="detail-row"><label>Views</label><span id="detailCount"></span></div>
+                <div class="detail-row editable-row">
+                    <label>Entdeckt am</label>
+                    <input type="date" id="detailDiscoveredInput" class="detail-input" style="display:none;">
+                    <span id="detailDiscovered"></span>
+                </div>
+                <div class="detail-row editable-row" data-cat="series">
+                    <label>Airing</label>
+                    <select id="detailIsAiringInput" class="detail-input" style="display:none;">
+                        <option value="true">Airing</option>
+                        <option value="false">Finished</option>
+                    </select>
+                    <span id="detailIsAiring"></span>
+                </div>
+                <div class="detail-row editable-row" data-cat="series">
+                    <label>Next Season</label>
+                    <input type="text" id="detailNextSeasonInput" class="detail-input" style="display:none;">
+                    <span id="detailNextSeason"></span>
+                </div>
+                <div class="detail-row editable-row" data-cat="series">
+                    <label>Next Season Release</label>
+                    <input type="date" id="detailNextSeasonReleaseInput" class="detail-input" style="display:none;">
+                    <span id="detailNextSeasonRelease"></span>
+                </div>
+                <div class="detail-row editable-row" data-cat="game">
+                    <label>Platforms</label>
+                    <input type="text" id="detailPlatformsInput" class="detail-input" style="display:none;">
+                    <span id="detailPlatforms"></span>
+                </div>
+                <div class="detail-row editable-row" data-cat="series movie">
+                    <label>Genre</label>
+                    <input type="text" id="detailGenreInput" class="detail-input" style="display:none;">
+                    <span id="detailGenre"></span>
+                </div>
+                <div class="detail-row"><label>Link</label><a id="detailLink" href="#" target="_blank" rel="noopener"></a></div>
+                <div class="modal-buttons detail-actions">
+                    <button id="detailSaveBtn">Save Changes</button>
+                    <button id="detailEditBtn">Full Edit</button>
+                    <button id="detailDeleteBtn">Delete</button>
+                    <button id="detailCloseBtn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Picker Modal -->
+<div id="imagePickerModal" class="modal">
+    <div class="modal-content">
+        <h2>Choose Image</h2>
+        <div id="imageList" style="max-height:300px; overflow:auto"></div>
+        <div class="modal-buttons">
+            <button id="imagePickConfirm">Use Selected</button>
+            <button id="imagePickCancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+    <!-- Floating Add Button -->
+    <button id="floatingAddButton" class="floating-add-btn" onclick="openAddModal()" title="Add Item">
+        <span class="plus-icon">+</span>
+    </button>
+
+    <script src="scripts/script.js"></script>
+</body>
+</html>
