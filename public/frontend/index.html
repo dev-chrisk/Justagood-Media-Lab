@@ -8,7 +8,19 @@
 </head>
 <body>
 <header>
-    <h1>Media Library</h1>
+    <div class="header-top">
+        <h1>Media Library</h1>
+        <div class="auth-section">
+            <div id="authButtons" class="auth-buttons">
+                <button id="loginBtn" class="auth-btn">Login</button>
+                <button id="registerBtn" class="auth-btn">Register</button>
+            </div>
+            <div id="userInfo" class="user-info" style="display: none;">
+                <span id="userName"></span>
+                <button id="logoutBtn" class="auth-btn">Logout</button>
+            </div>
+        </div>
+    </div>
     <div class="controls">
         <div class="controls-row">
             <div class="controls-group">
@@ -83,6 +95,11 @@
                     <option value="discovered_asc">Entdeckt am ↑</option>
                     <option value="discovered_desc">Entdeckt am ↓</option>
             </select>
+            </div>
+            <div class="controls-group">
+                <button id="exportBtn" class="export-btn" title="Export all data as ZIP package">📦 Export</button>
+                <button id="importBtn" class="import-btn" title="Import data from ZIP package">📥 Import</button>
+                <input type="file" id="importFileInput" accept=".zip" style="display:none">
             </div>
             <div id="filterBar" class="controls-group filter-bar">
                 <button id="filterExpandBtn" class="filter-expand-btn" title="Filter erweitern/zusammenklappen">+</button>
@@ -244,10 +261,77 @@
     </div>
 </div>
 
+<!-- Progress Modal -->
+<div id="progressModal" class="modal">
+    <div class="modal-content progress-content">
+        <h2 id="progressTitle">Processing...</h2>
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" class="progress-text">0%</div>
+        </div>
+        <div id="progressStatus" class="progress-status">Preparing...</div>
+        <div class="progress-details">
+            <div id="progressDetails" class="progress-details-text"></div>
+        </div>
+        <div class="modal-buttons">
+            <button id="progressCancel" class="cancel-btn" style="display:none;">Cancel</button>
+            <button id="progressClose" class="close-btn" style="display:none;">Close</button>
+        </div>
+    </div>
+</div>
+
     <!-- Floating Add Button -->
     <button id="floatingAddButton" class="floating-add-btn" onclick="openAddModal()" title="Add Item">
         <span class="plus-icon">+</span>
     </button>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content auth-modal">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <label>Email:
+                    <input type="email" id="loginEmail" required>
+                </label>
+                <label>Password:
+                    <input type="password" id="loginPassword" required>
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit">Login</button>
+                    <button type="button" id="loginCancel">Cancel</button>
+                </div>
+            </form>
+            <div id="loginError" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content auth-modal">
+            <h2>Register</h2>
+            <form id="registerForm">
+                <label>Name:
+                    <input type="text" id="registerName" required>
+                </label>
+                <label>Email:
+                    <input type="email" id="registerEmail" required>
+                </label>
+                <label>Password:
+                    <input type="password" id="registerPassword" required minlength="8">
+                </label>
+                <label>Confirm Password:
+                    <input type="password" id="registerPasswordConfirm" required minlength="8">
+                </label>
+                <div class="modal-buttons">
+                    <button type="submit">Register</button>
+                    <button type="button" id="registerCancel">Cancel</button>
+                </div>
+            </form>
+            <div id="registerError" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
 
     <script src="scripts/script.js"></script>
 </body>

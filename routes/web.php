@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\File;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
+use App\Http\Controllers\ExportImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +44,10 @@ Route::get('series/{filename}', [ImageController::class, 'serveImage'])->without
 
 // Fetch API endpoint (from Flask app)
 Route::post('fetch-api', [MediaController::class, 'fetchApi'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+// Export/Import routes
+Route::post('export-data', [ExportImportController::class, 'exportData'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+// Moved to api.php with authentication
 
 // Serve the frontend files
 Route::get('/', function () {

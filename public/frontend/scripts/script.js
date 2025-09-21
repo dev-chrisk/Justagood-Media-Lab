@@ -13,6 +13,10 @@ let playMax = null;
 let landscapeMode = false;
 let _gridColumns = 10; // Store current grid column count
 
+// Authentication state
+let currentUser = null;
+let authToken = localStorage.getItem('authToken');
+
 // Getter and setter for gridColumns with logging
 Object.defineProperty(window, 'gridColumns', {
     get: function() {
@@ -95,9 +99,111 @@ const orderedKeys = [
     "nextSeasonRelease"
 ];
 
+// Authentication functions
+async function login(email, password) {
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            authToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem('authToken', authToken);
+            updateAuthUI();
+            await loadData();
+            return true;
+        } else {
+            throw new Error(data.message || 'Login failed');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        throw error;
+    }
+}
+
+async function register(name, email, password) {
+    try {
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, email, password, password_confirmation: password })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            authToken = data.token;
+            currentUser = data.user;
+            localStorage.setItem('authToken', authToken);
+            updateAuthUI();
+            await loadData();
+            return true;
+        } else {
+            throw new Error(data.message || 'Registration failed');
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
+        throw error;
+    }
+}
+
+async function logout() {
+    try {
+        if (authToken) {
+            await fetch('/api/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    } finally {
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        updateAuthUI();
+        mediaData = [];
+        renderFilterBar();
+        renderGrid();
+        updateCounts();
+    }
+}
+
+function updateAuthUI() {
+    const authButtons = document.getElementById('authButtons');
+    const userInfo = document.getElementById('userInfo');
+    const userName = document.getElementById('userName');
+    
+    if (currentUser) {
+        authButtons.style.display = 'none';
+        userInfo.style.display = 'flex';
+        userName.textContent = currentUser.name;
+    } else {
+        authButtons.style.display = 'flex';
+        userInfo.style.display = 'none';
+    }
+}
+
 async function loadData(){
     try {
-        const res = await fetch("/media_relative.json");
+        const headers = {};
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        const res = await fetch("/api/media_relative.json", { headers });
         mediaData = await res.json();
         // capture original order index once
         mediaData.forEach((item, idx)=>{ if(item && item.__order == null) item.__order = idx; });
@@ -1263,7 +1369,13 @@ window.addEventListener("click", (e)=>{
 
 async function saveData(){
     const orderedData=mediaData.map(item=>{ const o={}; orderedKeys.forEach(k=>o[k]=item[k]??null); return o; });
-    try{ await fetch("/media_relative.json",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(orderedData,null,2)}); }
+    try{ 
+        const headers = {"Content-Type":"application/json"};
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        await fetch("/api/media_relative.json",{method:"POST",headers,body:JSON.stringify(orderedData,null,2)}); 
+    }
     catch(e){ console.error("Fehler beim Speichern:",e); }
 }
 
@@ -1340,6 +1452,56 @@ function applyViewMode(){
 }
 
 function setupControls(){
+    // Authentication controls
+    document.getElementById("loginBtn").onclick = () => showLoginModal();
+    document.getElementById("registerBtn").onclick = () => showRegisterModal();
+    document.getElementById("logoutBtn").onclick = logout;
+    
+    // Login form
+    document.getElementById("loginForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("loginEmail").value;
+        const password = document.getElementById("loginPassword").value;
+        const errorEl = document.getElementById("loginError");
+        
+        try {
+            await login(email, password);
+            closeLoginModal();
+        } catch (error) {
+            errorEl.textContent = error.message;
+            errorEl.style.display = "block";
+        }
+    };
+    
+    document.getElementById("loginCancel").onclick = closeLoginModal;
+    
+    // Register form
+    document.getElementById("registerForm").onsubmit = async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("registerName").value;
+        const email = document.getElementById("registerEmail").value;
+        const password = document.getElementById("registerPassword").value;
+        const passwordConfirm = document.getElementById("registerPasswordConfirm").value;
+        const errorEl = document.getElementById("registerError");
+        
+        if (password !== passwordConfirm) {
+            errorEl.textContent = "Passwords do not match";
+            errorEl.style.display = "block";
+            return;
+        }
+        
+        try {
+            await register(name, email, password);
+            closeRegisterModal();
+        } catch (error) {
+            errorEl.textContent = error.message;
+            errorEl.style.display = "block";
+        }
+    };
+    
+    document.getElementById("registerCancel").onclick = closeRegisterModal;
+    
+    // Category controls
     document.getElementById("btnGames").onclick=()=>switchCategory("game");
     document.getElementById("btnSeries").onclick=()=>switchCategory("series");
     document.getElementById("btnMovies").onclick=()=>switchCategory("movie");
@@ -1532,6 +1694,39 @@ function setupControls(){
                 if(d?.success && d?.saved){ const pathInput=document.getElementById('editPath'); if(pathInput) pathInput.value=d.saved; }
             }catch(e){ console.error(e); }
             uploadInput.value='';
+        };
+    }
+    
+    // Export/Import buttons
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFileInput = document.getElementById('importFileInput');
+    
+    if(exportBtn) {
+        exportBtn.onclick = exportData;
+    }
+    
+    if(importBtn) {
+        importBtn.onclick = importData;
+    }
+    
+    if(importFileInput) {
+        importFileInput.onchange = handleImportFile;
+    }
+    
+    // Progress modal buttons
+    const progressCancel = document.getElementById('progressCancel');
+    const progressClose = document.getElementById('progressClose');
+    
+    if(progressCancel) {
+        progressCancel.onclick = () => {
+            hideProgressModal();
+        };
+    }
+    
+    if(progressClose) {
+        progressClose.onclick = () => {
+            hideProgressModal();
         };
     }
 }
@@ -1841,11 +2036,41 @@ function selectAutocompleteItem(item) {
     resultsContainer.classList.remove('show');
 }
 
-window.onload=()=>{
+window.onload=async()=>{
     setupControls();
     // Load preferences before loading data to ensure gridColumns is set correctly
     loadViewPreferences();
-    loadData();
+    
+    // Initialize authentication
+    updateAuthUI();
+    
+    // Try to load user data if token exists
+    if (authToken) {
+        try {
+            const response = await fetch('/api/user', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+            
+            if (response.ok) {
+                currentUser = await response.json();
+                updateAuthUI();
+            } else {
+                // Token is invalid, clear it
+                authToken = null;
+                localStorage.removeItem('authToken');
+                updateAuthUI();
+            }
+        } catch (error) {
+            console.error('Error checking user:', error);
+            authToken = null;
+            localStorage.removeItem('authToken');
+            updateAuthUI();
+        }
+    }
+    
+    await loadData();
     // initial toggle of playtime group based on default category
     const playtimeGroup = document.getElementById('playtimeGroup');
     if(playtimeGroup){ playtimeGroup.style.display = (currentCategory==='game' ? 'flex' : 'none'); }
@@ -1856,6 +2081,400 @@ window.onload=()=>{
     
     // Add button functionality is handled directly in HTML
 };
+
+// Progress Modal Functions
+function showProgressModal(title, canCancel = false) {
+    const modal = document.getElementById('progressModal');
+    const titleEl = document.getElementById('progressTitle');
+    const cancelBtn = document.getElementById('progressCancel');
+    const closeBtn = document.getElementById('progressClose');
+    
+    titleEl.textContent = title;
+    cancelBtn.style.display = canCancel ? 'inline-block' : 'none';
+    closeBtn.style.display = 'none';
+    
+    updateProgress(0, 'Preparing...', '');
+    modal.classList.add('show');
+}
+
+function hideProgressModal() {
+    const modal = document.getElementById('progressModal');
+    modal.classList.remove('show');
+}
+
+function updateProgress(percentage, status, details) {
+    const fill = document.getElementById('progressFill');
+    const text = document.getElementById('progressText');
+    const statusEl = document.getElementById('progressStatus');
+    const detailsEl = document.getElementById('progressDetails');
+    
+    fill.style.width = percentage + '%';
+    text.textContent = Math.round(percentage) + '%';
+    statusEl.textContent = status;
+    detailsEl.textContent = details;
+}
+
+function completeProgress(success, message) {
+    const cancelBtn = document.getElementById('progressCancel');
+    const closeBtn = document.getElementById('progressClose');
+    
+    cancelBtn.style.display = 'none';
+    closeBtn.style.display = 'inline-block';
+    
+    updateProgress(100, success ? 'Completed!' : 'Failed!', message);
+    
+    if (success) {
+        document.getElementById('progressFill').style.background = 'linear-gradient(90deg, #4CAF50, #45a049)';
+    } else {
+        document.getElementById('progressFill').style.background = 'linear-gradient(90deg, #f44336, #d32f2f)';
+    }
+}
+
+// Export/Import Functions
+async function exportData() {
+    try {
+        console.log('Starting data export...');
+        
+        // Show progress modal
+        showProgressModal('Exporting Data...', false);
+        
+        // Disable export button
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.disabled = true;
+        
+        updateProgress(10, 'Preparing data...', 'Collecting media items and settings...');
+        
+        // Create export data structure
+        const exportData = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            data: mediaData,
+            preferences: {
+                animation: document.getElementById('animationSlider')?.value || '1',
+                showImages: document.getElementById('showImages')?.checked ?? true,
+                showRatings: document.getElementById('showRatings')?.checked ?? true,
+                showPlatforms: document.getElementById('showPlatforms')?.checked ?? true,
+                showGenres: document.getElementById('showGenres')?.checked ?? true,
+                landscapeMode: landscapeMode,
+                gridColumns: gridColumns
+            }
+        };
+        
+        updateProgress(20, 'Creating category lists...', 'Generating text files for each category...');
+        
+        // Create category lists
+        const categoryLists = {};
+        const categories = ['game', 'series', 'movie', 'games_new', 'series_new', 'movie_new'];
+        
+        categories.forEach(cat => {
+            const items = mediaData.filter(item => item.category === cat);
+            categoryLists[`${cat}_list.txt`] = items.map(item => item.title).join('\n');
+        });
+        
+        updateProgress(40, 'Sending data to server...', 'Uploading export data and image references...');
+        
+        // Call backend to create ZIP
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        const response = await fetch('/api/export-data', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                exportData: exportData,
+                categoryLists: categoryLists
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Export failed: ${response.statusText}`);
+        }
+        
+        updateProgress(80, 'Creating ZIP file...', 'Compressing data, images, and thumbnails...');
+        
+        // Download the ZIP file
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `media-library-export-${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        updateProgress(100, 'Export completed!', `ZIP file downloaded successfully.`);
+        
+        console.log('Export completed successfully');
+        
+        // Show success message
+        showNotification('Export erfolgreich! ZIP-Datei wurde heruntergeladen.', 'success');
+        
+        completeProgress(true, 'Export completed successfully!');
+        
+    } catch (error) {
+        console.error('Export failed:', error);
+        showNotification('Export fehlgeschlagen: ' + error.message, 'error');
+        completeProgress(false, 'Export failed: ' + error.message);
+    } finally {
+        // Reset button state
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn.disabled = false;
+    }
+}
+
+async function importData() {
+    const fileInput = document.getElementById('importFileInput');
+    fileInput.click();
+}
+
+async function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.zip')) {
+        showNotification('Bitte wählen Sie eine ZIP-Datei aus.', 'error');
+        return;
+    }
+    
+    try {
+        console.log('Starting data import...');
+        
+        // Show progress modal
+        showProgressModal('Importing Data...', false);
+        
+        // Disable import button
+        const importBtn = document.getElementById('importBtn');
+        importBtn.disabled = true;
+        
+        updateProgress(10, 'Validating file...', 'Checking ZIP file format...');
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        updateProgress(30, 'Uploading file...', 'Sending ZIP file to server...');
+        
+        // Call backend to process ZIP
+        const headers = {};
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        const response = await fetch('/api/import-data', {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Import failed: ${response.statusText}`);
+        }
+        
+        updateProgress(60, 'Processing data...', 'Extracting data, images, and thumbnails...');
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            updateProgress(80, 'Updating database...', 'Saving imported data...');
+            
+            // Update local data
+            mediaData = result.data || [];
+            
+            // Save data to server
+            await saveData();
+            
+            updateProgress(90, 'Applying settings...', 'Restoring user preferences...');
+            
+            // Apply preferences if available
+            if (result.preferences) {
+                applyImportedPreferences(result.preferences);
+            }
+            
+            updateProgress(95, 'Refreshing interface...', 'Updating UI components...');
+            
+            // Refresh the UI
+            renderFilterBar();
+            renderGrid();
+            updateCounts();
+            
+            updateProgress(100, 'Import completed!', 'All data has been successfully imported.');
+            
+            console.log('Import completed successfully');
+            showNotification('Import erfolgreich! Daten wurden wiederhergestellt.', 'success');
+            
+            completeProgress(true, 'Import completed successfully!');
+        } else {
+            throw new Error(result.error || 'Import failed');
+        }
+        
+    } catch (error) {
+        console.error('Import failed:', error);
+        showNotification('Import fehlgeschlagen: ' + error.message, 'error');
+        completeProgress(false, 'Import failed: ' + error.message);
+    } finally {
+        // Reset button state
+        const importBtn = document.getElementById('importBtn');
+        importBtn.disabled = false;
+        
+        // Clear file input
+        event.target.value = '';
+    }
+}
+
+function applyImportedPreferences(preferences) {
+    // Apply animation speed
+    const animationSlider = document.getElementById('animationSlider');
+    if (animationSlider && preferences.animation) {
+        animationSlider.value = preferences.animation;
+        document.documentElement.style.setProperty('--animation-speed', preferences.animation);
+    }
+    
+    // Apply display toggles
+    const showImages = document.getElementById('showImages');
+    if (showImages && preferences.showImages !== undefined) {
+        showImages.checked = preferences.showImages;
+        document.documentElement.style.setProperty('--show-images', preferences.showImages ? '1' : '0');
+    }
+    
+    const showRatings = document.getElementById('showRatings');
+    if (showRatings && preferences.showRatings !== undefined) {
+        showRatings.checked = preferences.showRatings;
+        document.documentElement.style.setProperty('--show-ratings', preferences.showRatings ? '1' : '0');
+    }
+    
+    const showPlatforms = document.getElementById('showPlatforms');
+    if (showPlatforms && preferences.showPlatforms !== undefined) {
+        showPlatforms.checked = preferences.showPlatforms;
+        document.documentElement.style.setProperty('--show-platforms', preferences.showPlatforms ? '1' : '0');
+    }
+    
+    const showGenres = document.getElementById('showGenres');
+    if (showGenres && preferences.showGenres !== undefined) {
+        showGenres.checked = preferences.showGenres;
+        document.documentElement.style.setProperty('--show-genres', preferences.showGenres ? '1' : '0');
+    }
+    
+    // Apply landscape mode
+    if (preferences.landscapeMode !== undefined) {
+        landscapeMode = preferences.landscapeMode;
+        const landscapeToggle = document.getElementById('landscapeMode');
+        if (landscapeToggle) {
+            landscapeToggle.checked = landscapeMode;
+        }
+    }
+    
+    // Apply grid columns
+    if (preferences.gridColumns) {
+        gridColumns = preferences.gridColumns;
+        const gridSlider = document.getElementById('gridSlider');
+        if (gridSlider) {
+            gridSlider.value = gridColumns;
+        }
+        applyViewMode();
+    }
+    
+    // Save preferences
+    saveViewPreferences();
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Style the notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 10000;
+        max-width: 400px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    `;
+    
+    // Set background color based on type
+    switch (type) {
+        case 'success':
+            notification.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+            break;
+        case 'error':
+            notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+            break;
+        case 'warning':
+            notification.style.background = 'linear-gradient(135deg, #ff9800, #f57c00)';
+            break;
+        default:
+            notification.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
+    }
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // Remove after 5 seconds
+    setTimeout(() => {
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 5000);
+}
+
+// Authentication modal functions
+function showLoginModal() {
+    document.getElementById("loginModal").classList.add("show");
+    document.getElementById("loginEmail").focus();
+}
+
+function closeLoginModal() {
+    document.getElementById("loginModal").classList.remove("show");
+    document.getElementById("loginError").style.display = "none";
+    document.getElementById("loginForm").reset();
+}
+
+function showRegisterModal() {
+    document.getElementById("registerModal").classList.add("show");
+    document.getElementById("registerName").focus();
+}
+
+function closeRegisterModal() {
+    document.getElementById("registerModal").classList.remove("show");
+    document.getElementById("registerError").style.display = "none";
+    document.getElementById("registerForm").reset();
+}
+
+// Close modals on backdrop click
+window.addEventListener("click", (e)=>{
+    const editModal = document.getElementById("editModal");
+    const detailModal = document.getElementById("detailModal");
+    const loginModal = document.getElementById("loginModal");
+    const registerModal = document.getElementById("registerModal");
+    
+    if(e.target === editModal){ closeModal(); }
+    if(e.target === detailModal){ closeDetailModal(); }
+    if(e.target === loginModal){ closeLoginModal(); }
+    if(e.target === registerModal){ closeRegisterModal(); }
+});
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {

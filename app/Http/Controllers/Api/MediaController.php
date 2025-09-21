@@ -17,6 +17,11 @@ class MediaController extends Controller
     {
         $query = MediaItem::query();
 
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+
         // Filter by category
         if ($request->has('category')) {
             $query->category($request->category);
@@ -79,7 +84,13 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        $mediaItem = MediaItem::create($request->all());
+        $data = $request->all();
+        // Add user_id if user is authenticated
+        if ($request->user()) {
+            $data['user_id'] = $request->user()->id;
+        }
+
+        $mediaItem = MediaItem::create($data);
 
         return response()->json(['success' => true, 'data' => $mediaItem], 201);
     }
@@ -87,9 +98,16 @@ class MediaController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $mediaItem = MediaItem::find($id);
+        $query = MediaItem::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $mediaItem = $query->find($id);
 
         if (!$mediaItem) {
             return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
@@ -103,7 +121,14 @@ class MediaController extends Controller
      */
     public function update(Request $request, string $id): JsonResponse
     {
-        $mediaItem = MediaItem::find($id);
+        $query = MediaItem::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $mediaItem = $query->find($id);
 
         if (!$mediaItem) {
             return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
@@ -139,9 +164,16 @@ class MediaController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $mediaItem = MediaItem::find($id);
+        $query = MediaItem::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $mediaItem = $query->find($id);
 
         if (!$mediaItem) {
             return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
@@ -155,9 +187,16 @@ class MediaController extends Controller
     /**
      * Get media items with relative paths (for compatibility with existing frontend)
      */
-    public function getMediaRelative(): JsonResponse
+    public function getMediaRelative(Request $request): JsonResponse
     {
-        $mediaItems = MediaItem::all();
+        $query = MediaItem::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $mediaItems = $query->get();
         return response()->json($mediaItems);
     }
 
@@ -175,11 +214,15 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        // Clear existing data and insert new data
-        MediaItem::truncate();
-        
-        foreach ($request->all() as $item) {
-            MediaItem::create($item);
+        // Only clear and insert data if user is authenticated
+        if ($request->user()) {
+            // Clear existing data for this user
+            MediaItem::forUser($request->user()->id)->delete();
+            
+            foreach ($request->all() as $item) {
+                $item['user_id'] = $request->user()->id;
+                MediaItem::create($item);
+            }
         }
 
         return response()->json(['success' => true]);

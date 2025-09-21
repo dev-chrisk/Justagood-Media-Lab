@@ -13,9 +13,16 @@ class CollectionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $collections = Collection::all();
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collections = $query->get();
         return response()->json(['collections' => $collections]);
     }
 
@@ -35,7 +42,13 @@ class CollectionController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        $collection = Collection::create($request->all());
+        $data = $request->all();
+        // Add user_id if user is authenticated
+        if ($request->user()) {
+            $data['user_id'] = $request->user()->id;
+        }
+
+        $collection = Collection::create($data);
 
         return response()->json(['success' => true, 'data' => $collection], 201);
     }
@@ -43,9 +56,16 @@ class CollectionController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $collection = Collection::find($id);
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collection = $query->find($id);
 
         if (!$collection) {
             return response()->json(['success' => false, 'error' => 'Collection not found'], 404);
@@ -59,7 +79,14 @@ class CollectionController extends Controller
      */
     public function update(Request $request, string $id): JsonResponse
     {
-        $collection = Collection::find($id);
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collection = $query->find($id);
 
         if (!$collection) {
             return response()->json(['success' => false, 'error' => 'Collection not found'], 404);
@@ -84,9 +111,16 @@ class CollectionController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $collection = Collection::find($id);
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collection = $query->find($id);
 
         if (!$collection) {
             return response()->json(['success' => false, 'error' => 'Collection not found'], 404);
@@ -113,11 +147,15 @@ class CollectionController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        // Clear existing collections and insert new ones
-        Collection::truncate();
-        
-        foreach ($request->collections as $collectionData) {
-            Collection::create($collectionData);
+        // Only clear and insert data if user is authenticated
+        if ($request->user()) {
+            // Clear existing collections for this user
+            Collection::forUser($request->user()->id)->delete();
+            
+            foreach ($request->collections as $collectionData) {
+                $collectionData['user_id'] = $request->user()->id;
+                Collection::create($collectionData);
+            }
         }
 
         return response()->json(['success' => true]);
@@ -128,7 +166,14 @@ class CollectionController extends Controller
      */
     public function addMediaItem(Request $request, string $id): JsonResponse
     {
-        $collection = Collection::find($id);
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collection = $query->find($id);
 
         if (!$collection) {
             return response()->json(['success' => false, 'error' => 'Collection not found'], 404);
@@ -152,7 +197,14 @@ class CollectionController extends Controller
      */
     public function removeMediaItem(Request $request, string $id): JsonResponse
     {
-        $collection = Collection::find($id);
+        $query = Collection::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $collection = $query->find($id);
 
         if (!$collection) {
             return response()->json(['success' => false, 'error' => 'Collection not found'], 404);

@@ -18,24 +18,10 @@ use App\Http\Controllers\Api\ImageController;
 |
 */
 
-// Media Items API
-Route::apiResource('media', MediaController::class);
-Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
-Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);
+// Public search endpoint (no authentication required)
 Route::get('api/search', [MediaController::class, 'search']);
 
-// Collections API
-Route::apiResource('collections', CollectionController::class);
-Route::post('collections', [CollectionController::class, 'saveCollections']);
-Route::post('collections/{id}/add-media', [CollectionController::class, 'addMediaItem']);
-Route::post('collections/{id}/remove-media', [CollectionController::class, 'removeMediaItem']);
-
-// Image API
-Route::get('list-images', [ImageController::class, 'listImages']);
-Route::post('copy-image', [ImageController::class, 'copyImage']);
-Route::post('upload-image', [ImageController::class, 'uploadImage']);
-Route::post('delete-image', [ImageController::class, 'deleteImage']);
-Route::post('download-image', [ImageController::class, 'downloadImage']);
+// Public image serving routes (no authentication required)
 Route::get('thumb', [ImageController::class, 'thumbnail']);
 Route::get('images/{path}', [ImageController::class, 'serveImage'])->where('path', '.*');
 Route::get('images_downloads/{path}', [ImageController::class, 'serveImage'])->where('path', '.*');
@@ -60,28 +46,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('media', MediaController::class);
     Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
     Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);
-    Route::get('search', [MediaController::class, 'search']);
     
     // Collections with user filtering
     Route::apiResource('collections', CollectionController::class);
-    Route::get('collections', [CollectionController::class, 'index']);
     Route::post('collections', [CollectionController::class, 'saveCollections']);
+    Route::post('collections/{id}/add-media', [CollectionController::class, 'addMediaItem']);
+    Route::post('collections/{id}/remove-media', [CollectionController::class, 'removeMediaItem']);
     
-    // Images
+    // Image management (authenticated users only)
     Route::get('list-images', [ImageController::class, 'listImages']);
     Route::post('copy-image', [ImageController::class, 'copyImage']);
     Route::post('upload-image', [ImageController::class, 'uploadImage']);
     Route::post('delete-image', [ImageController::class, 'deleteImage']);
     Route::post('download-image', [ImageController::class, 'downloadImage']);
-    Route::get('thumb', [ImageController::class, 'thumbnail']);
-    Route::get('images/{path}', [ImageController::class, 'serveImage'])->where('path', '.*');
-    Route::get('images_downloads/{path}', [ImageController::class, 'serveImage'])->where('path', '.*');
-    
-    // Legacy image routes
-    Route::get('games/{filename}', [ImageController::class, 'serveImage']);
-    Route::get('movies/{filename}', [ImageController::class, 'serveImage']);
-    Route::get('series/{filename}', [ImageController::class, 'serveImage']);
     
     // Fetch API endpoint
     Route::post('fetch-api', [MediaController::class, 'fetchApi']);
+    
+    // Export/Import routes (authenticated)
+    Route::post('export-data', [ExportImportController::class, 'exportData']);
+    Route::post('import-data', [ExportImportController::class, 'importData']);
 });
