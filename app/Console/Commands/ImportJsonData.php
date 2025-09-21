@@ -14,7 +14,7 @@ class ImportJsonData extends Command
      *
      * @var string
      */
-    protected $signature = 'import:json-data {--path=../backend/data}';
+    protected $signature = 'import:json-data {--path=data}';
 
     /**
      * The console command description.
@@ -78,11 +78,11 @@ class ImportJsonData extends Command
                     'genre' => $item['genre'] ?? null,
                     'link' => $item['link'] ?? null,
                     'path' => $item['path'] ?? null,
-                    'discovered' => $item['discovered'] ?? null,
+                    'discovered' => !empty($item['discovered']) ? $item['discovered'] : null,
                     'spielzeit' => $item['spielzeit'] ?? null,
                     'is_airing' => $item['isAiring'] ?? false,
                     'next_season' => $item['nextSeason'] ?? null,
-                    'next_season_release' => $item['nextSeasonRelease'] ?? null,
+                    'next_season_release' => !empty($item['nextSeasonRelease']) ? $item['nextSeasonRelease'] : null,
                     'external_id' => $item['id'] ?? null,
                 ];
                 

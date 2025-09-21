@@ -593,6 +593,8 @@ h1 {
     padding: 20px;
     /* grid-template-columns is set by JavaScript - Slider ändert diesen Wert dynamisch */
     transition: all calc(0.3s / var(--animation-speed)) ease;
+    /* Ensure grid columns are respected and not overridden by external CSS */
+    grid-template-columns: repeat(var(--grid-columns, 10), 1fr) !important;
 }
 
 .view-mode-group { 

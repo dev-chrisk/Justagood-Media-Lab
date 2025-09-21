@@ -13,6 +13,7 @@ class Collection extends Model
         'name',
         'description',
         'media_item_ids',
+        'user_id',
     ];
 
     protected $casts = [
@@ -41,5 +42,17 @@ class Collection extends Model
         $ids = $this->media_item_ids ?? [];
         $ids = array_values(array_filter($ids, fn($id) => $id != $mediaItemId));
         $this->update(['media_item_ids' => $ids]);
+    }
+
+    // Relationship to User
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // Scope for filtering by user
+    public function scopeForUser($query, $userId)
+    {
+        return $query->where('user_id', $userId);
     }
 }

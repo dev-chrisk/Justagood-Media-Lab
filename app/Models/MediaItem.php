@@ -26,6 +26,7 @@ class MediaItem extends Model
         'next_season',
         'next_season_release',
         'external_id',
+        'user_id',
     ];
 
     protected $casts = [
@@ -68,5 +69,17 @@ class MediaItem extends Model
     public function scopePlaytimeRange($query, $min, $max)
     {
         return $query->whereBetween('spielzeit', [$min, $max]);
+    }
+
+    // Relationship to User
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    // Scope for filtering by user
+    public function scopeForUser($query, $userId)
+    {
+        return $query->where('user_id', $userId);
     }
 }

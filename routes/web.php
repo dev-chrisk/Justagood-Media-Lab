@@ -53,11 +53,19 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Serve static frontend files
+// Serve static frontend files (only for specific file extensions)
 Route::get('/{path}', function ($path) {
+    // Only serve files with specific extensions to avoid interfering with API routes
+    $allowedExtensions = ['css', 'js', 'html', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'woff', 'woff2', 'ttf', 'eot'];
+    $extension = pathinfo($path, PATHINFO_EXTENSION);
+    
+    if (!in_array($extension, $allowedExtensions)) {
+        return response('File not found', 404);
+    }
+    
     $frontendPath = base_path("public/frontend/{$path}");
     if (File::exists($frontendPath)) {
-        $mimeType = match (pathinfo($path, PATHINFO_EXTENSION)) {
+        $mimeType = match ($extension) {
             'css' => 'text/css',
             'js' => 'application/javascript',
             'html' => 'text/html',
@@ -65,6 +73,11 @@ Route::get('/{path}', function ($path) {
             'jpg', 'jpeg' => 'image/jpeg',
             'gif' => 'image/gif',
             'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            'eot' => 'application/vnd.ms-fontobject',
             default => 'text/plain',
         };
         
@@ -74,4 +87,4 @@ Route::get('/{path}', function ($path) {
     }
     
     return response('File not found', 404);
-})->where('path', '.*');
+})->where('path', '[a-zA-Z0-9_/.-]+\\.(css|js|html|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$');

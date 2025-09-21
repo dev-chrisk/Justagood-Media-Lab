@@ -13,7 +13,7 @@ class MigrateImages extends Command
      *
      * @var string
      */
-    protected $signature = 'migrate:images {--source=../backend/images} {--downloads=../backend/images_downloads}';
+    protected $signature = 'migrate:images {--source=data/images} {--downloads=data/images_downloads}';
 
     /**
      * The console command description.

@@ -9,8 +9,7 @@ let observer = null;
 let searchQuery = "";
 let playMin = null;
 let playMax = null;
-let viewMode = 'grid'; // 'grid' | 'list' | 'compact'
-let sizeScale = 1;
+// Always use grid view
 let landscapeMode = false;
 let _gridColumns = 10; // Store current grid column count
 
@@ -34,6 +33,42 @@ function updateColumnDisplay() {
         display.textContent = _gridColumns;
     }
     console.log('updateColumnDisplay() - Current gridColumns:', _gridColumns);
+}
+
+// Apply grid columns consistently and protect against changes
+function applyGridColumns(container) {
+    if (!container || currentCategory === "calendar") return;
+    
+    const gridTemplate = `repeat(${gridColumns}, 1fr)`;
+    console.log('applyGridColumns() - Setting grid template to:', gridTemplate);
+    
+    // Apply the grid template both via style and CSS custom property
+    container.style.gridTemplateColumns = gridTemplate;
+    container.style.setProperty('--grid-columns', gridColumns);
+    
+    // Set up protection against external changes
+    if (container._gridProtection) {
+        clearInterval(container._gridProtection);
+    }
+    
+    // Monitor and correct any changes to grid columns
+    container._gridProtection = setInterval(() => {
+        if (currentCategory !== "calendar" && container.style.gridTemplateColumns !== gridTemplate) {
+            console.warn('Grid columns were changed externally! Correcting from', container.style.gridTemplateColumns, 'to', gridTemplate);
+            container.style.gridTemplateColumns = gridTemplate;
+            container.style.setProperty('--grid-columns', gridColumns);
+        }
+    }, 100);
+}
+
+// Clean up grid protection
+function cleanupGridProtection() {
+    const grid = document.getElementById('grid');
+    if(grid && grid._gridProtection) {
+        clearInterval(grid._gridProtection);
+        grid._gridProtection = null;
+        console.log('Grid protection cleaned up');
+    }
 }
 
 // Generate unique ID for items
@@ -88,34 +123,8 @@ function renderGrid(){
         container.className = "";
         container.style.display = "grid";
         
-        // Debug: Check if gridColumns is being changed
-        console.log('Before setting grid columns - gridColumns:', gridColumns);
-        
-        // Use stored grid columns value
-        const gridTemplate = `repeat(${gridColumns}, 1fr)`;
-        container.style.gridTemplateColumns = gridTemplate;
-        console.log('Set grid template columns to:', gridTemplate);
-        
-        // Monitor grid style changes
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    const currentStyle = container.style.gridTemplateColumns;
-                    console.log('Grid style changed to:', currentStyle);
-                    if (currentStyle !== gridTemplate) {
-                        console.warn('Grid columns were changed externally! Expected:', gridTemplate, 'Got:', currentStyle);
-                        console.trace('Grid change stack trace:');
-                        
-                        // Check if it's the default 6 columns
-                        if (currentStyle === 'repeat(6, 1fr)') {
-                            console.error('Grid was reset to default 6 columns! This is the bug!');
-                            console.trace('Bug stack trace:');
-                        }
-                    }
-                }
-            });
-        });
-        observer.observe(container, { attributes: true, attributeFilter: ['style'] });
+        // Apply grid columns immediately and protect against changes
+        applyGridColumns(container);
         
         container.style.width = "100%";
         container.style.maxWidth = "none";
@@ -200,6 +209,12 @@ function renderGrid(){
 
 function renderChunk(list, container){
     console.log('renderChunk() called - current gridColumns:', gridColumns);
+    
+    // Ensure grid columns remain consistent during chunk rendering
+    if (currentCategory !== "calendar") {
+        applyGridColumns(container);
+    }
+    
     const end = Math.min(renderedCount + renderBatchSize, list.length);
     for(let i = renderedCount; i < end; i++){
         const item = list[i];
@@ -207,8 +222,7 @@ function renderChunk(list, container){
         card.className="card";
         card.style.contentVisibility = "auto";
         card.style.containIntrinsicSize = "300px 360px";
-        card.style.setProperty('--card-scale', String(sizeScale));
-        card.style.transform = `scale(${sizeScale})`;
+        // Fixed card size
         const imgWrap=document.createElement("div");
         imgWrap.className = "img-wrapper";
         const img=document.createElement("img");
@@ -277,6 +291,11 @@ function renderChunk(list, container){
     const sentinel = document.getElementById("sentinel");
     if(sentinel && sentinel.parentNode === container) {
         container.appendChild(sentinel);
+    }
+    
+    // Final check to ensure grid columns are still correct after rendering
+    if (currentCategory !== "calendar") {
+        applyGridColumns(container);
     }
 }
 
@@ -395,6 +414,9 @@ function toggleFilter(option, checked){
 }
 
 function switchCategory(cat){
+    // Clean up grid protection from previous category
+    cleanupGridProtection();
+    
     currentCategory=cat;
     activeFilters=[];
     // reset playtime filters when leaving games
@@ -409,10 +431,7 @@ function switchCategory(cat){
     }
     
     // Hide view mode controls for calendar
-    const viewModeGroup = document.querySelector('.view-mode-group');
-    if(viewModeGroup) {
-        viewModeGroup.style.display = (cat === 'calendar' ? 'none' : 'flex');
-    }
+    // View mode group removed - always using grid
     
     renderFilterBar();
     renderGrid();
@@ -1280,7 +1299,7 @@ document.getElementById("checkInfoBtn").onclick=async()=>{
 };
 
 function applyViewMode(){
-    console.log('applyViewMode() called - currentCategory:', currentCategory, 'viewMode:', viewMode);
+    console.log('applyViewMode() called - currentCategory:', currentCategory);
     // Don't apply view mode to calendar
     if (currentCategory === "calendar") {
         return;
@@ -1288,52 +1307,34 @@ function applyViewMode(){
     
     const body = document.body;
     body.classList.remove('list-mode','compact-mode','landscape-mode');
-    if(viewMode==='list'){ body.classList.add('list-mode'); }
-    else if(viewMode==='compact'){ body.classList.add('compact-mode'); }
     if(landscapeMode){ body.classList.add('landscape-mode'); }
     
     const grid = document.getElementById('grid');
     if(grid){
-        if(viewMode==='grid'){
-            console.log('applyViewMode() - setting grid columns to:', gridColumns);
-            grid.style.display = 'grid';
-            const gridTemplate = `repeat(${gridColumns},1fr)`;
-            grid.style.gridTemplateColumns = gridTemplate;
-            console.log('applyViewMode() - Set grid template columns to:', gridTemplate);
-            // Sync slider
-            const slider = document.getElementById('gridSlider');
-            if (slider) {
-                slider.value = gridColumns;
-            }
-        } else {
-            grid.style.display = '';
-            grid.style.gridTemplateColumns = '';
+        console.log('applyViewMode() - setting grid columns to:', gridColumns);
+        grid.style.display = 'grid';
+        
+        // Use the centralized grid column application
+        applyGridColumns(grid);
+        
+        // Sync slider
+        const slider = document.getElementById('gridSlider');
+        if (slider) {
+            slider.value = gridColumns;
         }
     }
     
-    // Apply card scale to all cards individually
-    const cards = document.querySelectorAll('.card');
-    cards.forEach(card => {
-        card.style.setProperty('--card-scale', String(sizeScale));
-        // Force a reflow to ensure the scaling is applied
-        card.style.transform = `scale(${sizeScale})`;
-    });
+    // Cards use fixed size now
+    
+    // Always show columns slider
     const gridSlider=document.getElementById('gridSlider');
     if(gridSlider){ 
         const sliderContainer = gridSlider.closest('.slider-inline');
         const sliderTitle = sliderContainer?.querySelector('.slider-title');
         if(sliderContainer) {
-            if(viewMode==='grid') {
-                sliderContainer.style.display = 'inline-flex';
-                sliderContainer.classList.remove('disabled');
-                if(sliderTitle) sliderTitle.textContent = 'Columns';
-            } else {
-                sliderContainer.style.display = 'none';
-                sliderContainer.classList.add('disabled');
-                if(sliderTitle) {
-                    sliderTitle.textContent = viewMode==='compact' ? 'Columns (Grid only)' : 'Columns (Grid only)';
-                }
-            }
+            sliderContainer.style.display = 'inline-flex';
+            sliderContainer.classList.remove('disabled');
+            if(sliderTitle) sliderTitle.textContent = 'Columns';
         }
     }
 }
@@ -1357,7 +1358,9 @@ function setupControls(){
             const newValue = Math.max(1, Math.min(15, parseInt(this.value) || 4));
             console.log('Slider changed - old gridColumns:', gridColumns, 'new value:', newValue);
             gridColumns = newValue;
-            grid.style.gridTemplateColumns=`repeat(${gridColumns},1fr)`;
+            
+            // Use centralized grid column application
+            applyGridColumns(grid);
             
             // Save preferences when grid columns change
             saveViewPreferences();
@@ -1366,21 +1369,12 @@ function setupControls(){
             setTimeout(() => {
                 const cards = document.querySelectorAll('.card');
                 cards.forEach(card => {
-                    card.style.setProperty('--card-scale', String(sizeScale));
-                    // Force a reflow to ensure the scaling is applied
-                    card.style.transform = `scale(${sizeScale})`;
+                    // Fixed card size
                 });
             }, 10);
         }
     };
-    const sizeSlider=document.getElementById('sizeSlider');
-    if(sizeSlider) sizeSlider.oninput=function(){ 
-        // Don't affect calendar
-        if(currentCategory !== "calendar") {
-            sizeScale=parseFloat(this.value)||1; 
-            applyViewMode(); 
-        }
-    };
+    // Size slider removed - using fixed card size
     
     
     // Animation speed slider
@@ -1424,25 +1418,7 @@ function setupControls(){
         saveViewPreferences();
     };
     
-    // Load saved preferences on startup - moved to window.onload
-    const btnGrid=document.getElementById('viewGrid');
-    const btnList=document.getElementById('viewList');
-    const btnCompact=document.getElementById('viewCompact');
-    if(btnGrid) btnGrid.onclick=()=>{ 
-        if(currentCategory !== "calendar") {
-            viewMode='grid'; setActiveViewButton(); applyViewMode(); 
-        }
-    };
-    if(btnList) btnList.onclick=()=>{ 
-        if(currentCategory !== "calendar") {
-            viewMode='list'; setActiveViewButton(); applyViewMode(); 
-        }
-    };
-    if(btnCompact) btnCompact.onclick=()=>{ 
-        if(currentCategory !== "calendar") {
-            viewMode='compact'; setActiveViewButton(); applyViewMode(); 
-        }
-    };
+    // View mode is always grid now
     const sortSelect=document.getElementById("sortSelect");
     if(sortSelect) sortSelect.onchange=renderGrid;
     const searchInput=document.getElementById("searchInput");
@@ -1560,12 +1536,7 @@ function setupControls(){
     }
 }
 
-function setActiveViewButton(){
-    const ids=['viewGrid','viewList','viewCompact'];
-    ids.forEach(id=>{ const el=document.getElementById(id); if(el){ el.classList.remove('active'); }});
-    const current = document.getElementById(viewMode==='grid'?'viewGrid':(viewMode==='list'?'viewList':'viewCompact'));
-    if(current){ current.classList.add('active'); }
-}
+// View buttons removed - always using grid view
 
 function setActiveCategoryButton(){
     const ids=['btnGames','btnSeries','btnMovies','btnGamesNew','btnSeriesNew','btnMoviesNew','btnCalendar'];
@@ -1584,8 +1555,6 @@ function setActiveCategoryButton(){
             showPlatforms: document.getElementById('showPlatforms')?.checked ?? true,
             showGenres: document.getElementById('showGenres')?.checked ?? true,
             landscapeMode: landscapeMode,
-            sizeScale: sizeScale,
-            viewMode: viewMode,
             gridColumns: gridColumns
         };
         localStorage.setItem('mediaLibraryViewPreferences', JSON.stringify(preferences));
@@ -1638,19 +1607,9 @@ function loadViewPreferences() {
                 }
             }
             
-            // Apply size scale
-            if (preferences.sizeScale !== undefined) {
-                sizeScale = preferences.sizeScale;
-                const sizeSlider = document.getElementById('sizeSlider');
-                if (sizeSlider) {
-                    sizeSlider.value = sizeScale;
-                }
-            }
+            // Size scale removed - using fixed card size
             
-            // Apply view mode
-            if (preferences.viewMode) {
-                viewMode = preferences.viewMode;
-            }
+            // View mode is always grid now
             
             // Apply grid columns
             if (preferences.gridColumns) {
@@ -1891,11 +1850,14 @@ window.onload=()=>{
     const playtimeGroup = document.getElementById('playtimeGroup');
     if(playtimeGroup){ playtimeGroup.style.display = (currentCategory==='game' ? 'flex' : 'none'); }
     // initial toggle of airing group based on default category
-    const viewModeGroup = document.querySelector('.view-mode-group');
-    if(viewModeGroup){ viewModeGroup.style.display = (currentCategory==='calendar' ? 'none' : 'flex'); }
-    setActiveViewButton();
+    // View mode group removed - always using grid
     applyViewMode();
     setActiveCategoryButton();
     
     // Add button functionality is handled directly in HTML
 };
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    cleanupGridProtection();
+});
