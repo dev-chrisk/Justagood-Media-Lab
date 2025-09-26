@@ -1808,6 +1808,33 @@ function setupControls(){
         importFileInput.onchange = handleImportFile;
     }
     
+    // Bulk Add Modal buttons
+    const bulkAddBtn = document.getElementById('bulkAddBtn');
+    const bulkAddModal = document.getElementById('bulkAddModal');
+    const bulkAddStart = document.getElementById('bulkAddStart');
+    const bulkAddCancel = document.getElementById('bulkAddCancel');
+    
+    if(bulkAddBtn) {
+        bulkAddBtn.onclick = openBulkAddModal;
+    }
+    
+    if(bulkAddStart) {
+        bulkAddStart.onclick = startBulkAdd;
+    }
+    
+    if(bulkAddCancel) {
+        bulkAddCancel.onclick = closeBulkAddModal;
+    }
+    
+    // Close modal when clicking outside
+    if(bulkAddModal) {
+        bulkAddModal.onclick = (e) => {
+            if (e.target === bulkAddModal) {
+                closeBulkAddModal();
+            }
+        };
+    }
+    
     // Progress modal buttons
     const progressCancel = document.getElementById('progressCancel');
     const progressClose = document.getElementById('progressClose');
@@ -3118,6 +3145,306 @@ async function downloadApiImages(candidates) {
         console.error('API image download failed:', error);
         showNotification(`Fehler beim Herunterladen der Bilder: ${error.message}`, 'error');
         completeProgress(false, 'Image download failed');
+    }
+}
+
+// Bulk Add Modal Functions
+function openBulkAddModal() {
+    // Check if user is authenticated
+    if (!authToken || !currentUser) {
+        showNotification('Bitte loggen Sie sich ein, um Items hinzuzufügen.', 'error');
+        showLoginModal();
+        return;
+    }
+    
+    // Set category based on current view
+    const categoryMap = {
+        'game': 'game',
+        'series': 'series', 
+        'movie': 'movie',
+        'games_new': 'games_new',
+        'series_new': 'series_new',
+        'movie_new': 'movie_new'
+    };
+    
+    const bulkCategory = document.getElementById('bulkCategory');
+    if (bulkCategory && categoryMap[currentCategory]) {
+        bulkCategory.value = categoryMap[currentCategory];
+    }
+    
+    // Clear previous data
+    document.getElementById('bulkTitles').value = '';
+    document.getElementById('bulkProgress').style.display = 'none';
+    document.getElementById('bulkResults').style.display = 'none';
+    document.getElementById('bulkAddStart').disabled = false;
+    
+    // Show modal
+    document.getElementById('bulkAddModal').classList.add('show');
+}
+
+function closeBulkAddModal() {
+    document.getElementById('bulkAddModal').classList.remove('show');
+}
+
+async function startBulkAdd() {
+    const category = document.getElementById('bulkCategory').value;
+    const titlesText = document.getElementById('bulkTitles').value.trim();
+    const fetchImages = document.getElementById('bulkFetchImages').checked;
+    const skipExisting = document.getElementById('bulkSkipExisting').checked;
+    
+    if (!titlesText) {
+        showNotification('Bitte geben Sie mindestens einen Titel ein.', 'error');
+        return;
+    }
+    
+    // Parse titles from textarea
+    const titles = titlesText.split('\n')
+        .map(title => title.trim())
+        .filter(title => title.length > 0);
+    
+    if (titles.length === 0) {
+        showNotification('Bitte geben Sie gültige Titel ein.', 'error');
+        return;
+    }
+    
+    // Validate category
+    const validCategories = ['game', 'series', 'movie', 'games_new', 'series_new', 'movie_new'];
+    if (!validCategories.includes(category)) {
+        showNotification('Ungültige Kategorie ausgewählt.', 'error');
+        return;
+    }
+    
+    // Disable start button and show progress
+    const startBtn = document.getElementById('bulkAddStart');
+    const progressDiv = document.getElementById('bulkProgress');
+    const resultsDiv = document.getElementById('bulkResults');
+    const progressFill = document.getElementById('bulkProgressFill');
+    const progressText = document.getElementById('bulkProgressText');
+    const resultsContent = document.getElementById('bulkResultsContent');
+    
+    startBtn.disabled = true;
+    progressDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    
+    const results = {
+        success: [],
+        errors: [],
+        skipped: []
+    };
+    
+    try {
+        // Process each title
+        for (let i = 0; i < titles.length; i++) {
+            const title = titles[i];
+            const progress = ((i + 1) / titles.length) * 100;
+            
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `Processing ${i + 1} of ${titles.length}: ${title}`;
+            
+            try {
+                // Check if title already exists (if skip existing is enabled)
+                if (skipExisting) {
+                    const existingItem = mediaData.find(item => 
+                        item.title && item.title.toLowerCase() === title.toLowerCase() &&
+                        item.category === category
+                    );
+                    
+                    if (existingItem) {
+                        results.skipped.push({
+                            title: title,
+                            reason: 'Already exists'
+                        });
+                        continue;
+                    }
+                }
+                
+                // Fetch data from API
+                const response = await fetch('/api/fetch-api', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        title: title,
+                        category: category
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+                
+                const apiData = await response.json();
+                
+                if (!apiData.success) {
+                    throw new Error(apiData.error || 'API returned no data');
+                }
+                
+                // Create new item
+                const newItem = {
+                    id: generateUniqueId(),
+                    title: apiData.data.title,
+                    release: apiData.data.release,
+                    rating: 0,
+                    count: 0,
+                    platforms: apiData.data.platforms || '',
+                    genre: apiData.data.genre || '',
+                    link: apiData.data.link || '',
+                    path: apiData.data.path || `images/${category === 'movie' ? 'movies' : (category === 'series' ? 'series' : 'games')}/${generateUniqueId()}.jpg`,
+                    category: category,
+                    discovered: new Date().toISOString().split('T')[0],
+                    playtime: 0,
+                    is_airing: false,
+                    next_season: null,
+                    next_season_release: null,
+                    image_url: apiData.data.image_url || '',
+                    user_id: currentUser.id,
+                    __order: mediaData.length
+                };
+                
+                // Save to database
+                const saveResponse = await fetch('/api/media', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(newItem)
+                });
+                
+                if (!saveResponse.ok) {
+                    throw new Error(`Save failed: ${saveResponse.status}`);
+                }
+                
+                const savedItem = await saveResponse.json();
+                
+                // Add to local data
+                mediaData.push(savedItem);
+                
+                results.success.push({
+                    title: title,
+                    apiTitle: apiData.data.title,
+                    id: savedItem.id
+                });
+                
+                // Download image if requested and available
+                if (fetchImages && apiData.data.image_url) {
+                    try {
+                        await downloadImageForItem(savedItem, apiData.data.image_url);
+                    } catch (imageError) {
+                        console.warn(`Failed to download image for ${title}:`, imageError);
+                    }
+                }
+                
+            } catch (error) {
+                console.error(`Error processing ${title}:`, error);
+                results.errors.push({
+                    title: title,
+                    error: error.message
+                });
+            }
+            
+            // Small delay to prevent overwhelming the server
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Show results
+        displayBulkResults(results);
+        
+        // Refresh the UI
+        renderGrid();
+        updateCounts();
+        
+        // Show success notification
+        const successCount = results.success.length;
+        const errorCount = results.errors.length;
+        const skippedCount = results.skipped.length;
+        
+        let message = `Bulk Add abgeschlossen! ${successCount} Items erfolgreich hinzugefügt.`;
+        if (errorCount > 0) message += ` ${errorCount} Fehler.`;
+        if (skippedCount > 0) message += ` ${skippedCount} übersprungen.`;
+        
+        showNotification(message, successCount > 0 ? 'success' : 'error');
+        
+    } catch (error) {
+        console.error('Bulk add failed:', error);
+        showNotification(`Bulk Add fehlgeschlagen: ${error.message}`, 'error');
+    } finally {
+        startBtn.disabled = false;
+        progressText.textContent = 'Completed';
+    }
+}
+
+function displayBulkResults(results) {
+    const resultsDiv = document.getElementById('bulkResults');
+    const resultsContent = document.getElementById('bulkResultsContent');
+    
+    let html = '';
+    
+    if (results.success.length > 0) {
+        html += '<div class="bulk-result-section">';
+        html += '<h4 style="color: #4CAF50;">✅ Erfolgreich hinzugefügt:</h4>';
+        results.success.forEach(item => {
+            html += `<div class="bulk-result-item bulk-result-success">`;
+            html += `• ${item.title}`;
+            if (item.apiTitle !== item.title) {
+                html += ` (API: ${item.apiTitle})`;
+            }
+            html += `</div>`;
+        });
+        html += '</div>';
+    }
+    
+    if (results.skipped.length > 0) {
+        html += '<div class="bulk-result-section">';
+        html += '<h4 style="color: #ff9800;">⏭️ Übersprungen:</h4>';
+        results.skipped.forEach(item => {
+            html += `<div class="bulk-result-item bulk-result-skipped">`;
+            html += `• ${item.title} (${item.reason})`;
+            html += `</div>`;
+        });
+        html += '</div>';
+    }
+    
+    if (results.errors.length > 0) {
+        html += '<div class="bulk-result-section">';
+        html += '<h4 style="color: #f44336;">❌ Fehler:</h4>';
+        results.errors.forEach(item => {
+            html += `<div class="bulk-result-item bulk-result-error">`;
+            html += `• ${item.title}: ${item.error}`;
+            html += `</div>`;
+        });
+        html += '</div>';
+    }
+    
+    resultsContent.innerHTML = html;
+    resultsDiv.style.display = 'block';
+}
+
+async function downloadImageForItem(item, imageUrl) {
+    try {
+        const response = await fetch('/api/download-image', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+                url: imageUrl,
+                path: item.path,
+                title: item.title
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Image download failed: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Image download error:', error);
+        throw error;
     }
 }
 

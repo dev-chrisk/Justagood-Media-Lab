@@ -99,6 +99,7 @@
             <div class="controls-group">
                 <button id="exportBtn" class="export-btn" title="Export all data as ZIP package">📦 Export</button>
                 <button id="importBtn" class="import-btn" title="Import data from ZIP package">📥 Import</button>
+                <button id="bulkAddBtn" class="bulk-add-btn" title="Add multiple items via API">➕ Bulk Add</button>
                 <input type="file" id="importFileInput" accept=".zip" style="display:none">
             </div>
             <div id="filterBar" class="controls-group filter-bar">
@@ -330,6 +331,52 @@
                 </div>
             </form>
             <div id="registerError" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Bulk Add Modal -->
+    <div id="bulkAddModal" class="modal">
+        <div class="modal-content">
+            <h2>Bulk Add Items</h2>
+            <div class="bulk-add-form">
+                <label>Category:
+                    <select id="bulkCategory">
+                        <option value="game">Games</option>
+                        <option value="series">Series</option>
+                        <option value="movie">Movies</option>
+                        <option value="games_new">Games New</option>
+                        <option value="series_new">Series New</option>
+                        <option value="movie_new">Movies New</option>
+                    </select>
+                </label>
+                <label>Titles (one per line):
+                    <textarea id="bulkTitles" placeholder="Enter titles, one per line:&#10;The Witcher 3&#10;Cyberpunk 2077&#10;Red Dead Redemption 2" rows="10"></textarea>
+                </label>
+                <div class="bulk-options">
+                    <label>
+                        <input type="checkbox" id="bulkFetchImages" checked>
+                        Fetch images from API
+                    </label>
+                    <label>
+                        <input type="checkbox" id="bulkSkipExisting" checked>
+                        Skip existing titles
+                    </label>
+                </div>
+                <div class="bulk-progress" id="bulkProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="bulkProgressFill"></div>
+                    </div>
+                    <div class="progress-text" id="bulkProgressText">Processing...</div>
+                </div>
+                <div class="bulk-results" id="bulkResults" style="display: none;">
+                    <h3>Results:</h3>
+                    <div id="bulkResultsContent"></div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="bulkAddStart" class="bulk-start-btn">Start Bulk Add</button>
+                <button id="bulkAddCancel" class="bulk-cancel-btn">Cancel</button>
+            </div>
         </div>
     </div>
 
