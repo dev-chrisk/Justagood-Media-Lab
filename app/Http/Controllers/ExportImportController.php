@@ -447,6 +447,13 @@ class ExportImportController extends Controller
             ]
         ]);
         
+        // Send final completion signal
+        echo "data: " . json_encode(['type' => 'complete', 'success' => true]) . "\n\n";
+        if (ob_get_level()) {
+            ob_flush();
+        }
+        flush();
+        
     }
     
     /**
@@ -931,6 +938,141 @@ class ExportImportController extends Controller
         if (!$success) {
             \Log::error('All extraction commands failed', ['last_error' => $lastError]);
             throw new \Exception('Cannot extract ZIP file. Last error: ' . $lastError);
+        }
+    }
+    
+    /**
+     * Handle chunked file upload for large files
+     */
+    public function uploadChunk(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'chunk' => 'required|file',
+                'chunk_index' => 'required|integer|min:0',
+                'total_chunks' => 'required|integer|min:1',
+                'upload_id' => 'required|string',
+                'file_name' => 'required|string'
+            ]);
+
+            $chunk = $request->file('chunk');
+            $chunkIndex = $request->input('chunk_index');
+            $totalChunks = $request->input('total_chunks');
+            $uploadId = $request->input('upload_id');
+            $fileName = $request->input('file_name');
+
+            // Create upload directory
+            $uploadDir = storage_path('app/temp/chunked_uploads/' . $uploadId);
+            if (!File::exists($uploadDir)) {
+                File::makeDirectory($uploadDir, 0755, true);
+            }
+
+            // Save chunk
+            $chunkPath = $uploadDir . '/chunk_' . $chunkIndex;
+            $chunk->move($uploadDir, 'chunk_' . $chunkIndex);
+
+            \Log::info('Chunk uploaded', [
+                'upload_id' => $uploadId,
+                'chunk_index' => $chunkIndex,
+                'total_chunks' => $totalChunks,
+                'file_name' => $fileName
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'chunk_index' => $chunkIndex,
+                'message' => 'Chunk uploaded successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Chunk upload failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()?->id
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Finalize chunked upload and process the complete file
+     */
+    public function finalizeChunkedUpload(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'upload_id' => 'required|string',
+                'file_name' => 'required|string',
+                'total_chunks' => 'required|integer|min:1'
+            ]);
+
+            $uploadId = $request->input('upload_id');
+            $fileName = $request->input('file_name');
+            $totalChunks = $request->input('total_chunks');
+
+            $uploadDir = storage_path('app/temp/chunked_uploads/' . $uploadId);
+            $finalFilePath = $uploadDir . '/' . $fileName;
+
+            // Combine all chunks into final file
+            $finalFile = fopen($finalFilePath, 'wb');
+            if (!$finalFile) {
+                throw new \Exception('Cannot create final file');
+            }
+
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $chunkPath = $uploadDir . '/chunk_' . $i;
+                if (!File::exists($chunkPath)) {
+                    throw new \Exception("Missing chunk {$i}");
+                }
+
+                $chunkData = File::get($chunkPath);
+                fwrite($finalFile, $chunkData);
+                File::delete($chunkPath);
+            }
+
+            fclose($finalFile);
+
+            \Log::info('Chunked upload finalized', [
+                'upload_id' => $uploadId,
+                'file_name' => $fileName,
+                'file_size' => File::size($finalFilePath)
+            ]);
+
+            // Now process the file as a regular import
+            $file = new \Illuminate\Http\UploadedFile(
+                $finalFilePath,
+                $fileName,
+                'application/zip',
+                null,
+                true
+            );
+
+            // Create a new request with the file
+            $newRequest = new Request();
+            $newRequest->files->set('file', $file);
+            $newRequest->setUserResolver($request->getUserResolver());
+
+            // Process the import
+            $result = $this->importData($newRequest);
+
+            // Cleanup
+            File::deleteDirectory($uploadDir);
+
+            return $result;
+
+        } catch (\Exception $e) {
+            \Log::error('Chunked upload finalization failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $request->user()?->id
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

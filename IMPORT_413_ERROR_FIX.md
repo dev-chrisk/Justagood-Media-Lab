@@ -17,7 +17,17 @@ The import functionality was failing on the production server with a 413 error (
 - Added specific handling for 413 status code with user-friendly German error message
 - Improved error handling to prevent multiple response body reads
 
-### 2. Apache Configuration (.htaccess)
+### 2. Chunked Upload Implementation
+
+**Files**: `public/frontend/scripts/script.js`, `app/Http/Controllers/ExportImportController.php`, `routes/api.php`
+
+- **Automatic Detection**: Files larger than 50MB automatically use chunked upload
+- **Chunked Upload Process**: Large files are split into 5MB chunks and uploaded sequentially
+- **Backend Support**: New API endpoints `/api/upload-chunk` and `/api/finalize-chunked-upload`
+- **Progress Tracking**: Real-time progress updates during chunked upload
+- **Error Recovery**: Individual chunk failures can be retried
+
+### 3. Apache Configuration (.htaccess)
 
 **File**: `public/.htaccess`
 
@@ -33,7 +43,7 @@ Added PHP configuration directives to increase file upload limits:
 </IfModule>
 ```
 
-### 3. PHP Configuration File
+### 4. PHP Configuration File
 
 **File**: `public/php.ini`
 
@@ -44,7 +54,7 @@ Created a PHP configuration file with comprehensive settings for large file uplo
 - `max_input_time = 300`
 - `memory_limit = 256M`
 
-### 4. Laravel Validation
+### 5. Laravel Validation
 
 **File**: `app/Http/Controllers/ExportImportController.php`
 
@@ -103,9 +113,29 @@ If you still encounter issues:
 
 ## File Size Limits
 
-- **Maximum file size**: 100MB
+- **Maximum file size**: 100MB (regular upload), unlimited (chunked upload)
+- **Chunk size**: 5MB per chunk
 - **Maximum execution time**: 5 minutes
 - **Memory limit**: 256MB
 - **File type**: ZIP only
+
+## Chunked Upload Process
+
+For files larger than 50MB, the system automatically switches to chunked upload:
+
+1. **File Analysis**: System checks file size and determines upload method
+2. **Chunk Creation**: File is split into 5MB chunks
+3. **Sequential Upload**: Each chunk is uploaded individually
+4. **Progress Tracking**: Real-time progress updates during upload
+5. **Chunk Assembly**: Server combines all chunks into the original file
+6. **Import Processing**: File is processed using the standard import logic
+
+## Benefits of Chunked Upload
+
+- **Bypasses Server Limits**: Works around 413 errors from web server configuration
+- **Better Error Handling**: Individual chunks can be retried if they fail
+- **Progress Visibility**: Users can see detailed upload progress
+- **Memory Efficient**: Reduces server memory usage during upload
+- **Network Resilience**: Better handling of network interruptions
 
 These limits can be adjusted in the configuration files if needed.

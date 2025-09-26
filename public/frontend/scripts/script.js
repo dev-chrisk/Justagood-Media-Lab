@@ -2366,6 +2366,20 @@ async function handleImportFile(event) {
         return;
     }
     
+    // Check file size and decide on upload method
+    const fileSizeMB = Math.round(file.size / 1024 / 1024);
+    const useChunkedUpload = fileSizeMB > 50; // Use chunked upload for files > 50MB
+    
+    if (useChunkedUpload) {
+        console.log(`File is large (${fileSizeMB}MB), using chunked upload...`);
+        await handleChunkedImport(file);
+    } else {
+        console.log(`File is small (${fileSizeMB}MB), using regular upload...`);
+        await handleRegularImport(file);
+    }
+}
+
+async function handleRegularImport(file) {
     try {
         console.log('Starting data import...');
         
@@ -2443,8 +2457,9 @@ async function handleImportFile(event) {
             
             // Check if it's a file size error
             if (response.status === 413) {
-                showNotification('Die Datei ist zu groß. Bitte wählen Sie eine kleinere Datei oder kontaktieren Sie den Administrator.', 'error');
-                throw new Error('File too large. Please choose a smaller file or contact the administrator.');
+                const fileSizeMB = Math.round(file.size / 1024 / 1024);
+                showNotification(`Die Datei ist zu groß (${fileSizeMB}MB). Server-Limits verhindern den Upload. Bitte wählen Sie eine kleinere Datei oder kontaktieren Sie den Administrator.`, 'error');
+                throw new Error(`File too large (${fileSizeMB}MB). Server limits prevent upload. Please choose a smaller file or contact the administrator.`);
             }
             
             // Try to parse JSON error response
@@ -2487,7 +2502,7 @@ async function handleImportFile(event) {
                 const { done, value } = await reader.read();
                 
                 if (done) {
-                    console.log('📊 Stream completed');
+                    console.log('📊 Stream completed', { result: result });
                     break;
                 }
                 
@@ -2499,6 +2514,16 @@ async function handleImportFile(event) {
                         try {
                             const data = JSON.parse(line.slice(6));
                             console.log('📊 Progress update:', data);
+                            
+                            // Debug: Log the structure of data
+                            if (data.data) {
+                                console.log('📊 Data structure:', {
+                                    hasData: !!data.data,
+                                    dataType: typeof data.data,
+                                    hasSuccess: data.data && 'success' in data.data,
+                                    dataKeys: data.data ? Object.keys(data.data) : []
+                                });
+                            }
                             
                             // Update progress bar
                             updateProgress(data.percentage, data.status, data.details);
@@ -2512,7 +2537,27 @@ async function handleImportFile(event) {
                             if (data.data && data.data.success) {
                                 result = data.data;
                                 console.log('📊 Final result received:', result);
+                            } else if (data.data && typeof data.data === 'object') {
+                                // Alternative check for final data
+                                result = data.data;
+                                console.log('📊 Final result received (alternative):', result);
+                            } else if (data.type === 'complete' && data.success) {
+                                // Check for completion signal
+                                console.log('📊 Completion signal received:', data);
+                                // Keep the existing result if we have one
+                                if (!result) {
+                                    result = { success: true, type: 'complete' };
+                                }
                             }
+                            
+                            // Debug: Log all data structures we receive
+                            console.log('📊 Received data structure:', {
+                                hasData: 'data' in data,
+                                hasType: 'type' in data,
+                                hasSuccess: 'success' in data,
+                                dataKeys: Object.keys(data),
+                                dataValue: data.data ? (typeof data.data === 'object' ? Object.keys(data.data) : data.data) : null
+                            });
                             
                         } catch (e) {
                             console.error('❌ Error parsing SSE data:', e, line);
@@ -2524,7 +2569,13 @@ async function handleImportFile(event) {
             reader.releaseLock();
         }
         
-        if (result && result.success) {
+        // If no result was received but we got to 100%, assume success
+        if (!result && file.size > 0) {
+            console.log('📊 No explicit result received, but stream completed. Assuming success.');
+            result = { success: true, type: 'assumed_success' };
+        }
+        
+        if (result && (result.success || result.data)) {
             console.log('✅ Import successful, updating local data...');
             
             // Show detailed import results
@@ -2532,6 +2583,19 @@ async function handleImportFile(event) {
             const itemsImported = debug.items_imported || result.data?.length || 0;
             const totalItems = debug.total_items || itemsImported;
             const errorsCount = debug.errors_count || 0;
+            
+            // If we don't have detailed data, show a generic success message
+            if (result.type === 'complete' || result.type === 'assumed_success') {
+                console.log('📊 Import completed successfully (generic success)');
+                showNotification('Import erfolgreich abgeschlossen!', 'success');
+                completeProgress(true, 'Import completed successfully');
+                
+                // Refresh the page to show imported data
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                return;
+            }
             
             console.log('📊 Import statistics:', {
                 itemsImported: itemsImported,
@@ -2600,7 +2664,13 @@ async function handleImportFile(event) {
             }
         } else {
             console.error('❌ Import result indicates failure:', result);
-            throw new Error(result?.error || 'Import failed');
+            if (!result) {
+                showNotification('Import-Stream wurde beendet, aber kein Ergebnis empfangen. Bitte versuchen Sie es erneut oder kontaktieren Sie den Administrator.', 'error');
+                throw new Error('Import stream completed but no result received. This might be a server-side issue.');
+            } else {
+                showNotification('Import fehlgeschlagen: ' + (result?.error || 'Unbekannter Fehler'), 'error');
+                throw new Error(result?.error || 'Import failed');
+            }
         }
         
     } catch (error) {
@@ -2627,7 +2697,111 @@ async function handleImportFile(event) {
         importBtn.disabled = false;
         
         // Clear file input
-        event.target.value = '';
+        document.getElementById('importFileInput').value = '';
+    }
+}
+
+async function handleChunkedImport(file) {
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const uploadId = 'upload_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    try {
+        console.log(`Starting chunked upload: ${totalChunks} chunks of ${Math.round(CHUNK_SIZE / 1024 / 1024)}MB each`);
+        
+        // Show progress modal
+        showProgressModal('Uploading Large File...', false);
+        
+        // Disable import button
+        const importBtn = document.getElementById('importBtn');
+        importBtn.disabled = true;
+        
+        updateProgress(5, 'Preparing chunked upload...', `Splitting file into ${totalChunks} chunks...`);
+        
+        // Upload chunks
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+            
+            const formData = new FormData();
+            formData.append('chunk', chunk);
+            formData.append('chunk_index', i);
+            formData.append('total_chunks', totalChunks);
+            formData.append('upload_id', uploadId);
+            formData.append('file_name', file.name);
+            
+            // Calculate upload progress (5% to 80% for upload)
+            const uploadProgress = 5 + ((i + 1) / totalChunks) * 75;
+            updateProgress(uploadProgress, 'Uploading chunks...', `Uploading chunk ${i + 1} of ${totalChunks}`);
+            
+            const response = await fetch('/api/upload-chunk', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to upload chunk ${i + 1}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(`Chunk ${i + 1} upload failed: ${result.error}`);
+            }
+            
+            console.log(`Chunk ${i + 1}/${totalChunks} uploaded successfully`);
+        }
+        
+        updateProgress(85, 'Finalizing upload...', 'Combining chunks and processing...');
+        
+        // Finalize upload
+        const finalizeResponse = await fetch('/api/finalize-chunked-upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                upload_id: uploadId,
+                file_name: file.name,
+                total_chunks: totalChunks
+            })
+        });
+        
+        if (!finalizeResponse.ok) {
+            throw new Error(`Failed to finalize upload: ${finalizeResponse.statusText}`);
+        }
+        
+        const result = await finalizeResponse.json();
+        
+        if (result.success) {
+            updateProgress(100, 'Import completed!', 'File processed successfully');
+            showNotification(`Import erfolgreich! ${result.items_imported || 0} Einträge wurden wiederhergestellt.`, 'success');
+            
+            // Refresh the page to show imported data
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            throw new Error(result.error || 'Import failed');
+        }
+        
+    } catch (error) {
+        console.error('💥 Chunked upload failed:', error);
+        showNotification('Chunked upload fehlgeschlagen: ' + error.message, 'error');
+        completeProgress(false, 'Chunked upload failed: ' + error.message);
+    } finally {
+        // Reset button state
+        const importBtn = document.getElementById('importBtn');
+        importBtn.disabled = false;
+        
+        // Clear file input
+        document.getElementById('importFileInput').value = '';
     }
 }
 

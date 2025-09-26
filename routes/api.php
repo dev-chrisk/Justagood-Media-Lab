@@ -69,4 +69,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('import-data', [ExportImportController::class, 'importData']);
     Route::post('import-data-stream', [ExportImportController::class, 'importDataStream']);
     Route::post('download-api-images', [ExportImportController::class, 'downloadApiImages']);
+    
+    // Chunked upload routes for large files
+    Route::post('upload-chunk', [ExportImportController::class, 'uploadChunk']);
+    Route::post('finalize-chunked-upload', [ExportImportController::class, 'finalizeChunkedUpload']);
 });
