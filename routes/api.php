@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
+use App\Http\Controllers\ExportImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,4 +67,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Export/Import routes (authenticated)
     Route::post('export-data', [ExportImportController::class, 'exportData']);
     Route::post('import-data', [ExportImportController::class, 'importData']);
+    Route::post('import-data-stream', [ExportImportController::class, 'importDataStream']);
+    Route::post('download-api-images', [ExportImportController::class, 'downloadApiImages']);
 });

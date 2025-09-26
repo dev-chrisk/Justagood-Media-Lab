@@ -17,6 +17,44 @@ let _gridColumns = 10; // Store current grid column count
 let currentUser = null;
 let authToken = localStorage.getItem('authToken');
 
+// Check if user is already logged in on page load
+if (authToken) {
+    checkAuthStatus();
+}
+
+// Check authentication status
+async function checkAuthStatus() {
+    if (!authToken) return;
+    
+    try {
+        const response = await fetch('/api/user', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            currentUser = await response.json();
+            updateAuthUI();
+            await loadData();
+        } else {
+            // Token is invalid, clear it
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            updateAuthUI();
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        // Clear invalid token
+        authToken = null;
+        currentUser = null;
+        localStorage.removeItem('authToken');
+        updateAuthUI();
+    }
+}
+
 // Getter and setter for gridColumns with logging
 Object.defineProperty(window, 'gridColumns', {
     get: function() {
@@ -197,21 +235,55 @@ function updateAuthUI() {
 }
 
 async function loadData(){
+    console.log('loadData() called', { authToken: !!authToken, currentUser: !!currentUser });
+    
+    // If user is not logged in, load from JSON file for demo purposes
+    if (!authToken) {
+        console.log('User not logged in, loading from JSON file for demo');
+        try {
+            const res = await fetch("/data/data/media.json");
+            mediaData = await res.json();
+            mediaData.forEach((item, idx)=>{ if(item && item.__order == null) item.__order = idx; });
+            renderFilterBar();
+            renderGrid();
+            updateCounts();
+            return;
+        } catch(fallbackError) {
+            console.error("JSON loading failed:", fallbackError);
+            mediaData = [];
+            renderFilterBar();
+            renderGrid();
+            updateCounts();
+            return;
+        }
+    }
+    
+    // If user is logged in, only load from API
     try {
-        const headers = {};
-        if (authToken) {
-            headers['Authorization'] = `Bearer ${authToken}`;
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        
+        console.log('Fetching from API with headers:', headers);
+        const res = await fetch("/api/media_relative.json", { headers });
+        
+        if (!res.ok) {
+            throw new Error(`API request failed: ${res.status} ${res.statusText}`);
         }
         
-        const res = await fetch("/api/media_relative.json", { headers });
         mediaData = await res.json();
+        console.log('API response received:', { itemCount: mediaData.length });
+        
         // capture original order index once
         mediaData.forEach((item, idx)=>{ if(item && item.__order == null) item.__order = idx; });
         renderFilterBar();
         renderGrid();
         updateCounts();
     } catch(e){
-        console.error("Fehler beim Laden:", e);
+        console.error("API failed for logged in user:", e);
+        // If user is logged in but API fails, show empty data
+        mediaData = [];
+        renderFilterBar();
+        renderGrid();
+        updateCounts();
     }
 }
 
@@ -1005,15 +1077,6 @@ function getItemsForDay(calendarItems, year, month, day) {
     });
 }
 
-function getCategoryDisplayName(category) {
-    const names = {
-        'games_new': 'Game',
-        'series_new': 'Series',
-        'movie_new': 'Movie',
-        'series': 'Series'
-    };
-    return names[category] || category;
-}
 
 function updateDetailFieldVisibility(category) {
     const allRows = document.querySelectorAll('.detail-row');
@@ -1368,15 +1431,46 @@ window.addEventListener("click", (e)=>{
 });
 
 async function saveData(){
+    console.log('💾 saveData() called', { 
+        itemsCount: mediaData.length,
+        hasAuth: !!authToken,
+        timestamp: new Date().toISOString()
+    });
+    
     const orderedData=mediaData.map(item=>{ const o={}; orderedKeys.forEach(k=>o[k]=item[k]??null); return o; });
+    console.log('💾 Data ordered, preparing request...', { orderedItemsCount: orderedData.length });
+    
     try{ 
         const headers = {"Content-Type":"application/json"};
         if (authToken) {
             headers['Authorization'] = `Bearer ${authToken}`;
         }
-        await fetch("/api/media_relative.json",{method:"POST",headers,body:JSON.stringify(orderedData,null,2)}); 
+        
+        console.log('💾 Sending data to /api/media_relative.json...');
+        const saveStartTime = Date.now();
+        
+        const response = await fetch("/api/media_relative.json",{method:"POST",headers,body:JSON.stringify(orderedData,null,2)});
+        
+        const saveTime = Date.now() - saveStartTime;
+        console.log('💾 Save response received', { 
+            status: response.status, 
+            ok: response.ok, 
+            saveTime: saveTime + 'ms',
+            timestamp: new Date().toISOString()
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('💾 Save failed:', { status: response.status, error: errorText });
+            throw new Error(`Save failed: ${response.status} ${errorText}`);
+        }
+        
+        console.log('💾 Data saved successfully!');
     }
-    catch(e){ console.error("Fehler beim Speichern:",e); }
+    catch(e){ 
+        console.error("💾 Fehler beim Speichern:", e);
+        throw e; // Re-throw so import can handle it
+    }
 }
 
 function updateCounts(){
@@ -2070,7 +2164,9 @@ window.onload=async()=>{
         }
     }
     
+    // Only load data after authentication check
     await loadData();
+    
     // initial toggle of playtime group based on default category
     const playtimeGroup = document.getElementById('playtimeGroup');
     if(playtimeGroup){ playtimeGroup.style.display = (currentCategory==='game' ? 'flex' : 'none'); }
@@ -2135,6 +2231,12 @@ async function exportData() {
     try {
         console.log('Starting data export...');
         
+        // Check if user is logged in
+        if (!authToken || !currentUser) {
+            showNotification('Bitte loggen Sie sich ein, um Daten zu exportieren.', 'error');
+            return;
+        }
+        
         // Show progress modal
         showProgressModal('Exporting Data...', false);
         
@@ -2144,11 +2246,26 @@ async function exportData() {
         
         updateProgress(10, 'Preparing data...', 'Collecting media items and settings...');
         
-        // Create export data structure
+        // Load fresh data from API for export to ensure we have the latest user-specific data
+        console.log('Loading fresh data from API for export...');
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        const res = await fetch("/api/media_relative.json", { headers });
+        
+        if (!res.ok) {
+            throw new Error(`Failed to load data for export: ${res.status} ${res.statusText}`);
+        }
+        
+        const freshMediaData = await res.json();
+        console.log('Fresh data loaded for export:', { itemCount: freshMediaData.length });
+        
+        // Create export data structure - remove user_id from data
         const exportData = {
             version: '1.0',
             timestamp: new Date().toISOString(),
-            data: mediaData,
+            data: freshMediaData.map(item => {
+                const { user_id, ...itemWithoutUserId } = item;
+                return itemWithoutUserId;
+            }),
             preferences: {
                 animation: document.getElementById('animationSlider')?.value || '1',
                 showImages: document.getElementById('showImages')?.checked ?? true,
@@ -2162,28 +2279,28 @@ async function exportData() {
         
         updateProgress(20, 'Creating category lists...', 'Generating text files for each category...');
         
-        // Create category lists
+        // Create category lists using fresh data
         const categoryLists = {};
         const categories = ['game', 'series', 'movie', 'games_new', 'series_new', 'movie_new'];
         
         categories.forEach(cat => {
-            const items = mediaData.filter(item => item.category === cat);
+            const items = freshMediaData.filter(item => item.category === cat);
             categoryLists[`${cat}_list.txt`] = items.map(item => item.title).join('\n');
         });
         
         updateProgress(40, 'Sending data to server...', 'Uploading export data and image references...');
         
         // Call backend to create ZIP
-        const headers = {
+        const exportHeaders = {
             'Content-Type': 'application/json'
         };
         if (authToken) {
-            headers['Authorization'] = `Bearer ${authToken}`;
+            exportHeaders['Authorization'] = `Bearer ${authToken}`;
         }
         
         const response = await fetch('/api/export-data', {
             method: 'POST',
-            headers: headers,
+            headers: exportHeaders,
             body: JSON.stringify({
                 exportData: exportData,
                 categoryLists: categoryLists
@@ -2242,6 +2359,13 @@ async function handleImportFile(event) {
         return;
     }
     
+    // Check if user is authenticated
+    if (!authToken || !currentUser) {
+        showNotification('Bitte loggen Sie sich ein, um Daten zu importieren.', 'error');
+        showLoginModal();
+        return;
+    }
+    
     try {
         console.log('Starting data import...');
         
@@ -2253,71 +2377,236 @@ async function handleImportFile(event) {
         importBtn.disabled = true;
         
         updateProgress(10, 'Validating file...', 'Checking ZIP file format...');
+        if (window.importConsole) {
+            updateImportConsole('📁 Validating ZIP file...');
+        }
         
         // Create FormData for file upload
         const formData = new FormData();
         formData.append('file', file);
         
         updateProgress(30, 'Uploading file...', 'Sending ZIP file to server...');
+        if (window.importConsole) {
+            updateImportConsole(`📤 Uploading file (${Math.round(file.size / 1024 / 1024)}MB)...`);
+        }
         
-        // Call backend to process ZIP
+        // Use Server-Sent Events for real-time progress updates
+        console.log('🚀 Starting import with real-time progress...', { 
+            fileSize: file.size, 
+            fileName: file.name,
+            hasAuth: !!authToken,
+            timestamp: new Date().toISOString()
+        });
+        
+        console.log('📤 Sending request to /api/import-data-stream...');
+        const startTime = Date.now();
+        
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            console.error('⏰ Import request timeout after 5 minutes!');
+            controller.abort();
+        }, 5 * 60 * 1000); // 5 minutes timeout
+        
+        // Prepare headers
         const headers = {};
         if (authToken) {
             headers['Authorization'] = `Bearer ${authToken}`;
         }
         
-        const response = await fetch('/api/import-data', {
+        // Use Server-Sent Events for progress updates
+        const response = await fetch('/api/import-data-stream', {
             method: 'POST',
-            headers: headers,
-            body: formData
+            headers: {
+                ...headers,
+                'Accept': 'text/event-stream',
+                'Cache-Control': 'no-cache'
+            },
+            body: formData,
+            signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
+        
         if (!response.ok) {
-            const errorData = await response.json();
+            console.error('❌ Import request failed!', { 
+                status: response.status, 
+                statusText: response.statusText,
+                timestamp: new Date().toISOString()
+            });
+            
+            // Check if it's an authentication error
+            if (response.status === 401) {
+                showNotification('Bitte loggen Sie sich ein, um Daten zu importieren.', 'error');
+                throw new Error('Authentication required. Please log in first.');
+            }
+            
+            // Try to parse JSON error response
+            let errorData;
+            try {
+                errorData = await response.json();
+            } catch (e) {
+                // If JSON parsing fails, it might be HTML error page
+                const text = await response.text();
+                console.error('❌ Non-JSON error response:', text.substring(0, 200));
+                throw new Error(`Import failed: ${response.statusText} (Server returned HTML instead of JSON)`);
+            }
+            
+            console.error('❌ Error details:', errorData);
             throw new Error(errorData.error || `Import failed: ${response.statusText}`);
         }
         
-        updateProgress(60, 'Processing data...', 'Extracting data, images, and thumbnails...');
+        console.log('✅ Starting Server-Sent Events stream...');
         
-        const result = await response.json();
+        // Show console for large imports
+        if (file.size > 5 * 1024 * 1024) { // 5MB
+            showImportConsole();
+        }
         
-        if (result.success) {
-            updateProgress(80, 'Updating database...', 'Saving imported data...');
+        // Process Server-Sent Events
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let result = null;
+        
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    console.log('📊 Stream completed');
+                    break;
+                }
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            console.log('📊 Progress update:', data);
+                            
+                            // Update progress bar
+                            updateProgress(data.percentage, data.status, data.details);
+                            
+                            // Update console if available
+                            if (window.importConsole) {
+                                updateImportConsole(`📊 ${data.status}: ${data.details}`);
+                            }
+                            
+                            // Check if this is the final update with data
+                            if (data.data && data.data.success) {
+                                result = data.data;
+                                console.log('📊 Final result received:', result);
+                            }
+                            
+                        } catch (e) {
+                            console.error('❌ Error parsing SSE data:', e, line);
+                        }
+                    }
+                }
+            }
+        } finally {
+            reader.releaseLock();
+        }
+        
+        if (result && result.success) {
+            console.log('✅ Import successful, updating local data...');
+            
+            // Show detailed import results
+            const debug = result.debug || {};
+            const itemsImported = debug.items_imported || result.data?.length || 0;
+            const totalItems = debug.total_items || itemsImported;
+            const errorsCount = debug.errors_count || 0;
+            
+            console.log('📊 Import statistics:', {
+                itemsImported: itemsImported,
+                totalItems: totalItems,
+                errorsCount: errorsCount,
+                successRate: totalItems > 0 ? Math.round((itemsImported / totalItems) * 100) : 0
+            });
+            
+            // Update console with results
+            if (window.importConsole) {
+                updateImportConsole(`✅ Import completed: ${itemsImported}/${totalItems} items imported`);
+                if (errorsCount > 0) {
+                    updateImportConsole(`⚠️ ${errorsCount} items had errors during import`);
+                }
+                if (debug.errors && debug.errors.length > 0) {
+                    debug.errors.slice(0, 10).forEach(error => {
+                        updateImportConsole(`❌ Error: ${error.item} - ${error.error}`);
+                    });
+                    if (debug.errors.length > 10) {
+                        updateImportConsole(`... and ${debug.errors.length - 10} more errors`);
+                    }
+                }
+            }
             
             // Update local data
+            console.log('📝 Updating local mediaData...');
             mediaData = result.data || [];
+            console.log('📝 Updated local data', { itemsCount: mediaData.length });
             
             // Save data to server
+            console.log('💾 Saving data to server...');
+            const saveStartTime = Date.now();
             await saveData();
-            
-            updateProgress(90, 'Applying settings...', 'Restoring user preferences...');
+            const saveTime = Date.now() - saveStartTime;
+            console.log('💾 Data saved to server', { saveTime: saveTime + 'ms' });
             
             // Apply preferences if available
             if (result.preferences) {
+                console.log('⚙️ Applying imported preferences...');
                 applyImportedPreferences(result.preferences);
+                console.log('⚙️ Preferences applied');
             }
             
-            updateProgress(95, 'Refreshing interface...', 'Updating UI components...');
-            
             // Refresh the UI
+            console.log('🔄 Refreshing UI components...');
             renderFilterBar();
             renderGrid();
             updateCounts();
+            console.log('🔄 UI refreshed');
             
-            updateProgress(100, 'Import completed!', 'All data has been successfully imported.');
+            console.log('🎉 Import completed successfully!', {
+                itemsImported: itemsImported,
+                totalItems: totalItems,
+                errorsCount: errorsCount,
+                totalTime: Date.now() - startTime + 'ms',
+                timestamp: new Date().toISOString()
+            });
             
-            console.log('Import completed successfully');
-            showNotification('Import erfolgreich! Daten wurden wiederhergestellt.', 'success');
+            completeProgress(true, `Import completed! ${itemsImported}/${totalItems} items imported`);
             
-            completeProgress(true, 'Import completed successfully!');
+            // Check for API candidates and show dialog
+            if (result.api_candidates && result.api_candidates.length > 0) {
+                showApiImageDialog(result.api_candidates);
+            } else {
+                showNotification(`Import erfolgreich! ${itemsImported} von ${totalItems} Einträgen wurden wiederhergestellt.`, 'success');
+            }
         } else {
-            throw new Error(result.error || 'Import failed');
+            console.error('❌ Import result indicates failure:', result);
+            throw new Error(result?.error || 'Import failed');
         }
         
     } catch (error) {
-        console.error('Import failed:', error);
-        showNotification('Import fehlgeschlagen: ' + error.message, 'error');
-        completeProgress(false, 'Import failed: ' + error.message);
+        console.error('💥 Import failed:', error);
+        console.error('💥 Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Check if it's a timeout error
+        if (error.name === 'AbortError') {
+            console.error('💥 Import was aborted due to timeout!');
+            showNotification('Import timeout: Die Datei ist zu groß oder der Server antwortet nicht.', 'error');
+            completeProgress(false, 'Import timeout after 5 minutes');
+        } else {
+            showNotification('Import fehlgeschlagen: ' + error.message, 'error');
+            completeProgress(false, 'Import failed: ' + error.message);
+        }
     } finally {
         // Reset button state
         const importBtn = document.getElementById('importBtn');
@@ -2475,6 +2764,174 @@ window.addEventListener("click", (e)=>{
     if(e.target === loginModal){ closeLoginModal(); }
     if(e.target === registerModal){ closeRegisterModal(); }
 });
+
+// Import Console Functions
+function showImportConsole() {
+    if (window.importConsole) {
+        return; // Already shown
+    }
+    
+    const console = document.createElement('div');
+    console.id = 'importConsole';
+    console.className = 'import-console';
+    console.innerHTML = `
+        <div class="console-header">
+            <h3>Import Console</h3>
+            <button class="console-close" onclick="closeImportConsole()">&times;</button>
+        </div>
+        <div class="console-content" id="consoleContent">
+            <div class="console-line">🚀 Starting import process...</div>
+        </div>
+    `;
+    
+    document.body.appendChild(console);
+    window.importConsole = console;
+}
+
+function updateImportConsole(message) {
+    if (!window.importConsole) return;
+    
+    const content = document.getElementById('consoleContent');
+    const line = document.createElement('div');
+    line.className = 'console-line';
+    line.textContent = message;
+    content.appendChild(line);
+    
+    // Auto-scroll to bottom
+    content.scrollTop = content.scrollHeight;
+    
+    // Limit to 100 lines
+    const lines = content.querySelectorAll('.console-line');
+    if (lines.length > 100) {
+        lines[0].remove();
+    }
+}
+
+function closeImportConsole() {
+    if (window.importConsole) {
+        window.importConsole.remove();
+        window.importConsole = null;
+    }
+}
+
+// API Image Download Dialog
+function showApiImageDialog(candidates) {
+    const count = candidates.length;
+    const categories = {};
+    
+    // Group by category
+    candidates.forEach(candidate => {
+        const category = candidate.category || 'unknown';
+        if (!categories[category]) {
+            categories[category] = 0;
+        }
+        categories[category]++;
+    });
+    
+    const categoryText = Object.entries(categories)
+        .map(([cat, cnt]) => `${cnt} ${cat}`)
+        .join(', ');
+    
+    const dialog = document.createElement('div');
+    dialog.className = 'modal show';
+    dialog.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Bilder von API herunterladen?</h2>
+                <button class="close" onclick="closeApiImageDialog()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Es wurden <strong>${count}</strong> Einträge gefunden, die kein Bild haben:</p>
+                <p><strong>${categoryText}</strong></p>
+                <p>Möchten Sie diese Bilder automatisch von der API herunterladen?</p>
+                <div class="api-download-options">
+                    <label>
+                        <input type="checkbox" id="downloadImages" checked>
+                        Bilder herunterladen (empfohlen)
+                    </label>
+                </div>
+                <div class="api-download-preview">
+                    <h4>Vorschau der Einträge:</h4>
+                    <div class="candidates-list">
+                        ${candidates.slice(0, 10).map(candidate => 
+                            `<div class="candidate-item">• ${candidate.title} (${candidate.category})</div>`
+                        ).join('')}
+                        ${candidates.length > 10 ? `<div class="candidate-item">... und ${candidates.length - 10} weitere</div>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeApiImageDialog()">Später</button>
+                <button class="btn btn-primary" onclick="downloadApiImages(${JSON.stringify(candidates).replace(/"/g, '&quot;')})">Jetzt herunterladen</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(dialog);
+}
+
+function closeApiImageDialog() {
+    const dialog = document.querySelector('.modal.show');
+    if (dialog) {
+        dialog.remove();
+    }
+}
+
+async function downloadApiImages(candidates) {
+    const downloadCheckbox = document.getElementById('downloadImages');
+    if (!downloadCheckbox.checked) {
+        closeApiImageDialog();
+        showNotification('Import erfolgreich! Bilder können später über die API heruntergeladen werden.', 'success');
+        return;
+    }
+    
+    try {
+        closeApiImageDialog();
+        showProgressModal('Downloading Images...', false);
+        
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+        
+        updateProgress(10, 'Preparing download...', 'Sending request to API...');
+        
+        const response = await fetch('/api/download-api-images', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ candidates: candidates })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Download failed');
+        }
+        
+        updateProgress(50, 'Downloading images...', 'Fetching images from API...');
+        
+        const result = await response.json();
+        
+        updateProgress(90, 'Saving images...', 'Storing downloaded images...');
+        
+        // Refresh the UI to show new images
+        await loadData();
+        renderGrid();
+        updateCounts();
+        
+        updateProgress(100, 'Download completed!', `Successfully downloaded ${result.downloaded_count} images`);
+        
+        showNotification(`Bilder erfolgreich heruntergeladen! ${result.downloaded_count} von ${result.total_candidates} Bildern wurden gefunden und gespeichert.`, 'success');
+        
+        completeProgress(true, 'Image download completed!');
+        
+    } catch (error) {
+        console.error('API image download failed:', error);
+        showNotification(`Fehler beim Herunterladen der Bilder: ${error.message}`, 'error');
+        completeProgress(false, 'Image download failed');
+    }
+}
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {

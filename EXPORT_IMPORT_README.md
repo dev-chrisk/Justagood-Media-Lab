@@ -114,3 +114,8 @@ Das System behandelt verschiedene Fehlerfälle:
 - Temporäre Dateien werden automatisch bereinigt
 - Bei Fehlern werden temporäre Verzeichnisse trotzdem gelöscht
 - Logs werden in Laravel's Standard-Logging-System geschrieben
+
+
+
+
+
