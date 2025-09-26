@@ -2441,14 +2441,28 @@ async function handleImportFile(event) {
                 throw new Error('Authentication required. Please log in first.');
             }
             
+            // Check if it's a file size error
+            if (response.status === 413) {
+                showNotification('Die Datei ist zu groß. Bitte wählen Sie eine kleinere Datei oder kontaktieren Sie den Administrator.', 'error');
+                throw new Error('File too large. Please choose a smaller file or contact the administrator.');
+            }
+            
             // Try to parse JSON error response
             let errorData;
+            let responseText = '';
             try {
+                // Clone the response to avoid "body stream already read" error
+                const responseClone = response.clone();
                 errorData = await response.json();
             } catch (e) {
                 // If JSON parsing fails, it might be HTML error page
-                const text = await response.text();
-                console.error('❌ Non-JSON error response:', text.substring(0, 200));
+                try {
+                    responseText = await response.text();
+                    console.error('❌ Non-JSON error response:', responseText.substring(0, 200));
+                } catch (textError) {
+                    console.error('❌ Could not read response text:', textError);
+                    responseText = 'Unable to read error response';
+                }
                 throw new Error(`Import failed: ${response.statusText} (Server returned HTML instead of JSON)`);
             }
             

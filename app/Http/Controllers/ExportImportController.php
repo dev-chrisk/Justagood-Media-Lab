@@ -250,6 +250,16 @@ class ExportImportController extends Controller
     public function importDataStream(Request $request)
     {
         try {
+            // Validate file upload before processing
+            $request->validate([
+                'file' => 'required|file|mimes:zip|max:102400' // 100MB max
+            ], [
+                'file.required' => 'Keine Datei hochgeladen',
+                'file.file' => 'Ungültige Datei',
+                'file.mimes' => 'Datei muss eine ZIP-Datei sein',
+                'file.max' => 'Datei ist zu groß (max. 100MB)'
+            ]);
+
             // Set headers for Server-Sent Events
             $response = response()->stream(function () use ($request) {
                 $this->streamImportProgress($request);
@@ -261,6 +271,17 @@ class ExportImportController extends Controller
             ]);
 
             return $response;
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::warning('Import validation failed', [
+                'errors' => $e->errors(),
+                'user_id' => $request->user()?->id
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'details' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             \Log::error('Import stream failed', [
                 'error' => $e->getMessage(),
@@ -291,6 +312,13 @@ class ExportImportController extends Controller
         
         if ($file->getClientOriginalExtension() !== 'zip') {
             $this->sendProgressUpdate(0, 'Error', 'File must be a ZIP archive');
+            return;
+        }
+        
+        // Check file size (100MB = 104857600 bytes)
+        $maxSize = 100 * 1024 * 1024; // 100MB
+        if ($file->getSize() > $maxSize) {
+            $this->sendProgressUpdate(0, 'Error', 'File too large. Maximum size is 100MB');
             return;
         }
         
