@@ -1,5 +1,282 @@
 /* Profile Page Specific Styles */
 
+/* Import status styles from main CSS */
+.profile-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 16px 0;
+}
+
+.profile-status .status-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.profile-status .status-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* Status Badge System */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 8px;
+    transition: var(--transition);
+}
+
+/* Status-specific colors and animations */
+.status-noob {
+    background: #6B7280;
+    color: white;
+    animation: pulse 2s infinite;
+    position: relative;
+}
+
+.status-rookie {
+    background: #10B981;
+    color: white;
+    animation: glow 3s ease-in-out infinite;
+}
+
+.status-collector {
+    background: #3B82F6;
+    color: white;
+    animation: glow 3s ease-in-out infinite;
+}
+
+.status-enthusiast {
+    background: #8B5CF6;
+    color: white;
+    animation: glow 3s ease-in-out infinite;
+}
+
+.status-expert {
+    background: #F59E0B;
+    color: white;
+    animation: glow 3s ease-in-out infinite;
+}
+
+.status-master {
+    background: #EF4444;
+    color: white;
+    animation: glow 3s ease-in-out infinite;
+}
+
+.status-legend {
+    background: linear-gradient(45deg, #EC4899, #DB2777);
+    color: white;
+    animation: legend 4s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
+}
+
+.status-mythic {
+    background: linear-gradient(45deg, #F97316, #EA580C, #DC2626);
+    color: white;
+    animation: mythic 5s ease-in-out infinite;
+    box-shadow: 0 0 25px rgba(249, 115, 22, 0.6);
+}
+
+/* Profile header with status effects */
+.profile-header.status-noob {
+    border: 2px solid #6B7280;
+    background: linear-gradient(135deg, var(--surface-color), rgba(107, 114, 128, 0.1));
+    animation: noobEntrance 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-noob .profile-avatar-large {
+    background: #6B7280;
+    box-shadow: 0 0 8px rgba(107, 114, 128, 0.3);
+}
+
+.profile-header.status-rookie {
+    border: 2px solid #10B981;
+    background: linear-gradient(135deg, var(--surface-color), rgba(16, 185, 129, 0.1));
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    animation: rookieEntrance 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-rookie .profile-avatar-large {
+    background: #10B981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.profile-header.status-collector {
+    border: 2px solid #3B82F6;
+    background: linear-gradient(135deg, var(--surface-color), rgba(59, 130, 246, 0.1));
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    animation: collectorEntrance 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-collector .profile-avatar-large {
+    background: #3B82F6;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+.profile-header.status-enthusiast {
+    border: 2px solid #8B5CF6;
+    background: linear-gradient(135deg, var(--surface-color), rgba(139, 92, 246, 0.1));
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+    animation: enthusiastEntrance 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-enthusiast .profile-avatar-large {
+    background: #8B5CF6;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+.profile-header.status-expert {
+    border: 2px solid #F59E0B;
+    background: linear-gradient(135deg, var(--surface-color), rgba(245, 158, 11, 0.1));
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    animation: expertEntrance 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-expert .profile-avatar-large {
+    background: #F59E0B;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.profile-header.status-master {
+    border: 2px solid #EF4444;
+    background: linear-gradient(135deg, var(--surface-color), rgba(239, 68, 68, 0.1));
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+    animation: masterEntrance 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.profile-header.status-master .profile-avatar-large {
+    background: #EF4444;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.profile-header.status-legend {
+    border: 2px solid #EC4899;
+    background: linear-gradient(135deg, var(--surface-color), rgba(236, 72, 153, 0.1));
+    box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+    animation: legendEntrance 2s cubic-bezier(0.4, 0, 0.2, 1) forwards, legend-glow 4s ease-in-out infinite 2s;
+}
+
+.profile-header.status-legend .profile-avatar-large {
+    background: linear-gradient(45deg, #EC4899, #DB2777);
+    box-shadow: 0 0 15px rgba(236, 72, 153, 0.5);
+    animation: legend 4s ease-in-out infinite;
+}
+
+.profile-header.status-mythic {
+    border: 2px solid #F97316;
+    background: linear-gradient(135deg, var(--surface-color), rgba(249, 115, 22, 0.1));
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.5);
+    animation: mythicEntrance 2.2s cubic-bezier(0.4, 0, 0.2, 1) forwards, mythic-glow 5s ease-in-out infinite 2.2s;
+}
+
+.profile-header.status-mythic .profile-avatar-large {
+    background: linear-gradient(45deg, #F97316, #EA580C, #DC2626);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.6);
+    animation: mythic 5s ease-in-out infinite;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 5px currentColor;
+    }
+    50% {
+        box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+    }
+}
+
+@keyframes legend {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(236, 72, 153, 0.8);
+    }
+}
+
+@keyframes mythic {
+    0%, 100% {
+        transform: scale(1) rotate(0deg);
+        box-shadow: 0 0 25px rgba(249, 115, 22, 0.6);
+    }
+    25% {
+        transform: scale(1.05) rotate(1deg);
+        box-shadow: 0 0 35px rgba(249, 115, 22, 0.8);
+    }
+    75% {
+        transform: scale(1.05) rotate(-1deg);
+        box-shadow: 0 0 35px rgba(249, 115, 22, 0.8);
+    }
+}
+
+@keyframes legend-glow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(236, 72, 153, 0.7);
+    }
+}
+
+@keyframes mythic-glow {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(249, 115, 22, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 35px rgba(249, 115, 22, 0.8);
+    }
+}
+
+/* Loading State */
+.profile-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.profile-loading p {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-secondary);
+}
+
 /* Profile Header Section */
 .profile-header-section {
     background: var(--surface-color);
@@ -81,22 +358,13 @@
     padding: 20px 0;
 }
 
-/* Search Results Info */
-.search-results-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    font-weight: 500;
-    padding: 8px 12px;
-    background: var(--surface-hover);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border-color);
-}
-
-.search-results-info.show {
-    display: flex;
+/* Page Title */
+.page-title {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    padding: 0 20px;
 }
 
 /* Refresh Stats Button */
@@ -144,40 +412,7 @@
     to { transform: rotate(360deg); }
 }
 
-/* Settings Search Highlighting */
-.settings-section.search-highlighted {
-    background: rgba(26, 115, 232, 0.1);
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
-    transform: translateY(-2px);
-    transition: all 0.3s ease;
-}
-
-.settings-section.search-hidden {
-    display: none;
-}
-
-.form-group.search-highlighted {
-    background: rgba(26, 115, 232, 0.05);
-    border-radius: var(--border-radius);
-    padding: 8px;
-    margin: 4px 0;
-    border-left: 3px solid var(--primary-color);
-}
-
-.form-group.search-hidden {
-    display: none;
-}
-
-/* Search animation */
-@keyframes searchHighlight {
-    0% { background: rgba(26, 115, 232, 0.2); }
-    100% { background: rgba(26, 115, 232, 0.1); }
-}
-
-.settings-section.search-highlighted {
-    animation: searchHighlight 0.5s ease;
-}
+/* Search functionality removed */
 
 /* Profile Header */
 .profile-header {
@@ -187,8 +422,9 @@
     margin-bottom: 24px;
     border: 1px solid var(--border-color);
     display: flex;
-    gap: 24px;
-    align-items: center;
+    gap: 32px;
+    align-items: flex-start;
+    justify-content: center;
 }
 
 .profile-avatar-section {
@@ -209,6 +445,8 @@
     position: relative;
     overflow: hidden;
     border: 4px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
 }
 
 .profile-avatar-large img {
@@ -594,6 +832,37 @@
     background: #d32f2f;
 }
 
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--surface-color);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+}
+
 /* Notification */
 .notification {
     position: fixed;
@@ -632,6 +901,29 @@
 .profile-avatar-large:hover {
     transform: scale(1.05);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    border-color: var(--primary-color);
+}
+
+.profile-avatar-large::after {
+    content: '📷';
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    background: var(--surface-color);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    opacity: 0;
+    transition: var(--transition);
+    border: 1px solid var(--border-color);
+}
+
+.profile-avatar-large:hover::after {
+    opacity: 1;
 }
 
 .form-group input:invalid {
@@ -790,5 +1082,145 @@
     .search-container {
         width: 100%;
         max-width: 300px;
+    }
+}
+
+/* Rank-specific entrance animations for profile page */
+@keyframes noobEntrance {
+    0% {
+        opacity: 0;
+        transform: translateY(20px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes rookieEntrance {
+    0% {
+        opacity: 0;
+        transform: translateX(-50px) scale(0.8);
+    }
+    60% {
+        transform: translateX(5px) scale(1.05);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes collectorEntrance {
+    0% {
+        opacity: 0;
+        transform: rotate(-10deg) scale(0.7);
+    }
+    50% {
+        transform: rotate(5deg) scale(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+    }
+}
+
+@keyframes enthusiastEntrance {
+    0% {
+        opacity: 0;
+        transform: translateY(30px) rotateX(90deg);
+    }
+    50% {
+        transform: translateY(-10px) rotateX(-10deg);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) rotateX(0deg);
+    }
+}
+
+@keyframes expertEntrance {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+    }
+    50% {
+        transform: scale(1.2);
+        box-shadow: 0 0 20px 10px rgba(245, 158, 11, 0.3);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+    }
+}
+
+@keyframes masterEntrance {
+    0% {
+        opacity: 0;
+        transform: scale(0.3) rotate(180deg);
+        filter: blur(10px);
+    }
+    30% {
+        transform: scale(1.3) rotate(0deg);
+        filter: blur(2px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+        filter: blur(0px);
+    }
+}
+
+@keyframes legendEntrance {
+    0% {
+        opacity: 0;
+        transform: translateY(50px) rotateZ(360deg) scale(0.5);
+        background: linear-gradient(45deg, #EC4899, #DB2777);
+    }
+    25% {
+        background: linear-gradient(45deg, #3B82F6, #8B5CF6);
+    }
+    50% {
+        background: linear-gradient(45deg, #10B981, #F59E0B);
+        transform: translateY(-20px) rotateZ(180deg) scale(1.1);
+    }
+    75% {
+        background: linear-gradient(45deg, #EF4444, #EC4899);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) rotateZ(0deg) scale(1);
+        background: linear-gradient(45deg, #EC4899, #DB2777);
+    }
+}
+
+@keyframes mythicEntrance {
+    0% {
+        opacity: 0;
+        transform: scale(0.1) rotate(720deg);
+        filter: hue-rotate(0deg) brightness(0.5);
+    }
+    20% {
+        transform: scale(1.5) rotate(540deg);
+        filter: hue-rotate(90deg) brightness(1.5);
+    }
+    40% {
+        transform: scale(0.8) rotate(360deg);
+        filter: hue-rotate(180deg) brightness(1.2);
+    }
+    60% {
+        transform: scale(1.3) rotate(180deg);
+        filter: hue-rotate(270deg) brightness(1.8);
+    }
+    80% {
+        transform: scale(0.9) rotate(90deg);
+        filter: hue-rotate(360deg) brightness(1.1);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+        filter: hue-rotate(0deg) brightness(1);
     }
 }

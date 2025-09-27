@@ -4,8 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Media Library</title>
-<link rel="stylesheet" href="styles/style.css">
-<link rel="stylesheet" href="styles/statistics.css">
+    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="styles/statistics.css">
+    
+    <!-- Simple FOUC prevention -->
+    <style>
+        /* Hide auth elements by default but allow JavaScript to show them */
+        #authButtons, #userInfo, #filtersSection {
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <!-- Sidebar -->
@@ -62,7 +70,7 @@
             </div>
 
             <!-- Filters Section -->
-            <div class="sidebar-section">
+            <div id="filtersSection" class="sidebar-section" style="display: none;">
                 <h3>Filters</h3>
                 <div class="filter-section">
                     <div class="filter-group">
@@ -78,12 +86,37 @@
                         </div>
                     </div>
                     <div class="filter-group">
-                        <h4>Other Options</h4>
+                        <h4>Display Options</h4>
                         <div class="filter-options">
                             <label class="filter-option">
-                                <input type="checkbox" id="landscapeMode">
+                                <input type="checkbox" id="landscapeModeGames">
                                 <span class="checkmark"></span>
-                                <span class="option-text">Landscape Mode</span>
+                                <span class="option-text">Games - Landscape Mode</span>
+                            </label>
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeModeSeries">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Series - Landscape Mode</span>
+                            </label>
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeModeMovies">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Movies - Landscape Mode</span>
+                            </label>
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeModeGamesNew">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Games New - Landscape Mode</span>
+                            </label>
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeModeSeriesNew">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Series New - Landscape Mode</span>
+                            </label>
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeModeMoviesNew">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Movies New - Landscape Mode</span>
                             </label>
                         </div>
                     </div>
@@ -93,16 +126,28 @@
             <!-- Account Section -->
             <div class="sidebar-section">
                 <h3>Account</h3>
-                <div id="authButtons" class="auth-buttons">
-                    <button id="loginBtn" class="auth-btn">Login</button>
-                    <button id="registerBtn" class="auth-btn">Register</button>
+                <div id="authButtons" class="auth-buttons" style="display: none;">
+                    <button id="loginBtn" class="auth-btn" disabled>Login</button>
+                    <button id="registerBtn" class="auth-btn" disabled>Register</button>
                 </div>
                 <div id="userInfo" class="user-info" style="display: none;">
                     <div class="user-profile">
-                        <span id="userName" class="user-name"></span>
+                        <div class="profile-avatar">
+                            <span class="avatar-text">👤</span>
+                        </div>
+                <div class="profile-details">
+                    <span id="userName" class="user-name"></span>
+                    <div id="noobTooltip" class="noob-tooltip" style="display: none;">
+                        <div class="tooltip-content">
+                            <span class="tooltip-text">Sammle und trage Medien ein, um im Rang aufzusteigen!</span>
+                            <button id="dismissTooltip" class="dismiss-btn">✕</button>
+                        </div>
+                        <div class="tooltip-arrow"></div>
+                    </div>
+                </div>
                         <button id="accountBtn" class="account-btn">⚙️</button>
                     </div>
-                    <button id="logoutBtn" class="auth-btn">Logout</button>
+                    <button id="logoutBtn" class="auth-btn" disabled>Logout</button>
                 </div>
             </div>
         </div>
@@ -288,6 +333,7 @@
     <div class="modal-content">
         <h2 id="modalTitle">Edit / Add Item</h2>
         <input type="hidden" id="editId">
+        <div class="edit-form">
         <label>Category:
             <select id="editCategory">
                 <option value="game">Game</option>
@@ -340,6 +386,7 @@
         <details class="api-debug"><summary>API Debug</summary>
             <pre id="apiDebugPre" style="white-space:pre-wrap; max-height:200px; overflow:auto;"></pre>
         </details>
+        </div>
         <div class="sticky-buttons">
             <div class="modal-buttons">
                 <button id="saveEdit">Save</button>
@@ -562,6 +609,10 @@
                         <div class="profile-details">
                             <div class="profile-name" id="accountUserName">User Name</div>
                             <div class="profile-email" id="accountUserEmail">user@example.com</div>
+                            <div class="profile-status" id="accountUserStatus" style="display: none;">
+                                <span class="status-label">Status:</span>
+                                <span class="status-value"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="profile-actions">

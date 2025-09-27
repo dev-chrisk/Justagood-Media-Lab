@@ -5,22 +5,281 @@ let activeFilters = [];
 let airingFilter = "all"; // "all", "true", "false"
 let renderBatchSize = 60; // initial batch size
 let renderedCount = 0;
+
+// Profile Status System
+const PROFILE_STATUSES = {
+    'noob': { min: 0, max: 9, name: 'Noob', color: '#6B7280', glow: '#374151', animation: 'pulse' },
+    'rookie': { min: 10, max: 24, name: 'Rookie', color: '#10B981', glow: '#059669', animation: 'glow' },
+    'collector': { min: 25, max: 49, name: 'Collector', color: '#3B82F6', glow: '#2563EB', animation: 'glow' },
+    'enthusiast': { min: 50, max: 99, name: 'Enthusiast', color: '#8B5CF6', glow: '#7C3AED', animation: 'glow' },
+    'expert': { min: 100, max: 199, name: 'Expert', color: '#F59E0B', glow: '#D97706', animation: 'glow' },
+    'master': { min: 200, max: 499, name: 'Master', color: '#EF4444', glow: '#DC2626', animation: 'glow' },
+    'legend': { min: 500, max: 999, name: 'Legend', color: '#EC4899', glow: '#DB2777', animation: 'legend' },
+    'mythic': { min: 1000, max: Infinity, name: 'Mythic', color: '#F97316', glow: '#EA580C', animation: 'mythic' }
+};
+
+// Tooltip system
+let tooltipDismissed = false;
+
+// Tooltip functions
+function checkTooltipDismissal() {
+    const dismissed = localStorage.getItem('noobTooltipDismissed');
+    tooltipDismissed = dismissed === 'true';
+}
+
+function showNoobTooltip() {
+    if (tooltipDismissed) return;
+    
+    const tooltip = document.getElementById('noobTooltip');
+    if (tooltip) {
+        tooltip.style.display = 'block';
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            hideNoobTooltip();
+        }, 10000);
+    }
+}
+
+function hideNoobTooltip() {
+    const tooltip = document.getElementById('noobTooltip');
+    if (tooltip) {
+        tooltip.style.display = 'none';
+    }
+}
+
+function dismissTooltip() {
+    tooltipDismissed = true;
+    localStorage.setItem('noobTooltipDismissed', 'true');
+    hideNoobTooltip();
+}
+
+// Profile Status Functions
+function calculateProfileStatus(itemCount) {
+    for (const [key, status] of Object.entries(PROFILE_STATUSES)) {
+        if (itemCount >= status.min && itemCount <= status.max) {
+            return { key, ...status };
+        }
+    }
+    return { key: 'noob', ...PROFILE_STATUSES.noob };
+}
+
+function updateProfileStatus() {
+    if (!currentUser) return;
+    
+    const itemCount = mediaData ? mediaData.length : 0;
+    const status = calculateProfileStatus(itemCount);
+    
+    // Update sidebar profile
+    updateSidebarProfileStatus(status);
+    
+    // Update account settings profile
+    updateAccountProfileStatus(status);
+    
+    // Store current status in user data
+    if (currentUser) {
+        currentUser.status = status;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    }
+}
+
+function updateSidebarProfileStatus(status) {
+    const userName = document.getElementById('userName');
+    const userProfile = document.querySelector('.user-profile');
+    const profileAvatar = document.querySelector('.user-profile .profile-avatar');
+    
+    if (userName && userProfile) {
+        // Update name with status
+        userName.innerHTML = `${currentUser.name} <span class="status-badge status-${status.key}">${status.name}</span>`;
+        
+        // Add tooltip for full name
+        userName.title = currentUser.name;
+        
+        // Update profile styling
+        userProfile.className = `user-profile status-${status.key}`;
+        userProfile.style.setProperty('--status-color', status.color);
+        userProfile.style.setProperty('--status-glow', status.glow);
+        
+        // Only animate if not already visible to prevent blinking
+        if (!userProfile.classList.contains('show')) {
+            userProfile.classList.add('animate-fade-in');
+            
+            // Remove animation class after animation completes to prevent re-triggering
+            setTimeout(() => {
+                userProfile.classList.remove('animate-fade-in');
+            }, 500);
+        }
+        
+        // Update avatar styling
+        if (profileAvatar) {
+            profileAvatar.style.setProperty('--status-color', status.color);
+            profileAvatar.style.setProperty('--status-glow', status.glow);
+        }
+        
+        // Show tooltip for noob status
+        if (status.key === 'noob') {
+            setTimeout(() => {
+                showNoobTooltip();
+            }, 1000); // Show after 1 second delay
+        } else {
+            hideNoobTooltip();
+        }
+    }
+}
+
+function updateAccountProfileStatus(status) {
+    const accountUserName = document.getElementById('accountUserName');
+    const profileInfo = document.querySelector('.profile-info');
+    const profileAvatar = document.querySelector('.profile-info .profile-avatar');
+    const profileStatus = document.getElementById('accountUserStatus');
+    const statusValue = document.querySelector('.profile-info .status-value');
+    
+    if (accountUserName && profileInfo) {
+        // Update name only (no status badge in name)
+        accountUserName.textContent = currentUser.name;
+        
+        // Update profile styling
+        profileInfo.className = `profile-info status-${status.key}`;
+        profileInfo.style.setProperty('--status-color', status.color);
+        profileInfo.style.setProperty('--status-glow', status.glow);
+        
+        // Update avatar styling
+        if (profileAvatar) {
+            profileAvatar.style.setProperty('--status-color', status.color);
+            profileAvatar.style.setProperty('--status-glow', status.glow);
+        }
+        
+        // Update status display
+        if (profileStatus && statusValue) {
+            profileStatus.style.display = 'flex';
+            statusValue.innerHTML = `<span class="status-badge status-${status.key}">${status.name}</span>`;
+        }
+    }
+}
 let observer = null;
 let searchQuery = "";
 let gridColumns = 8; // default grid columns
 let playMin = null;
 let playMax = null;
 // Always use grid view
-let landscapeMode = false;
+let landscapeMode = false; // Keep for backward compatibility
 let _gridColumns = 8; // Fixed grid column count
+
+// Per-category landscape mode settings
+let landscapeModeSettings = {
+    game: false,
+    series: false,
+    movie: false,
+    games_new: false,
+    series_new: false,
+    movie_new: false
+};
 
 // Authentication state
 let currentUser = null;
 let authToken = localStorage.getItem('authToken');
 
-// Check if user is already logged in on page load
-if (authToken) {
-    checkAuthStatus();
+// Authentication check will be done after DOM is loaded
+
+// Set up auth button event listeners
+function setupAuthButtonListeners() {
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    // Use a more robust approach with event delegation
+    if (loginBtn && !loginBtn.dataset.listenerAdded) {
+        loginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Login button clicked');
+            showLoginModal();
+        });
+        loginBtn.dataset.listenerAdded = 'true';
+    }
+    
+    if (registerBtn && !registerBtn.dataset.listenerAdded) {
+        registerBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Register button clicked');
+            showRegisterModal();
+        });
+        registerBtn.dataset.listenerAdded = 'true';
+    }
+    
+    if (logoutBtn && !logoutBtn.dataset.listenerAdded) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Logout button clicked');
+            logout();
+        });
+        logoutBtn.dataset.listenerAdded = 'true';
+    }
+}
+
+// Enable auth buttons and show correct UI
+function enableAuthButtons() {
+    const authButtons = document.getElementById('authButtons');
+    const userInfo = document.getElementById('userInfo');
+    const filterSection = document.getElementById('filtersSection');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    // Enable all buttons
+    if (loginBtn) loginBtn.disabled = false;
+    if (registerBtn) registerBtn.disabled = false;
+    if (logoutBtn) logoutBtn.disabled = false;
+    
+    // Set up event listeners for auth buttons
+    setupAuthButtonListeners();
+    
+    // Show correct UI based on auth state
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken) {
+        // User is logged in - show user info and hide login buttons
+        if (authButtons) authButtons.style.display = 'none';
+        if (userInfo) {
+            userInfo.style.display = 'flex';
+            userInfo.style.setProperty('display', 'flex', 'important');
+            // Update profile status to show rank badge
+            updateProfileStatus();
+        // Trigger smooth fade-in animation
+        setTimeout(() => {
+            userInfo.classList.add('show');
+        }, 100);
+        }
+        if (filterSection) {
+            filterSection.style.display = 'block';
+            filterSection.style.setProperty('display', 'block', 'important');
+            // Trigger smooth fade-in animation
+            setTimeout(() => {
+                filterSection.classList.add('show');
+            }, 100);
+        }
+    } else {
+        // User is not logged in - show login buttons and hide user info
+        if (authButtons) {
+            authButtons.style.display = 'flex';
+            authButtons.style.setProperty('display', 'flex', 'important');
+            // Trigger smooth fade-in animation
+            setTimeout(() => {
+                authButtons.classList.add('show');
+            }, 50);
+        }
+        if (userInfo) {
+            userInfo.style.display = 'none';
+            userInfo.style.setProperty('display', 'none', 'important');
+            userInfo.classList.remove('show');
+        }
+        if (filterSection) {
+            filterSection.style.display = 'none';
+            filterSection.classList.remove('show');
+        }
+    }
 }
 
 // Sidebar state
@@ -29,7 +288,12 @@ let floatingMenuOpen = false;
 
 // Check authentication status
 async function checkAuthStatus() {
-    if (!authToken) return;
+    if (!authToken) {
+        console.log('No auth token found, skipping auth check');
+        return;
+    }
+    
+    console.log('Checking auth status with token:', authToken);
     
     try {
         const response = await fetch('/api/user', {
@@ -41,9 +305,11 @@ async function checkAuthStatus() {
         
         if (response.ok) {
             currentUser = await response.json();
+            console.log('Auth check successful, user:', currentUser);
             updateAuthUI();
             await loadData();
         } else {
+            console.log('Auth check failed, clearing token. Status:', response.status);
             // Token is invalid, clear it
             authToken = null;
             currentUser = null;
@@ -179,28 +445,144 @@ async function logout() {
     }
 }
 
-function updateAuthUI() {
+function updateAuthUIWithoutProfileStatus() {
     const authButtons = document.getElementById('authButtons');
     const userInfo = document.getElementById('userInfo');
     const userName = document.getElementById('userName');
+    const filterSection = document.getElementById('filtersSection');
+    
+    console.log('updateAuthUIWithoutProfileStatus called:', { 
+        currentUser: !!currentUser, 
+        authButtons: !!authButtons, 
+        userInfo: !!userInfo, 
+        userName: !!userName 
+    });
     
     if (!authButtons || !userInfo || !userName) {
         console.log('Auth UI elements not found, skipping update');
         return;
     }
     
+    // Set up event listeners for auth buttons
+    setupAuthButtonListeners();
+    
     if (currentUser) {
         authButtons.style.display = 'none';
+        authButtons.classList.remove('show');
+        
         userInfo.style.display = 'flex';
-        userName.textContent = currentUser.name;
+        userInfo.style.setProperty('display', 'flex', 'important');
+        userName.textContent = currentUser.name; // Just set name, no rank yet
+        userName.title = currentUser.name; // Add tooltip for full name
+        
+        // Trigger smooth fade-in animation for user info
+        setTimeout(() => {
+            userInfo.classList.add('show');
+        }, 100);
+        
+        // Show filter section when logged in
+        if (filterSection) {
+            filterSection.style.display = 'block';
+            filterSection.style.setProperty('display', 'block', 'important');
+            // Trigger smooth fade-in animation for filter section
+            setTimeout(() => {
+                filterSection.classList.add('show');
+            }, 100);
+        }
     } else {
         authButtons.style.display = 'flex';
+        authButtons.style.setProperty('display', 'flex', 'important');
         userInfo.style.display = 'none';
+        userInfo.style.setProperty('display', 'none', 'important');
+        userInfo.classList.remove('show');
+        
+        // Trigger smooth fade-in animation for auth buttons
+        setTimeout(() => {
+            authButtons.classList.add('show');
+        }, 100);
+        
+        // Hide filter section when logged out
+        if (filterSection) {
+            filterSection.style.display = 'none';
+            filterSection.classList.remove('show');
+        }
+    }
+}
+
+function updateAuthUI() {
+    const authButtons = document.getElementById('authButtons');
+    const userInfo = document.getElementById('userInfo');
+    const userName = document.getElementById('userName');
+    const filterSection = document.getElementById('filtersSection');
+    
+    console.log('updateAuthUI called:', { 
+        currentUser: !!currentUser, 
+        authButtons: !!authButtons, 
+        userInfo: !!userInfo, 
+        userName: !!userName 
+    });
+    
+    if (!authButtons || !userInfo || !userName) {
+        console.log('Auth UI elements not found, skipping update');
+        return;
+    }
+    
+    // Set up event listeners for auth buttons
+    setupAuthButtonListeners();
+    
+    if (currentUser) {
+        authButtons.style.display = 'none';
+        authButtons.classList.remove('show');
+        
+        userInfo.style.display = 'flex';
+        userInfo.style.setProperty('display', 'flex', 'important');
+        userName.title = currentUser.name; // Add tooltip for full name
+        
+        // Update profile status to show rank badge (this will set the name with rank)
+        updateProfileStatus();
+        
+        // Trigger smooth fade-in animation for user info
+        setTimeout(() => {
+            userInfo.classList.add('show');
+        }, 100);
+        
+        // Show filter section when logged in
+        if (filterSection) {
+            filterSection.style.display = 'block';
+            filterSection.style.setProperty('display', 'block', 'important');
+            // Trigger smooth fade-in animation for filter section
+            setTimeout(() => {
+                filterSection.classList.add('show');
+            }, 100);
+        }
+        
+        // Update profile status when user logs in
+        updateProfileStatus();
+    } else {
+        authButtons.style.display = 'flex';
+        authButtons.style.setProperty('display', 'flex', 'important');
+        userInfo.style.display = 'none';
+        userInfo.style.setProperty('display', 'none', 'important');
+        userInfo.classList.remove('show');
+        
+        // Trigger smooth fade-in animation for auth buttons
+        setTimeout(() => {
+            authButtons.classList.add('show');
+        }, 100);
+        
+        // Hide filter section when logged out
+        if (filterSection) {
+            filterSection.style.display = 'none';
+            filterSection.classList.remove('show');
+        }
     }
 }
 
 async function loadData(){
     console.log('loadData() called', { authToken: !!authToken, currentUser: !!currentUser });
+    
+    // Update UI based on auth state (but don't update profile status yet - data not loaded)
+    updateAuthUIWithoutProfileStatus();
     
     // If user is not logged in, load from JSON file for demo purposes
     if (!authToken) {
@@ -214,6 +596,9 @@ async function loadData(){
         updateCounts();
         updateFilterCheckboxes();
         updateNavigationButtons();
+        
+        // Update profile status after loading data
+        updateProfileStatus();
         
         // Update statistics if they are currently visible
         if (statisticsManager && document.getElementById('statisticsView').style.display !== 'none') {
@@ -251,6 +636,9 @@ async function loadData(){
         updateCounts();
         updateFilterCheckboxes();
         updateNavigationButtons();
+        
+        // Update profile status after loading data
+        updateProfileStatus();
         
         // Update statistics if they are currently visible
         if (statisticsManager && document.getElementById('statisticsView').style.display !== 'none') {
@@ -669,7 +1057,7 @@ function openEditModal(item){
         mediaData = mediaData.filter(e => e !== currentEditItem);
         await saveData();
         renderGrid();
-        closeModal();
+        closeModal('editModal');
         if(oldPath){
             try{ 
                 const headers = {'Content-Type':'application/json'};
@@ -680,7 +1068,7 @@ function openEditModal(item){
             }catch(e){ console.error(e); }
         }
     };
-    document.getElementById("editModal").classList.add("show");
+    openModal("editModal");
 }
 
 let currentDetailItem = null;
@@ -704,7 +1092,7 @@ function openDetailModal(item){
     
     // Wire actions
     document.getElementById("detailEditBtn").onclick = () => {
-        closeDetailModal();
+        closeModal('detailModal');
         openEditModal(item);
     };
     document.getElementById("detailDeleteBtn").onclick = async () => {
@@ -712,7 +1100,7 @@ function openDetailModal(item){
         mediaData = mediaData.filter(e => e !== item);
         await saveData();
         renderGrid();
-        closeDetailModal();
+        closeModal('detailModal');
         if (oldPath) {
             try {
                 const headers = { "Content-Type": "application/json" };
@@ -729,7 +1117,7 @@ function openDetailModal(item){
             }
         }
     };
-    document.getElementById("detailCloseBtn").onclick = closeDetailModal;
+    document.getElementById("detailCloseBtn").onclick = () => closeModal('detailModal');
     
     // Wire save button
     document.getElementById("detailSaveBtn").onclick = () => {
@@ -739,7 +1127,8 @@ function openDetailModal(item){
     // Initialize editable fields
     initializeDetailInputs();
     
-    document.getElementById("detailModal").classList.add("show");
+    // Use the new modal system
+    openModal('detailModal');
 }
 
 function updateDetailFields(item) {
@@ -1265,12 +1654,7 @@ function saveDetailChanges() {
     });
 }
 
-function closeDetailModal(){
-    document.getElementById("detailModal").classList.remove("show");
-    setTimeout(() => {
-        document.getElementById("detailModal").style.display = "none";
-    }, 300);
-}
+// closeDetailModal function removed - now using closeModal('detailModal')
 
 function openAddModal(){
     currentEditItem=null;
@@ -1306,7 +1690,7 @@ function openAddModal(){
     // Initialize autocomplete
     initializeAutocomplete();
     
-    document.getElementById("editModal").classList.add("show");
+    openModal("editModal");
 }
 
 async function saveEdit(){
@@ -1418,36 +1802,15 @@ async function saveEdit(){
     if(currentEditItem){
         Object.assign(currentEditItem,itemData);
     } else mediaData.push(itemData);
-    closeModal();
+    closeModal('editModal');
     await saveData();
     renderFilterBar();
     renderGrid();
 }
 
-function closeModal(){ 
-    document.getElementById("editModal").classList.remove("show");
-    
-    // Clear autocomplete results
-    const resultsContainer = document.getElementById('autocompleteResults');
-    if (resultsContainer) {
-        resultsContainer.classList.remove('show');
-        resultsContainer.innerHTML = '';
-    }
-    
-    // Reset modal state after animation
-    setTimeout(() => {
-        document.getElementById("editModal").style.display = "none";
-        // Add button functionality is handled directly in HTML
-    }, 300);
-}
+// closeModal function is defined below with modalId parameter
 
-// Close modals on backdrop click
-window.addEventListener("click", (e)=>{
-    const editModal = document.getElementById("editModal");
-    const detailModal = document.getElementById("detailModal");
-    if(e.target === editModal){ closeModal(); }
-    if(e.target === detailModal){ closeDetailModal(); }
-});
+// Close modals on backdrop click - handled by new modal system
 
 async function saveData(){
     console.log('💾 saveData() called', { 
@@ -1485,6 +1848,9 @@ async function saveData(){
         }
         
         console.log('💾 Data saved successfully!');
+        
+        // Update profile status after successful save
+        updateProfileStatus();
     }
     catch(e){ 
         console.error("💾 Fehler beim Speichern:", e);
@@ -1538,7 +1904,12 @@ function applyViewMode(){
     
     const body = document.body;
     body.classList.remove('list-mode','compact-mode','landscape-mode');
-    if(landscapeMode){ body.classList.add('landscape-mode'); }
+    
+    // Apply landscape mode based on current category
+    const shouldUseLandscape = landscapeModeSettings[currentCategory] || false;
+    if(shouldUseLandscape){ 
+        body.classList.add('landscape-mode'); 
+    }
     
     const grid = document.getElementById('grid');
     if(grid){
@@ -1549,54 +1920,64 @@ function applyViewMode(){
 }
 
 function setupControls(){
-    // Authentication controls
-    document.getElementById("loginBtn").onclick = () => showLoginModal();
-    document.getElementById("registerBtn").onclick = () => showRegisterModal();
-    document.getElementById("logoutBtn").onclick = logout;
+    // Authentication controls - use the centralized function
+    setupAuthButtonListeners();
     
     // Login form
-    document.getElementById("loginForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("loginEmail").value;
-        const password = document.getElementById("loginPassword").value;
-        const errorEl = document.getElementById("loginError");
-        
-        try {
-            await login(email, password);
-            closeLoginModal();
-        } catch (error) {
-            errorEl.textContent = error.message;
-            errorEl.style.display = "block";
-        }
-    };
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) {
+        loginForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+            const errorEl = document.getElementById("loginError");
+            
+            try {
+                await login(email, password);
+                closeLoginModal();
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.style.display = "block";
+            }
+        };
+    }
     
-    document.getElementById("loginCancel").onclick = closeLoginModal;
+    const loginCancel = document.getElementById("loginCancel");
+    if (loginCancel) {
+        loginCancel.onclick = closeLoginModal;
+    }
     
     // Register form
-    document.getElementById("registerForm").onsubmit = async (e) => {
-        e.preventDefault();
-        const name = document.getElementById("registerName").value;
-        const email = document.getElementById("registerEmail").value;
-        const password = document.getElementById("registerPassword").value;
-        const passwordConfirm = document.getElementById("registerPasswordConfirm").value;
-        const errorEl = document.getElementById("registerError");
-        
-        if (password !== passwordConfirm) {
-            errorEl.textContent = "Passwords do not match";
-            errorEl.style.display = "block";
-            return;
-        }
-        
-        try {
-            await register(name, email, password);
-            closeRegisterModal();
-        } catch (error) {
-            errorEl.textContent = error.message;
-            errorEl.style.display = "block";
-        }
-    };
+    const registerForm = document.getElementById("registerForm");
+    if (registerForm) {
+        registerForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("registerName").value;
+            const email = document.getElementById("registerEmail").value;
+            const password = document.getElementById("registerPassword").value;
+            const passwordConfirm = document.getElementById("registerPasswordConfirm").value;
+            const errorEl = document.getElementById("registerError");
+            
+            if (password !== passwordConfirm) {
+                errorEl.textContent = "Passwords do not match";
+                errorEl.style.display = "block";
+                return;
+            }
+            
+            try {
+                await register(name, email, password);
+                closeRegisterModal();
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.style.display = "block";
+            }
+        };
+    }
     
-    document.getElementById("registerCancel").onclick = closeRegisterModal;
+    const registerCancel = document.getElementById("registerCancel");
+    if (registerCancel) {
+        registerCancel.onclick = closeRegisterModal;
+    }
     
     // Category controls
     document.getElementById("btnGames").onclick=()=>{switchToGrid(); expandAndSwitchCategory("game");};
@@ -1608,17 +1989,42 @@ function setupControls(){
     const cal=document.getElementById('btnCalendar'); if(cal) cal.onclick=()=>{switchToGrid(); expandAndSwitchCategory('calendar');};
     const stats=document.getElementById('btnStatistics'); if(stats) stats.onclick=()=>switchToStatistics();
     document.getElementById("saveEdit").onclick=saveEdit;
-    document.getElementById("cancelEdit").onclick=closeModal;
+    document.getElementById("cancelEdit").onclick=() => closeModal('editModal');
     // Add Item button is handled directly in HTML with onclick
     // Column slider removed - using fixed 8 columns
     
     
     // Display toggles - only landscape mode remains
     
-    // Landscape mode toggle
+    // Per-category landscape mode toggles
+    const landscapeToggles = {
+        'landscapeModeGames': 'game',
+        'landscapeModeSeries': 'series', 
+        'landscapeModeMovies': 'movie',
+        'landscapeModeGamesNew': 'games_new',
+        'landscapeModeSeriesNew': 'series_new',
+        'landscapeModeMoviesNew': 'movie_new'
+    };
+    
+    Object.entries(landscapeToggles).forEach(([toggleId, category]) => {
+        const toggle = document.getElementById(toggleId);
+        if (toggle) {
+            toggle.onchange = function() {
+                landscapeModeSettings[category] = this.checked;
+                applyViewMode();
+                saveViewPreferences();
+            };
+        }
+    });
+    
+    // Keep old landscape mode toggle for backward compatibility
     const landscapeModeToggle=document.getElementById('landscapeMode');
     if(landscapeModeToggle) landscapeModeToggle.onchange=function(){ 
         landscapeMode = this.checked;
+        // Apply to all categories when using global toggle
+        Object.keys(landscapeModeSettings).forEach(cat => {
+            landscapeModeSettings[cat] = this.checked;
+        });
         applyViewMode();
         saveViewPreferences();
     };
@@ -1789,23 +2195,21 @@ function setupControls(){
     const bulkAddStart = document.getElementById('bulkAddStart');
     const bulkAddCancel = document.getElementById('bulkAddCancel');
     
-    if(bulkAddBtn) {
-        bulkAddBtn.onclick = openBulkAddModal;
-    }
+    // Bulk add button is handled in the floating menu section below
     
     if(bulkAddStart) {
         bulkAddStart.onclick = startBulkAdd;
     }
     
     if(bulkAddCancel) {
-        bulkAddCancel.onclick = closeBulkAddModal;
+        bulkAddCancel.onclick = () => closeModal('bulkAddModal');
     }
     
     // Close modal when clicking outside
     if(bulkAddModal) {
         bulkAddModal.onclick = (e) => {
             if (e.target === bulkAddModal) {
-                closeBulkAddModal();
+                closeModal('bulkAddModal');
             }
         };
     }
@@ -1840,7 +2244,8 @@ function setActiveCategoryButton(){
 // View preferences management
     function saveViewPreferences() {
         const preferences = {
-            landscapeMode: landscapeMode,
+            landscapeMode: landscapeMode, // Keep for backward compatibility
+            landscapeModeSettings: landscapeModeSettings, // New per-category settings
             gridColumns: gridColumns
         };
         localStorage.setItem('mediaLibraryViewPreferences', JSON.stringify(preferences));
@@ -1852,13 +2257,35 @@ function loadViewPreferences() {
         try {
             const preferences = JSON.parse(saved);
             
-            // Apply landscape mode
+            // Apply landscape mode (backward compatibility)
             if (preferences.landscapeMode !== undefined) {
                 landscapeMode = preferences.landscapeMode;
                 const landscapeToggle = document.getElementById('landscapeMode');
                 if (landscapeToggle) {
                     landscapeToggle.checked = landscapeMode;
                 }
+            }
+            
+            // Apply per-category landscape mode settings
+            if (preferences.landscapeModeSettings) {
+                landscapeModeSettings = { ...landscapeModeSettings, ...preferences.landscapeModeSettings };
+                
+                // Update UI toggles
+                const landscapeToggles = {
+                    'landscapeModeGames': 'game',
+                    'landscapeModeSeries': 'series', 
+                    'landscapeModeMovies': 'movie',
+                    'landscapeModeGamesNew': 'games_new',
+                    'landscapeModeSeriesNew': 'series_new',
+                    'landscapeModeMoviesNew': 'movie_new'
+                };
+                
+                Object.entries(landscapeToggles).forEach(([toggleId, category]) => {
+                    const toggle = document.getElementById(toggleId);
+                    if (toggle) {
+                        toggle.checked = landscapeModeSettings[category] || false;
+                    }
+                });
             }
             
             // Size scale removed - using fixed card size
@@ -2192,7 +2619,8 @@ async function exportData() {
                 return itemWithoutUserId;
             }),
             preferences: {
-                landscapeMode: landscapeMode,
+                landscapeMode: landscapeMode, // Keep for backward compatibility
+                landscapeModeSettings: landscapeModeSettings, // New per-category settings
                 gridColumns: gridColumns
             }
         };
@@ -2726,13 +3154,35 @@ async function handleChunkedImport(file) {
 }
 
 function applyImportedPreferences(preferences) {
-    // Apply landscape mode
+    // Apply landscape mode (backward compatibility)
     if (preferences.landscapeMode !== undefined) {
         landscapeMode = preferences.landscapeMode;
         const landscapeToggle = document.getElementById('landscapeMode');
         if (landscapeToggle) {
             landscapeToggle.checked = landscapeMode;
         }
+    }
+    
+    // Apply per-category landscape mode settings
+    if (preferences.landscapeModeSettings) {
+        landscapeModeSettings = { ...landscapeModeSettings, ...preferences.landscapeModeSettings };
+        
+        // Update UI toggles
+        const landscapeToggles = {
+            'landscapeModeGames': 'game',
+            'landscapeModeSeries': 'series', 
+            'landscapeModeMovies': 'movie',
+            'landscapeModeGamesNew': 'games_new',
+            'landscapeModeSeriesNew': 'series_new',
+            'landscapeModeMoviesNew': 'movie_new'
+        };
+        
+        Object.entries(landscapeToggles).forEach(([toggleId, category]) => {
+            const toggle = document.getElementById(toggleId);
+            if (toggle) {
+                toggle.checked = landscapeModeSettings[category] || false;
+            }
+        });
     }
     
     // Grid columns are now fixed at 8, no need to apply preferences
@@ -2799,51 +3249,66 @@ function showNotification(message, type = 'info') {
 
 // Authentication modal functions
 function showLoginModal() {
-    document.getElementById("loginModal").classList.add("show");
-    document.getElementById("loginEmail").focus();
+    // Clear any previous errors
+    const errorEl = document.getElementById("loginError");
+    if (errorEl) {
+        errorEl.style.display = "none";
+        errorEl.textContent = "";
+    }
+    
+    // Reset form
+    const form = document.getElementById("loginForm");
+    if (form) {
+        form.reset();
+    }
+    
+    // Use the new modal system
+    openModal("loginModal");
+    
+    // Focus on email field after modal opens
+    setTimeout(() => {
+        const emailField = document.getElementById("loginEmail");
+        if (emailField) {
+            emailField.focus();
+        }
+    }, 100);
 }
 
 function closeLoginModal() {
-    document.getElementById("loginModal").classList.remove("show");
-    document.getElementById("loginError").style.display = "none";
-    document.getElementById("loginForm").reset();
+    closeModal("loginModal");
 }
 
 function showRegisterModal() {
-    document.getElementById("registerModal").classList.add("show");
-    document.getElementById("registerName").focus();
+    // Clear any previous errors
+    const errorEl = document.getElementById("registerError");
+    if (errorEl) {
+        errorEl.style.display = "none";
+        errorEl.textContent = "";
+    }
+    
+    // Reset form
+    const form = document.getElementById("registerForm");
+    if (form) {
+        form.reset();
+    }
+    
+    // Use the new modal system
+    openModal("registerModal");
+    
+    // Focus on name field after modal opens
+    setTimeout(() => {
+        const nameField = document.getElementById("registerName");
+        if (nameField) {
+            nameField.focus();
+        }
+    }, 100);
 }
 
 function closeRegisterModal() {
-    document.getElementById("registerModal").classList.remove("show");
-    document.getElementById("registerError").style.display = "none";
-    document.getElementById("registerForm").reset();
+    closeModal("registerModal");
 }
 
-// Close modals on backdrop click
-window.addEventListener("click", (e)=>{
-    const editModal = document.getElementById("editModal");
-    const detailModal = document.getElementById("detailModal");
-    const loginModal = document.getElementById("loginModal");
-    const registerModal = document.getElementById("registerModal");
-    const accountModal = document.getElementById("accountModal");
-    const bulkAddModal = document.getElementById("bulkAddModal");
-    const impressumModal = document.getElementById("impressumModal");
-    const contactModal = document.getElementById("contactModal");
-    const privacyModal = document.getElementById("privacyModal");
-    const termsModal = document.getElementById("termsModal");
-    
-    if(e.target === editModal){ closeModal(); }
-    if(e.target === detailModal){ closeDetailModal(); }
-    if(e.target === loginModal){ closeLoginModal(); }
-    if(e.target === registerModal){ closeRegisterModal(); }
-    if(e.target === accountModal){ closeModal('accountModal'); }
-    if(e.target === bulkAddModal){ closeModal('bulkAddModal'); }
-    if(e.target === impressumModal){ closeModal('impressumModal'); }
-    if(e.target === contactModal){ closeModal('contactModal'); }
-    if(e.target === privacyModal){ closeModal('privacyModal'); }
-    if(e.target === termsModal){ closeModal('termsModal'); }
-});
+// Close modals on backdrop click - handled by new modal system
 
 // Import Console Functions
 function showImportConsole() {
@@ -3044,11 +3509,11 @@ function openBulkAddModal() {
     document.getElementById('bulkAddStart').disabled = false;
     
     // Show modal
-    document.getElementById('bulkAddModal').classList.add('show');
+    openModal('bulkAddModal');
 }
 
 function closeBulkAddModal() {
-    document.getElementById('bulkAddModal').classList.remove('show');
+    closeModal('bulkAddModal');
 }
 
 async function startBulkAdd() {
@@ -3437,12 +3902,12 @@ function stopAutoSync() {
 // New UI Event Listeners
 function setupNewUIEventListeners() {
     // Sidebar toggle
-    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarHeader = document.querySelector('.sidebar-header');
     const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
     const sidebar = document.getElementById('sidebar');
     
-    if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', toggleSidebar);
+    if (sidebarHeader) {
+        sidebarHeader.addEventListener('click', toggleSidebar);
     }
     
     if (mobileSidebarToggle) {
@@ -3473,12 +3938,20 @@ function setupNewUIEventListeners() {
         accountBtn.addEventListener('click', () => {
             // Update toggle states when opening account modal
             updateAccountModalToggles();
+            // Update profile status when opening account modal
+            updateProfileStatus();
             openModal('accountModal');
         });
     }
     
     if (accountCloseBtn) {
         accountCloseBtn.addEventListener('click', () => closeModal('accountModal'));
+    }
+    
+    // Tooltip dismiss button
+    const dismissTooltipBtn = document.getElementById('dismissTooltip');
+    if (dismissTooltipBtn) {
+        dismissTooltipBtn.addEventListener('click', dismissTooltip);
     }
     
     // Floating menu items
@@ -3513,7 +3986,7 @@ function setupNewUIEventListeners() {
     if (bulkAddBtn) {
         bulkAddBtn.addEventListener('click', () => {
             closeFloatingMenu();
-            openModal('bulkAddModal');
+            openBulkAddModal();
         });
     }
     
@@ -3922,8 +4395,39 @@ function closeFloatingMenu() {
 function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
-        modal.classList.add('show');
         modal.style.display = 'flex';
+        
+        // Prevent background scrolling
+        document.body.style.overflow = 'hidden';
+        
+        // Add click outside to close
+        modal.addEventListener('click', handleModalClickOutside);
+        
+        // Add ESC key to close
+        document.addEventListener('keydown', handleModalEscape);
+        
+        // Small delay to ensure display is set before adding show class
+        setTimeout(() => {
+            modal.classList.add('show');
+        }, 10);
+    }
+}
+
+// Handle clicking outside modal to close
+function handleModalClickOutside(e) {
+    if (e.target.classList.contains('modal')) {
+        const modalId = e.target.id;
+        closeModal(modalId);
+    }
+}
+
+// Handle ESC key to close modal
+function handleModalEscape(e) {
+    if (e.key === 'Escape') {
+        const openModal = document.querySelector('.modal.show');
+        if (openModal) {
+            closeModal(openModal.id);
+        }
     }
 }
 
@@ -3931,7 +4435,48 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.remove('show');
-        modal.style.display = 'none';
+        
+        // Remove event listeners
+        modal.removeEventListener('click', handleModalClickOutside);
+        document.removeEventListener('keydown', handleModalEscape);
+        
+        // Clear autocomplete results for edit modal
+        if (modalId === 'editModal') {
+            const resultsContainer = document.getElementById('autocompleteResults');
+            if (resultsContainer) {
+                resultsContainer.classList.remove('show');
+                resultsContainer.innerHTML = '';
+            }
+        }
+        
+        // Reset forms and clear errors
+        if (modalId === 'loginModal') {
+            const form = document.getElementById('loginForm');
+            const error = document.getElementById('loginError');
+            if (form) form.reset();
+            if (error) error.style.display = 'none';
+        } else if (modalId === 'registerModal') {
+            const form = document.getElementById('registerForm');
+            const error = document.getElementById('registerError');
+            if (form) form.reset();
+            if (error) error.style.display = 'none';
+        } else if (modalId === 'bulkAddModal') {
+            // Reset bulk add form
+            document.getElementById('bulkCategory').value = 'game';
+            document.getElementById('bulkTitles').value = '';
+            document.getElementById('bulkFetchImages').checked = true;
+            document.getElementById('bulkSkipExisting').checked = true;
+            document.getElementById('bulkProgress').style.display = 'none';
+            document.getElementById('bulkResults').style.display = 'none';
+            document.getElementById('bulkAddStart').disabled = false;
+        }
+        
+        // Reset modal state after animation
+        setTimeout(() => {
+            modal.style.display = 'none';
+            // Re-enable background scrolling
+            document.body.style.overflow = '';
+        }, 300);
     }
 }
 
@@ -4189,6 +4734,27 @@ loadSidebarState();
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
+    // Check authentication status first
+    console.log('Checking auth status on page load:', { hasToken: !!authToken, token: authToken });
+    
+    // Enable buttons and show correct UI
+    enableAuthButtons();
+    
+    if (authToken) {
+        checkAuthStatus();
+    } else {
+        updateAuthUI();
+    }
+    
+    // Check tooltip dismissal status
+    checkTooltipDismissal();
+    
+    // Enable transitions after initial load to prevent FOUC
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.querySelector('.main-content');
+    if (sidebar) sidebar.classList.add('ready');
+    if (mainContent) mainContent.classList.add('ready');
+    
     // Load settings first to ensure dark mode is applied immediately
     loadSettings();
     
@@ -4263,13 +4829,38 @@ function setupExistingEventListeners() {
         });
     }
     
-    // Landscape mode toggle
+    // Per-category landscape mode toggles (duplicate initialization for safety)
+    const landscapeToggles = {
+        'landscapeModeGames': 'game',
+        'landscapeModeSeries': 'series', 
+        'landscapeModeMovies': 'movie',
+        'landscapeModeGamesNew': 'games_new',
+        'landscapeModeSeriesNew': 'series_new',
+        'landscapeModeMoviesNew': 'movie_new'
+    };
+    
+    Object.entries(landscapeToggles).forEach(([toggleId, category]) => {
+        const toggle = document.getElementById(toggleId);
+        if (toggle) {
+            toggle.addEventListener('change', function() {
+                landscapeModeSettings[category] = this.checked;
+                applyViewMode();
+                saveViewPreferences();
+            });
+        }
+    });
+    
+    // Keep old landscape mode toggle for backward compatibility
     const landscapeModeToggle = document.getElementById('landscapeMode');
     if (landscapeModeToggle) {
         landscapeModeToggle.addEventListener('change', function() {
             landscapeMode = this.checked;
-            document.body.classList.toggle('landscape-mode', landscapeMode);
-            renderGrid();
+            // Apply to all categories when using global toggle
+            Object.keys(landscapeModeSettings).forEach(cat => {
+                landscapeModeSettings[cat] = this.checked;
+            });
+            applyViewMode();
+            saveViewPreferences();
         });
     }
     
@@ -4320,62 +4911,19 @@ function setupExistingEventListeners() {
         });
     }
     
-    // Authentication buttons
-    const loginBtn = document.getElementById('loginBtn');
-    const registerBtn = document.getElementById('registerBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
+    // Authentication buttons - these are already handled in setupControls()
+    // No need to duplicate the event listeners
     
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => openModal('loginModal'));
+    // Add cancel button functionality
+    const loginCancel = document.getElementById('loginCancel');
+    const registerCancel = document.getElementById('registerCancel');
+    
+    if (loginCancel) {
+        loginCancel.addEventListener('click', () => closeModal('loginModal'));
     }
     
-    if (registerBtn) {
-        registerBtn.addEventListener('click', () => openModal('registerModal'));
-    }
-    
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', logout);
-    }
-    
-    // Login form
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            
-            try {
-                await login(email, password);
-                closeModal('loginModal');
-            } catch (error) {
-                showError('loginError', error.message);
-            }
-        });
-    }
-    
-    // Register form
-    const registerForm = document.getElementById('registerForm');
-    if (registerForm) {
-        registerForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const name = document.getElementById('registerName').value;
-            const email = document.getElementById('registerEmail').value;
-            const password = document.getElementById('registerPassword').value;
-            const confirmPassword = document.getElementById('registerPasswordConfirm').value;
-            
-            if (password !== confirmPassword) {
-                showError('registerError', 'Passwords do not match');
-                return;
-            }
-            
-            try {
-                await register(name, email, password);
-                closeModal('registerModal');
-            } catch (error) {
-                showError('registerError', error.message);
-            }
-        });
+    if (registerCancel) {
+        registerCancel.addEventListener('click', () => closeModal('registerModal'));
     }
     
     // Import file input
@@ -4406,6 +4954,11 @@ function showError(elementId, message) {
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.style.display = 'block';
+        
+        // Auto-hide error after 5 seconds
+        setTimeout(() => {
+            errorElement.style.display = 'none';
+        }, 5000);
     }
 }
 

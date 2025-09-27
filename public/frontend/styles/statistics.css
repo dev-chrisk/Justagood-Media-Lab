@@ -50,6 +50,11 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* Light mode specific adjustments for summary cards */
+body.light-mode .summary-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
 .summary-number {
     font-size: 1.8em;
     font-weight: bold;
@@ -71,6 +76,12 @@
     border: 1px solid var(--border-color);
     margin-bottom: 15px;
     width: 100%;
+}
+
+/* Light mode specific adjustments for statistics */
+body.light-mode .chart-container {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
 }
 
 .chart-title {
@@ -224,3 +235,6 @@
         max-width: 200px;
     }
 }
+
+
+
