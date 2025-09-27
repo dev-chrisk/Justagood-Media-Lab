@@ -18,7 +18,7 @@
     }
     
     .statistics-header h1 {
-        color: #2c3e50;
+        color: var(--text-primary);
         margin-bottom: 10px;
     }
     
@@ -30,51 +30,51 @@
     }
     
     .stat-card {
-        background: white;
+        background: var(--surface-color);
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e1e8ed;
+        border: 1px solid var(--border-color);
     }
     
     .stat-card h3 {
-        color: #2c3e50;
+        color: var(--text-primary);
         margin-bottom: 15px;
         font-size: 1.2em;
-        border-bottom: 2px solid #3498db;
+        border-bottom: 2px solid var(--primary-color);
         padding-bottom: 8px;
     }
     
     .stat-number {
         font-size: 2.5em;
         font-weight: bold;
-        color: #3498db;
+        color: var(--primary-color);
         margin-bottom: 10px;
     }
     
     .stat-description {
-        color: #7f8c8d;
+        color: var(--text-secondary);
         font-size: 0.9em;
     }
     
     .chart-container {
-        background: white;
+        background: var(--surface-color);
         border-radius: 12px;
         padding: 20px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e1e8ed;
+        border: 1px solid var(--border-color);
         margin-bottom: 20px;
     }
     
     .chart-title {
-        color: #2c3e50;
+        color: var(--text-primary);
         margin-bottom: 20px;
         font-size: 1.3em;
         text-align: center;
     }
     
     .progress-bar {
-        background: #ecf0f1;
+        background: var(--surface-hover);
         border-radius: 10px;
         height: 20px;
         margin: 10px 0;
@@ -82,7 +82,7 @@
     }
     
     .progress-fill {
-        background: linear-gradient(90deg, #3498db, #2ecc71);
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
         height: 100%;
         border-radius: 10px;
         transition: width 0.3s ease;
@@ -105,18 +105,18 @@
         justify-content: space-between;
         align-items: center;
         padding: 10px;
-        background: #f8f9fa;
+        background: var(--surface-hover);
         border-radius: 8px;
-        border-left: 4px solid #3498db;
+        border-left: 4px solid var(--primary-color);
     }
     
     .category-name {
         font-weight: bold;
-        color: #2c3e50;
+        color: var(--text-primary);
     }
     
     .category-count {
-        background: #3498db;
+        background: var(--primary-color);
         color: white;
         padding: 4px 12px;
         border-radius: 20px;
@@ -126,7 +126,7 @@
     .loading {
         text-align: center;
         padding: 40px;
-        color: #7f8c8d;
+        color: var(--text-secondary);
     }
     
     .error {
@@ -139,7 +139,7 @@
     }
     
     .refresh-btn {
-        background: #3498db;
+        background: var(--primary-color);
         color: white;
         border: none;
         padding: 10px 20px;
@@ -147,10 +147,11 @@
         cursor: pointer;
         font-size: 1em;
         margin-bottom: 20px;
+        transition: var(--transition);
     }
     
     .refresh-btn:hover {
-        background: #2980b9;
+        background: var(--secondary-color);
     }
     
     .stats-summary {
@@ -288,7 +289,10 @@
             <div class="statistics-header">
                 <h1>📊 Media Library Statistics</h1>
                 <p>Übersicht über deine Media Collection</p>
-                <button id="refreshStats" class="refresh-btn">🔄 Refresh Statistics</button>
+                <div style="display: flex; gap: 10px; justify-content: center; align-items: center; margin-top: 15px;">
+                    <button id="refreshStats" class="refresh-btn">🔄 Refresh Statistics</button>
+                    <button id="darkModeToggle" class="refresh-btn" style="background: var(--surface-color); color: var(--text-primary); border: 1px solid var(--border-color);">🌙 Dark Mode</button>
+                </div>
             </div>
 
             <div id="loadingMessage" class="loading">
@@ -372,6 +376,7 @@
     </main>
 
     <script src="scripts/app.js"></script>
+    <script src="scripts/script.js"></script>
     <script>
         // Statistics functionality
         class StatisticsManager {
@@ -389,6 +394,16 @@
                 document.getElementById('refreshStats').addEventListener('click', () => {
                     this.loadStatistics();
                 });
+                
+                // Dark mode toggle
+                const darkModeToggle = document.getElementById('darkModeToggle');
+                if (darkModeToggle) {
+                    darkModeToggle.addEventListener('click', () => {
+                        if (typeof toggleDarkMode === 'function') {
+                            toggleDarkMode();
+                        }
+                    });
+                }
             }
 
             async loadStatistics() {
@@ -646,7 +661,27 @@
         // Initialize statistics when page loads
         document.addEventListener('DOMContentLoaded', () => {
             new StatisticsManager();
+            
+            // Initialize dark mode if available
+            if (typeof initializeDarkMode === 'function') {
+                initializeDarkMode();
+            }
+            
+            // Update dark mode button text
+            updateDarkModeButton();
         });
+        
+        // Function to update dark mode button text
+        function updateDarkModeButton() {
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                const isDarkMode = document.documentElement.classList.contains('dark-mode');
+                darkModeToggle.textContent = isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode';
+            }
+        }
+        
+        // Listen for dark mode changes
+        document.addEventListener('darkModeChanged', updateDarkModeButton);
     </script>
 </body>
 </html>
