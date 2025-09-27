@@ -4328,12 +4328,12 @@ function showTitlesCheckResults(results, report) {
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
-            <div class="modal-header">
-                <h2>Titel-Überprüfung Ergebnisse</h2>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+        <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                <h2 style="margin: 0; color: var(--text-primary); font-size: 1.5rem;">Titel-Überprüfung Ergebnisse</h2>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary); padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s ease;">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding-right: 8px;">
                 <div class="results-summary">
                     <div class="summary-item found">
                         <span class="summary-icon">✓</span>
@@ -4349,22 +4349,60 @@ function showTitlesCheckResults(results, report) {
                     </div>
                 </div>
                 <div class="results-details">
-                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">${report}</pre>
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; background: var(--background-color); padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); color: var(--text-primary);">${report}</pre>
                 </div>
-                <div class="modal-actions">
-                    <button onclick="downloadTitlesCheckReport('${btoa(report)}')" class="btn btn-primary">Bericht herunterladen</button>
-                    <button onclick="this.closest('.modal').remove()" class="btn btn-secondary">Schließen</button>
-                </div>
+            </div>
+            <div class="modal-actions" style="display: flex; gap: 12px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid var(--border-color); margin-top: 20px; flex-shrink: 0;">
+                <button onclick="downloadTitlesCheckReport('${encodeURIComponent(report)}')" class="btn btn-primary" style="padding: 10px 20px; border-radius: 6px; border: none; background: var(--primary-color); color: white; font-weight: 500; cursor: pointer; transition: all 0.2s ease; font-size: 0.9rem;">📥 Bericht herunterladen</button>
+                <button onclick="this.closest('.modal').remove()" class="btn btn-secondary" style="padding: 10px 20px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); font-weight: 500; cursor: pointer; transition: all 0.2s ease; font-size: 0.9rem;">Schließen</button>
             </div>
         </div>
     `;
+    
+    // Add hover effects
+    const closeBtn = modal.querySelector('.modal-close');
+    const downloadBtn = modal.querySelector('.btn-primary');
+    const closeModalBtn = modal.querySelector('.btn-secondary');
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'var(--surface-hover)';
+            closeBtn.style.color = 'var(--text-primary)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'none';
+            closeBtn.style.color = 'var(--text-secondary)';
+        });
+    }
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('mouseenter', () => {
+            downloadBtn.style.background = 'var(--primary-hover)';
+            downloadBtn.style.transform = 'translateY(-1px)';
+        });
+        downloadBtn.addEventListener('mouseleave', () => {
+            downloadBtn.style.background = 'var(--primary-color)';
+            downloadBtn.style.transform = 'translateY(0)';
+        });
+    }
+    
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('mouseenter', () => {
+            closeModalBtn.style.background = 'var(--surface-hover)';
+            closeModalBtn.style.borderColor = 'var(--primary-color)';
+        });
+        closeModalBtn.addEventListener('mouseleave', () => {
+            closeModalBtn.style.background = 'var(--surface-color)';
+            closeModalBtn.style.borderColor = 'var(--border-color)';
+        });
+    }
     
     document.body.appendChild(modal);
 }
 
 // Download titles check report
-function downloadTitlesCheckReport(base64Report) {
-    const report = atob(base64Report);
+function downloadTitlesCheckReport(encodedReport) {
+    const report = decodeURIComponent(encodedReport);
     const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
