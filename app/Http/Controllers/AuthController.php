@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Models\Category;
 
 class AuthController extends Controller
 {
@@ -48,6 +49,9 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Prüfe und bereinige Duplikate beim Login
+        $this->checkAndCleanupDuplicates();
+
         return response()->json([
             'user' => $user,
             'token' => $token,
@@ -59,5 +63,35 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Logged out successfully']);
+    }
+
+    /**
+     * Check and cleanup duplicate categories
+     */
+    private function checkAndCleanupDuplicates(): void
+    {
+        try {
+            // Prüfe auf Duplikate
+            $duplicates = Category::select('name', \DB::raw('COUNT(*) as count'))
+                ->groupBy('name')
+                ->having('count', '>', 1)
+                ->get();
+
+            if ($duplicates->count() > 0) {
+                \Log::info('Category duplicates detected during login', [
+                    'duplicates' => $duplicates->pluck('name')->toArray(),
+                    'count' => $duplicates->count()
+                ]);
+
+                // Bereinige Duplikate
+                Category::cleanupDuplicates();
+                
+                \Log::info('Category duplicates cleaned up during login');
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to check/cleanup category duplicates during login', [
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 }

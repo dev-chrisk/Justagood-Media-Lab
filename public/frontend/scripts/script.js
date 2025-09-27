@@ -2433,7 +2433,7 @@ async function searchItems(query) {
     
     try {
         // Search via API instead of local data
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=10`);
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=8`);
         if (!response.ok) {
             throw new Error('Search failed');
         }

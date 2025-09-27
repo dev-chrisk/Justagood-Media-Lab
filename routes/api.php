@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\StatisticsController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\ExportImportController;
 
 /*
@@ -88,5 +89,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('discovery-timeline', [StatisticsController::class, 'discoveryTimeline']);
         Route::get('playtime-by-category', [StatisticsController::class, 'playtimeByCategory']);
         Route::get('user-activity', [StatisticsController::class, 'userActivity']);
+    });
+
+    // Category management routes
+    Route::prefix('categories')->group(function () {
+        Route::get('/', [CategoryController::class, 'index']);
+        Route::post('/', [CategoryController::class, 'store']);
+        Route::get('/statistics', [CategoryController::class, 'statistics']);
+        Route::post('/find-or-create', [CategoryController::class, 'findOrCreate']);
+        Route::post('/cleanup-duplicates', [CategoryController::class, 'cleanupDuplicates']);
+        Route::post('/migrate-from-media-items', [CategoryController::class, 'migrateFromMediaItems']);
+        Route::get('/{category}', [CategoryController::class, 'show']);
+        Route::put('/{category}', [CategoryController::class, 'update']);
+        Route::delete('/{category}', [CategoryController::class, 'destroy']);
     });
 });
