@@ -485,8 +485,8 @@ class ExportImportController extends Controller
      */
     private function copyImagesToExport(string $tempDir, array $mediaData): void
     {
-        $imagesDir = base_path('data/images');
-        $imagesDownloadsDir = base_path('data/images_downloads');
+        $imagesDir = Storage::disk('public')->path('images');
+        $imagesDownloadsDir = Storage::disk('public')->path('images_downloads');
         
         // Create images directories
         $exportImagesDir = $tempDir . '/images';
@@ -749,8 +749,8 @@ class ExportImportController extends Controller
         $imagesSourceDir = $tempDir . '/images';
         $imagesDownloadsSourceDir = $tempDir . '/images_downloads';
         
-        $imagesDestDir = base_path('data/images');
-        $imagesDownloadsDestDir = base_path('data/images_downloads');
+        $imagesDestDir = Storage::disk('public')->path('images');
+        $imagesDownloadsDestDir = Storage::disk('public')->path('images_downloads');
         
         // Ensure destination directories exist
         if (!File::exists($imagesDestDir)) {

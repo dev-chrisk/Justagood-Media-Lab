@@ -7,111 +7,186 @@
 <link rel="stylesheet" href="styles/style.css">
 </head>
 <body>
-<header>
-    <div class="header-top">
-        <h1>Media Library</h1>
-        <div class="auth-section">
-            <div id="authButtons" class="auth-buttons">
-                <button id="loginBtn" class="auth-btn">Login</button>
-                <button id="registerBtn" class="auth-btn">Register</button>
-            </div>
-            <div id="userInfo" class="user-info" style="display: none;">
-                <span id="userName"></span>
-                <button id="logoutBtn" class="auth-btn">Logout</button>
-            </div>
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>Media Library</h2>
+            <button id="sidebarToggle" class="sidebar-toggle">☰</button>
         </div>
-    </div>
-    <div class="controls">
-        <div class="controls-row">
-            <div class="controls-group">
-                <button id="btnGames" class="cat-btn">Games <span id="countGames" class="count-badge">0</span></button>
-                <button id="btnSeries" class="cat-btn">Series <span id="countSeries" class="count-badge">0</span></button>
-                <button id="btnMovies" class="cat-btn">Movies <span id="countMovies" class="count-badge">0</span></button>
-                <button id="btnGamesNew" class="cat-btn">Games <span class="tag-new">New</span></button>
-                <button id="btnSeriesNew" class="cat-btn">Series <span class="tag-new">New</span></button>
-                <button id="btnMoviesNew" class="cat-btn">Movies <span class="tag-new">New</span></button>
-                <button id="btnCalendar" class="cat-btn">📅 Calendar</button>
+        
+        <div class="sidebar-content">
+            <!-- Main Navigation -->
+            <div class="sidebar-section">
+                <h3>Browse</h3>
+                <nav class="sidebar-nav">
+                    <button id="btnGames" class="nav-btn active">
+                        <span class="nav-icon">🎮</span>
+                        <span class="nav-text">Games</span>
+                        <span id="countGames" class="nav-count">0</span>
+                    </button>
+                    <button id="btnSeries" class="nav-btn">
+                        <span class="nav-icon">📺</span>
+                        <span class="nav-text">Series</span>
+                        <span id="countSeries" class="nav-count">0</span>
+                    </button>
+                    <button id="btnMovies" class="nav-btn">
+                        <span class="nav-icon">🎬</span>
+                        <span class="nav-text">Movies</span>
+                        <span id="countMovies" class="nav-count">0</span>
+                    </button>
+                    <button id="btnGamesNew" class="nav-btn">
+                        <span class="nav-icon">🆕</span>
+                        <span class="nav-text">Games New</span>
+                    </button>
+                    <button id="btnSeriesNew" class="nav-btn">
+                        <span class="nav-icon">🆕</span>
+                        <span class="nav-text">Series New</span>
+                    </button>
+                    <button id="btnMoviesNew" class="nav-btn">
+                        <span class="nav-icon">🆕</span>
+                        <span class="nav-text">Movies New</span>
+                    </button>
+                    <button id="btnCalendar" class="nav-btn">
+                        <span class="nav-icon">📅</span>
+                        <span class="nav-text">Calendar</span>
+                    </button>
+                    <a href="statistics.html" class="nav-btn">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Statistics</span>
+                    </a>
+                </nav>
             </div>
-            <div class="controls-group search-group">
-                <div class="search-wrapper">
-                    <input type="text" id="searchInput" placeholder="Search title..." />
-                    <button id="searchClear" title="Clear">×</button>
-                </div>
-            </div>
-            <div class="controls-group" id="playtimeGroup">
-                <label>Spielzeit:</label>
-                <div class="playtime-wrapper">
-                    <input type="number" id="playMin" min="0" placeholder="min" style="width:80px">-
-                    <input type="number" id="playMax" min="0" placeholder="max" style="width:80px">
-                </div>
-            </div>
-            <div class="controls-group" id="airingGroup" style="display:none;">
-                <label>Airing Status:</label>
-                <div class="airing-wrapper">
-                    <button id="airingAll" class="filter-chip active">All</button>
-                    <button id="airingTrue" class="filter-chip">Airing</button>
-                    <button id="airingFalse" class="filter-chip">Finished</button>
-                </div>
-            </div>
-            <div class="controls-group">
-                <span class="slider-inline"><span class="slider-title">Columns</span><input type="range" id="gridSlider" min="1" max="15" value="10" title="Grid Columns"><span id="columnDisplay" style="color: #1a73e8; font-weight: bold; margin-left: 8px;">10</span></span>
-            </div>
-            <div class="controls-group">
-                <label>Display:</label>
-                <div class="toggle-group">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="showImages" checked>
-                        <span class="toggle-text">Images</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="showRatings" checked>
-                        <span class="toggle-text">Ratings</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="showPlatforms" checked>
-                        <span class="toggle-text">Platforms</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="showGenres" checked>
-                        <span class="toggle-text">Genres</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="landscapeMode" title="Switch to landscape orientation">
-                        <span class="toggle-text">Landscape</span>
-                    </label>
-                </div>
-                <span class="slider-inline"><span class="slider-title">Animation</span><input type="range" id="animationSlider" min="0" max="2" step="0.1" value="1" title="Animation Speed"></span>
-            </div>
-            <div class="controls-group">
-            <select id="sortSelect">
-                    <option value="order_asc" selected>Original order ↑</option>
-                    <option value="order_desc">Original order ↓</option>
-                <option value="title_asc">Title A-Z</option>
-                <option value="title_desc">Title Z-A</option>
-                <option value="release_asc">Release ↑</option>
-                <option value="release_desc">Release ↓</option>
-                <option value="rating_asc">Rating ↑</option>
-                <option value="rating_desc">Rating ↓</option>
-                    <option value="discovered_asc">Entdeckt am ↑</option>
-                    <option value="discovered_desc">Entdeckt am ↓</option>
-            </select>
-            </div>
-            <div class="controls-group">
-                <button id="exportBtn" class="export-btn" title="Export all data as ZIP package">📦 Export</button>
-                <button id="importBtn" class="import-btn" title="Import data from ZIP package">📥 Import</button>
-                <button id="bulkAddBtn" class="bulk-add-btn" title="Add multiple items via API">➕ Bulk Add</button>
-                <input type="file" id="importFileInput" accept=".zip" style="display:none">
-            </div>
-            <div id="filterBar" class="controls-group filter-bar">
-                <button id="filterExpandBtn" class="filter-expand-btn" title="Filter erweitern/zusammenklappen">+</button>
-            </div>
-        </div>
-    </div>
-</header>
 
-<main>
-    <div id="grid" class="grid"></div>
-</main>
+            <!-- Filters Section -->
+            <div class="sidebar-section">
+                <h3>Filters</h3>
+                <div class="filter-section">
+                    <div class="filter-group">
+                        <h4>Platforms</h4>
+                        <div id="platformFilters" class="filter-checkboxes">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h4>Genres</h4>
+                        <div id="genreFilters" class="filter-checkboxes">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h4>Other Options</h4>
+                        <div class="filter-options">
+                            <label class="filter-option">
+                                <input type="checkbox" id="landscapeMode">
+                                <span class="checkmark"></span>
+                                <span class="option-text">Landscape Mode</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Account Section -->
+            <div class="sidebar-section">
+                <h3>Account</h3>
+                <div id="authButtons" class="auth-buttons">
+                    <button id="loginBtn" class="auth-btn">Login</button>
+                    <button id="registerBtn" class="auth-btn">Register</button>
+                </div>
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <div class="user-profile">
+                        <span id="userName" class="user-name"></span>
+                        <button id="accountBtn" class="account-btn">⚙️</button>
+                    </div>
+                    <button id="logoutBtn" class="auth-btn">Logout</button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <button id="mobileSidebarToggle" class="mobile-sidebar-toggle">☰</button>
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search..." />
+                    <button id="searchClear" class="search-clear">×</button>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="grid-count-container">
+                    <label for="gridCountSelect">Columns:</label>
+                    <select id="gridCountSelect">
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8" selected>8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                    </select>
+                </div>
+                <div class="sort-container">
+                    <select id="sortSelect">
+                        <option value="order_asc" selected>Original order ↑</option>
+                        <option value="order_desc">Original order ↓</option>
+                        <option value="title_asc">Title A-Z</option>
+                        <option value="title_desc">Title Z-A</option>
+                        <option value="release_asc">Release ↑</option>
+                        <option value="release_desc">Release ↓</option>
+                        <option value="rating_asc">Rating ↑</option>
+                        <option value="rating_desc">Rating ↓</option>
+                        <option value="discovered_asc">Discovered ↑</option>
+                        <option value="discovered_desc">Discovered ↓</option>
+                    </select>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <main class="content-area">
+            <div id="grid" class="grid"></div>
+        </main>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="floating-actions">
+        <button id="floatingAddButton" class="floating-add-btn">
+            <span class="plus-icon">+</span>
+        </button>
+        <div id="floatingMenu" class="floating-menu">
+            <button id="addItemBtn" class="floating-menu-item">
+                <span class="menu-icon">➕</span>
+                <span class="menu-text">Add Item</span>
+            </button>
+            <button id="exportBtn" class="floating-menu-item">
+                <span class="menu-icon">📦</span>
+                <span class="menu-text">Export</span>
+            </button>
+            <button id="importBtn" class="floating-menu-item">
+                <span class="menu-icon">📥</span>
+                <span class="menu-text">Import</span>
+            </button>
+            <button id="bulkAddBtn" class="floating-menu-item">
+                <span class="menu-icon">➕</span>
+                <span class="menu-text">Bulk Add</span>
+            </button>
+            <button id="exportTitlesBtn" class="floating-menu-item">
+                <span class="menu-icon">📝</span>
+                <span class="menu-text">Export Titles</span>
+            </button>
+            <button id="loadTitlesBtn" class="floating-menu-item">
+                <span class="menu-icon">📋</span>
+                <span class="menu-text">Load Titles</span>
+            </button>
+        </div>
+    </div>
 
 <!-- Edit/Add Modal -->
 <div id="editModal" class="modal">
@@ -155,6 +230,8 @@
         <div class="image-actions">
             <button id="openImagePicker">Choose Image from Server…</button>
             <input type="file" id="uploadImageInput" accept="image/*" style="display:none">
+            <input type="file" id="importFileInput" accept=".zip" style="display: none;" onchange="handleImportFile(event)">
+            <input type="file" id="loadTitlesFileInput" accept=".txt" style="display: none;" onchange="handleLoadTitlesFile(event)">
             <button id="uploadImageBtn">Upload Image…</button>
         </div>
         <label><input type="checkbox" id="checkApi"> Fetch from API</label>
@@ -283,10 +360,6 @@
     </div>
 </div>
 
-    <!-- Floating Add Button -->
-    <button id="floatingAddButton" class="floating-add-btn" onclick="openAddModal()" title="Add Item">
-        <span class="plus-icon">+</span>
-    </button>
 
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
@@ -376,6 +449,216 @@
             <div class="modal-buttons">
                 <button id="bulkAddStart" class="bulk-start-btn">Start Bulk Add</button>
                 <button id="bulkAddCancel" class="bulk-cancel-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Modal -->
+    <div id="accountModal" class="modal">
+        <div class="modal-content account-content">
+            <h2>Account Settings</h2>
+            <div class="account-sections">
+                <div class="account-section">
+                    <h3>Profile</h3>
+                    <div class="profile-info">
+                        <div class="profile-avatar">
+                            <span class="avatar-text">👤</span>
+                        </div>
+                        <div class="profile-details">
+                            <div class="profile-name" id="accountUserName">User Name</div>
+                            <div class="profile-email" id="accountUserEmail">user@example.com</div>
+                        </div>
+                    </div>
+                    <div class="profile-actions">
+                        <button id="openProfileBtn" class="profile-btn">
+                            <span class="btn-icon">⚙️</span>
+                            <span class="btn-text">Manage Profile</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="account-section">
+                    <h3>Settings</h3>
+                    <div class="settings-options">
+                        <label class="setting-option">
+                            <input type="checkbox" id="darkModeToggle" checked>
+                            <span class="checkmark"></span>
+                            <span class="setting-text">Dark Mode</span>
+                        </label>
+                        <label class="setting-option">
+                            <input type="checkbox" id="notificationsToggle">
+                            <span class="checkmark"></span>
+                            <span class="setting-text">Notifications</span>
+                        </label>
+                        <label class="setting-option">
+                            <input type="checkbox" id="autoSyncToggle" checked>
+                            <span class="checkmark"></span>
+                            <span class="setting-text">Auto Sync</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="account-section">
+                    <h3>Data Management</h3>
+                    <div class="data-actions">
+                        <button id="exportDataBtn" class="data-btn export-btn">
+                            <span class="btn-icon">📦</span>
+                            <span class="btn-text">Export Data</span>
+                        </button>
+                        <button id="importDataBtn" class="data-btn import-btn">
+                            <span class="btn-icon">📥</span>
+                            <span class="btn-text">Import Data</span>
+                        </button>
+                        <button id="clearDataBtn" class="data-btn danger-btn">
+                            <span class="btn-icon">🗑️</span>
+                            <span class="btn-text">Clear All Data</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="account-section">
+                    <h3>About</h3>
+                    <div class="about-links">
+                        <a href="#" id="impressumLink" class="about-link">Impressum</a>
+                        <a href="#" id="contactLink" class="about-link">Contact</a>
+                        <a href="#" id="privacyLink" class="about-link">Privacy Policy</a>
+                        <a href="#" id="termsLink" class="about-link">Terms of Service</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button id="accountCloseBtn" class="close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modals -->
+    <!-- Impressum Modal -->
+    <div id="impressumModal" class="modal">
+        <div class="modal-content">
+            <h2>Impressum</h2>
+            <div class="about-content">
+                <h3>Angaben gemäß § 5 TMG</h3>
+                <p><strong>Justagood Media Lab</strong></p>
+                <p>Musterstraße 123<br>
+                12345 Musterstadt<br>
+                Deutschland</p>
+                
+                <h3>Kontakt</h3>
+                <p>Telefon: +49 (0) 123 456789<br>
+                E-Mail: info@justagood-medialab.de</p>
+                
+                <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+                <p>Max Mustermann<br>
+                Musterstraße 123<br>
+                12345 Musterstadt</p>
+                
+                <h3>Haftung für Inhalte</h3>
+                <p>Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch nicht unter der Verpflichtung, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('impressumModal')" class="close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <h2>Contact Us</h2>
+            <div class="about-content">
+                <h3>Get in Touch</h3>
+                <p>We'd love to hear from you! Send us a message and we'll respond as soon as possible.</p>
+                
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <strong>Email:</strong> info@justagood-medialab.de
+                    </div>
+                    <div class="contact-item">
+                        <strong>Phone:</strong> +49 (0) 123 456789
+                    </div>
+                    <div class="contact-item">
+                        <strong>Address:</strong> Musterstraße 123, 12345 Musterstadt, Deutschland
+                    </div>
+                </div>
+                
+                <h3>Support</h3>
+                <p>For technical support or questions about the application, please contact us via email. We typically respond within 24 hours.</p>
+                
+                <h3>Feedback</h3>
+                <p>Your feedback is important to us! If you have suggestions for improvements or encounter any issues, please don't hesitate to reach out.</p>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('contactModal')" class="close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Privacy Policy Modal -->
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+            <h2>Privacy Policy</h2>
+            <div class="about-content">
+                <h3>1. Data Collection</h3>
+                <p>Justagood Media Lab collects and stores data locally on your device. We do not transmit your personal data to external servers without your explicit consent.</p>
+                
+                <h3>2. Local Storage</h3>
+                <p>Your media library data, including titles, descriptions, images, and personal preferences, are stored locally in your browser's localStorage. This data remains on your device and is not shared with third parties.</p>
+                
+                <h3>3. Data Usage</h3>
+                <p>The data you enter is used solely for the purpose of managing your personal media library. We do not use your data for advertising, analytics, or any other commercial purposes.</p>
+                
+                <h3>4. Data Security</h3>
+                <p>We implement appropriate technical and organizational measures to protect your data. However, since data is stored locally, you are responsible for maintaining the security of your device.</p>
+                
+                <h3>5. Your Rights</h3>
+                <p>You have the right to access, modify, or delete your data at any time through the application's data management features. You can export your data or clear all data as needed.</p>
+                
+                <h3>6. Contact</h3>
+                <p>If you have any questions about this privacy policy, please contact us at info@justagood-medialab.de</p>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('privacyModal')" class="close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terms of Service Modal -->
+    <div id="termsModal" class="modal">
+        <div class="modal-content">
+            <h2>Terms of Service</h2>
+            <div class="about-content">
+                <h3>1. Acceptance of Terms</h3>
+                <p>By using Justagood Media Lab, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.</p>
+                
+                <h3>2. Description of Service</h3>
+                <p>Justagood Media Lab is a personal media library management application that allows you to organize and manage your media collection locally on your device.</p>
+                
+                <h3>3. User Responsibilities</h3>
+                <p>You are responsible for:
+                    <ul>
+                        <li>Ensuring the accuracy of data you enter</li>
+                        <li>Maintaining the security of your device and data</li>
+                        <li>Complying with applicable laws and regulations</li>
+                        <li>Respecting intellectual property rights</li>
+                    </ul>
+                </p>
+                
+                <h3>4. Data Ownership</h3>
+                <p>You retain full ownership of all data you enter into the application. We do not claim any rights to your personal media library data.</p>
+                
+                <h3>5. Limitation of Liability</h3>
+                <p>Justagood Media Lab is provided "as is" without warranties of any kind. We are not liable for any loss of data or damages arising from the use of this application.</p>
+                
+                <h3>6. Modifications</h3>
+                <p>We reserve the right to modify these terms at any time. Continued use of the application constitutes acceptance of any changes.</p>
+                
+                <h3>7. Contact</h3>
+                <p>For questions about these terms, please contact us at info@justagood-medialab.de</p>
+            </div>
+            <div class="modal-buttons">
+                <button onclick="closeModal('termsModal')" class="close-btn">Close</button>
             </div>
         </div>
     </div>

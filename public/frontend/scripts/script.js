@@ -7,11 +7,12 @@ let renderBatchSize = 60; // initial batch size
 let renderedCount = 0;
 let observer = null;
 let searchQuery = "";
+let gridColumns = 8; // default grid columns
 let playMin = null;
 let playMax = null;
 // Always use grid view
 let landscapeMode = false;
-let _gridColumns = 10; // Store current grid column count
+let _gridColumns = 8; // Fixed grid column count
 
 // Authentication state
 let currentUser = null;
@@ -21,6 +22,10 @@ let authToken = localStorage.getItem('authToken');
 if (authToken) {
     checkAuthStatus();
 }
+
+// Sidebar state
+let sidebarCollapsed = false;
+let floatingMenuOpen = false;
 
 // Check authentication status
 async function checkAuthStatus() {
@@ -55,63 +60,16 @@ async function checkAuthStatus() {
     }
 }
 
-// Getter and setter for gridColumns with logging
+// Simple grid column getter (fixed at 8)
 Object.defineProperty(window, 'gridColumns', {
     get: function() {
-        return _gridColumns;
+        return 8;
     },
     set: function(value) {
-        console.log('gridColumns changed from', _gridColumns, 'to', value);
-        console.trace('gridColumns change stack trace:');
-        _gridColumns = value;
-        updateColumnDisplay();
+        // Grid columns are now fixed at 8, ignore attempts to change
+        console.log('Grid columns are fixed at 8, ignoring change to:', value);
     }
 });
-
-// Update column display
-function updateColumnDisplay() {
-    const display = document.getElementById('columnDisplay');
-    if (display) {
-        display.textContent = _gridColumns;
-    }
-    console.log('updateColumnDisplay() - Current gridColumns:', _gridColumns);
-}
-
-// Apply grid columns consistently and protect against changes
-function applyGridColumns(container) {
-    if (!container || currentCategory === "calendar") return;
-    
-    const gridTemplate = `repeat(${gridColumns}, 1fr)`;
-    console.log('applyGridColumns() - Setting grid template to:', gridTemplate);
-    
-    // Apply the grid template both via style and CSS custom property
-    container.style.gridTemplateColumns = gridTemplate;
-    container.style.setProperty('--grid-columns', gridColumns);
-    
-    // Set up protection against external changes
-    if (container._gridProtection) {
-        clearInterval(container._gridProtection);
-    }
-    
-    // Monitor and correct any changes to grid columns
-    container._gridProtection = setInterval(() => {
-        if (currentCategory !== "calendar" && container.style.gridTemplateColumns !== gridTemplate) {
-            console.warn('Grid columns were changed externally! Correcting from', container.style.gridTemplateColumns, 'to', gridTemplate);
-            container.style.gridTemplateColumns = gridTemplate;
-            container.style.setProperty('--grid-columns', gridColumns);
-        }
-    }, 100);
-}
-
-// Clean up grid protection
-function cleanupGridProtection() {
-    const grid = document.getElementById('grid');
-    if(grid && grid._gridProtection) {
-        clearInterval(grid._gridProtection);
-        grid._gridProtection = null;
-        console.log('Grid protection cleaned up');
-    }
-}
 
 // Generate unique ID for items
 function generateUniqueId() {
@@ -216,6 +174,8 @@ async function logout() {
         renderFilterBar();
         renderGrid();
         updateCounts();
+        updateFilterCheckboxes();
+        updateNavigationButtons();
     }
 }
 
@@ -223,6 +183,11 @@ function updateAuthUI() {
     const authButtons = document.getElementById('authButtons');
     const userInfo = document.getElementById('userInfo');
     const userName = document.getElementById('userName');
+    
+    if (!authButtons || !userInfo || !userName) {
+        console.log('Auth UI elements not found, skipping update');
+        return;
+    }
     
     if (currentUser) {
         authButtons.style.display = 'none';
@@ -243,11 +208,13 @@ async function loadData(){
         try {
             const res = await fetch("/data/data/media.json");
             mediaData = await res.json();
-            mediaData.forEach((item, idx)=>{ if(item && item.__order == null) item.__order = idx; });
-            renderFilterBar();
-            renderGrid();
-            updateCounts();
-            return;
+        mediaData.forEach((item, idx)=>{ if(item && item.__order == null) item.__order = idx; });
+        renderFilterBar();
+        renderGrid();
+        updateCounts();
+        updateFilterCheckboxes();
+        updateNavigationButtons();
+        return;
         } catch(fallbackError) {
             console.error("JSON loading failed:", fallbackError);
             mediaData = [];
@@ -277,6 +244,8 @@ async function loadData(){
         renderFilterBar();
         renderGrid();
         updateCounts();
+        updateFilterCheckboxes();
+        updateNavigationButtons();
     } catch(e){
         console.error("API failed for logged in user:", e);
         // If user is logged in but API fails, show empty data
@@ -284,11 +253,13 @@ async function loadData(){
         renderFilterBar();
         renderGrid();
         updateCounts();
+        updateFilterCheckboxes();
+        updateNavigationButtons();
     }
 }
 
 function renderGrid(){
-    console.log('renderGrid() called - current gridColumns:', gridColumns);
+    console.log('renderGrid() called - fixed grid columns: 8');
     const container = document.getElementById("grid");
     container.innerHTML="";
     container.setAttribute("data-cat", baseCategory(currentCategory));
@@ -300,21 +271,11 @@ function renderGrid(){
     if (currentCategory !== "calendar") {
         container.className = "";
         container.style.display = "grid";
-        
-        // Apply grid columns immediately and protect against changes
-        applyGridColumns(container);
-        
+        container.style.gridTemplateColumns = `repeat(${gridColumns}, 1fr)`;
         container.style.width = "100%";
         container.style.maxWidth = "none";
         container.style.margin = "0";
         container.style.overflow = "hidden";
-        
-        // Sync slider
-        const slider = document.getElementById('gridSlider');
-        if (slider) {
-            console.log('Syncing slider value to:', gridColumns);
-            slider.value = gridColumns;
-        }
     }
     
     // Handle calendar view
@@ -386,33 +347,48 @@ function renderGrid(){
 }
 
 function renderChunk(list, container){
-    console.log('renderChunk() called - current gridColumns:', gridColumns);
+    console.log('renderChunk() called - fixed grid columns: 8');
     
     // Ensure grid columns remain consistent during chunk rendering
     if (currentCategory !== "calendar") {
-        applyGridColumns(container);
+        container.style.gridTemplateColumns = `repeat(${gridColumns}, 1fr)`;
     }
     
     const end = Math.min(renderedCount + renderBatchSize, list.length);
+    
+    // Render cards first, then load images
+    const fragment = document.createDocumentFragment();
+    
     for(let i = renderedCount; i < end; i++){
         const item = list[i];
         const card=document.createElement("div");
         card.className="card";
-        card.style.contentVisibility = "auto";
-        card.style.containIntrinsicSize = "300px 360px";
-        // Fixed card size
         const imgWrap=document.createElement("div");
         imgWrap.className = "img-wrapper";
         const img=document.createElement("img");
-        const thumbUrl = `/thumb?path=${encodeURIComponent(item.path)}&w=300&fmt=webp`;
-        img.src = thumbUrl;
-        // Fallback: if thumbnail fails, load original directly
-        img.onerror = () => {
-            img.onerror = null;
-            img.src = `/${item.path}`;
-        };
+        
+        // Load image with better performance - use original but with lazy loading
+        img.src = `/${item.path}`;
         img.loading = "lazy";
         img.decoding = "async";
+        
+        // Add error handling
+        img.onerror = function() {
+            this.style.display = 'none';
+            const placeholder = document.createElement('div');
+            placeholder.style.cssText = `
+                width: 100%;
+                height: 200px;
+                background: #333;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #666;
+                font-size: 14px;
+            `;
+            placeholder.textContent = 'Bild nicht verfügbar';
+            this.parentNode.replaceChild(placeholder, this);
+        };
         img.alt=item.title;
         imgWrap.appendChild(img);
         
@@ -461,8 +437,11 @@ function renderChunk(list, container){
         // Open detail on card click
         card.onclick = () => openDetailModal(item);
         card.append(imgWrap,title);
-        container.appendChild(card);
+        fragment.appendChild(card);
     }
+    
+    // Append all cards at once for better performance
+    container.appendChild(fragment);
     renderedCount = end;
     
     // Move sentinel to end of rendered content
@@ -473,7 +452,7 @@ function renderChunk(list, container){
     
     // Final check to ensure grid columns are still correct after rendering
     if (currentCategory !== "calendar") {
-        applyGridColumns(container);
+        container.style.gridTemplateColumns = `repeat(${gridColumns}, 1fr)`;
     }
 }
 
@@ -515,6 +494,12 @@ function renderFilterBar(){
     const filterBar=document.getElementById("filterBar");
     const expandBtn = document.getElementById("filterExpandBtn");
     
+    // Check if filterBar exists (it might not in the new layout)
+    if (!filterBar) {
+        console.log('Filter bar not found, using sidebar filters instead');
+        return;
+    }
+    
     // Clear only the filter content, keep the expand button
     const existingLabels = filterBar.querySelectorAll('label');
     existingLabels.forEach(label => label.remove());
@@ -552,6 +537,12 @@ function renderFilterBar(){
     const maxVisible=4;
     
     const renderChips=()=>{
+        // Check if filterBar exists
+        if (!filterBar) {
+            console.log('Filter bar not found, using sidebar filters instead');
+            return;
+        }
+        
         // Remove existing labels
         const existingLabels = filterBar.querySelectorAll('label');
         existingLabels.forEach(label => label.remove());
@@ -566,21 +557,25 @@ function renderFilterBar(){
         });
         
         // Update expand button visibility and state
-        if(options.length>maxVisible){
+        if(options.length>maxVisible && expandBtn){
             expandBtn.style.display = "flex";
             expandBtn.textContent = filterBarExpanded? "−" : "+";
             expandBtn.className = `filter-expand-btn ${filterBarExpanded ? 'expanded' : ''}`;
-        } else {
+        } else if (expandBtn) {
             expandBtn.style.display = "none";
         }
     };
     
     // Set up expand button click handler
-    expandBtn.onclick = () => {
-        filterBarExpanded = !filterBarExpanded;
-        filterBar.classList.toggle('expanded', filterBarExpanded);
-        renderChips();
-    };
+    if (expandBtn) {
+        expandBtn.onclick = () => {
+            filterBarExpanded = !filterBarExpanded;
+            if (filterBar) {
+                filterBar.classList.toggle('expanded', filterBarExpanded);
+            }
+            renderChips();
+        };
+    }
     
     renderChips();
 }
@@ -593,7 +588,7 @@ function toggleFilter(option, checked){
 
 function switchCategory(cat){
     // Clean up grid protection from previous category
-    cleanupGridProtection();
+    // Grid protection cleanup no longer needed
     
     currentCategory=cat;
     activeFilters=[];
@@ -666,7 +661,13 @@ function openEditModal(item){
         renderGrid();
         closeModal();
         if(oldPath){
-            try{ await fetch('/delete-image',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({path: oldPath})}); }catch(e){ console.error(e); }
+            try{ 
+                const headers = {'Content-Type':'application/json'};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                await fetch('/api/delete-image',{method:'POST', headers: headers, body: JSON.stringify({path: oldPath})}); 
+            }catch(e){ console.error(e); }
         }
     };
     document.getElementById("editModal").classList.add("show");
@@ -681,15 +682,11 @@ function openDetailModal(item){
     
     // Fill fields
     document.getElementById("detailTitle").textContent = item.title || "";
-    const fullUrl = item.path; // could be original; show a larger thumb
-    const previewUrl = `/thumb?path=${encodeURIComponent(item.path)}&w=800&fmt=webp`;
+    // Use original image for detail view
+    const previewUrl = `/${item.path}`;
     const imgEl = document.getElementById("detailImage");
     imgEl.onerror = null;
     imgEl.src = previewUrl;
-    imgEl.onerror = () => {
-        imgEl.onerror = null;
-        imgEl.src = `/${item.path}`;
-    };
     imgEl.alt = item.title || "";
     
     // Update all detail fields
@@ -708,9 +705,13 @@ function openDetailModal(item){
         closeDetailModal();
         if (oldPath) {
             try {
-                await fetch("/delete-image", {
+                const headers = { "Content-Type": "application/json" };
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                await fetch("/api/delete-image", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: headers,
                     body: JSON.stringify({ path: oldPath })
                 });
             } catch(e) {
@@ -1307,9 +1308,13 @@ async function saveEdit(){
         const titleInput=document.getElementById("editTitle").value;
         if(!titleInput){ apiMessage.textContent="Titel erforderlich!"; return; }
         try {
-            const res=await fetch("/fetch-api",{
+            const headers = {"Content-Type":"application/json"};
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            const res=await fetch("/api/fetch-api",{
                 method:"POST",
-                headers:{"Content-Type":"application/json"},
+                headers: headers,
                 body:JSON.stringify({title:titleInput, category:cat})
             });
             const data=await res.json();
@@ -1360,7 +1365,11 @@ async function saveEdit(){
             // Prefer separate downloads dir to verify files easily
             const desiredBase = `images_downloads/${catDir}/${baseName}`;
             try{
-                const res = await fetch('/download-image', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url: imgUrl, path: desiredBase})});
+                const headers = {'Content-Type':'application/json'};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                const res = await fetch('/api/download-image', {method:'POST', headers: headers, body: JSON.stringify({url: imgUrl, path: desiredBase})});
                 const d = await res.json();
                 if(d?.success && d?.saved){ pathVal = d.saved; }
                 else { pathVal = desiredBase + '.jpg'; }
@@ -1517,31 +1526,9 @@ function applyViewMode(){
     
     const grid = document.getElementById('grid');
     if(grid){
-        console.log('applyViewMode() - setting grid columns to:', gridColumns);
+        console.log(`applyViewMode() - setting fixed grid columns to ${gridColumns}`);
         grid.style.display = 'grid';
-        
-        // Use the centralized grid column application
-        applyGridColumns(grid);
-        
-        // Sync slider
-        const slider = document.getElementById('gridSlider');
-        if (slider) {
-            slider.value = gridColumns;
-        }
-    }
-    
-    // Cards use fixed size now
-    
-    // Always show columns slider
-    const gridSlider=document.getElementById('gridSlider');
-    if(gridSlider){ 
-        const sliderContainer = gridSlider.closest('.slider-inline');
-        const sliderTitle = sliderContainer?.querySelector('.slider-title');
-        if(sliderContainer) {
-            sliderContainer.style.display = 'inline-flex';
-            sliderContainer.classList.remove('disabled');
-            if(sliderTitle) sliderTitle.textContent = 'Columns';
-        }
+        grid.style.gridTemplateColumns = `repeat(${gridColumns}, 1fr)`;
     }
 }
 
@@ -1596,75 +1583,20 @@ function setupControls(){
     document.getElementById("registerCancel").onclick = closeRegisterModal;
     
     // Category controls
-    document.getElementById("btnGames").onclick=()=>switchCategory("game");
-    document.getElementById("btnSeries").onclick=()=>switchCategory("series");
-    document.getElementById("btnMovies").onclick=()=>switchCategory("movie");
-    const gnew=document.getElementById('btnGamesNew'); if(gnew) gnew.onclick=()=>switchCategory('games_new');
-    const snew=document.getElementById('btnSeriesNew'); if(snew) snew.onclick=()=>switchCategory('series_new');
-    const mnew=document.getElementById('btnMoviesNew'); if(mnew) mnew.onclick=()=>switchCategory('movie_new');
-    const cal=document.getElementById('btnCalendar'); if(cal) cal.onclick=()=>switchCategory('calendar');
+    document.getElementById("btnGames").onclick=()=>expandAndSwitchCategory("game");
+    document.getElementById("btnSeries").onclick=()=>expandAndSwitchCategory("series");
+    document.getElementById("btnMovies").onclick=()=>expandAndSwitchCategory("movie");
+    const gnew=document.getElementById('btnGamesNew'); if(gnew) gnew.onclick=()=>expandAndSwitchCategory('games_new');
+    const snew=document.getElementById('btnSeriesNew'); if(snew) snew.onclick=()=>expandAndSwitchCategory('series_new');
+    const mnew=document.getElementById('btnMoviesNew'); if(mnew) mnew.onclick=()=>expandAndSwitchCategory('movie_new');
+    const cal=document.getElementById('btnCalendar'); if(cal) cal.onclick=()=>expandAndSwitchCategory('calendar');
     document.getElementById("saveEdit").onclick=saveEdit;
     document.getElementById("cancelEdit").onclick=closeModal;
     // Add Item button is handled directly in HTML with onclick
-    const slider=document.getElementById("gridSlider");
-    if(slider) slider.oninput=function(){
-        // Don't affect calendar
-        if(currentCategory !== "calendar") {
-            const grid = document.getElementById("grid");
-            const newValue = Math.max(1, Math.min(15, parseInt(this.value) || 4));
-            console.log('Slider changed - old gridColumns:', gridColumns, 'new value:', newValue);
-            gridColumns = newValue;
-            
-            // Use centralized grid column application
-            applyGridColumns(grid);
-            
-            // Save preferences when grid columns change
-            saveViewPreferences();
-            
-            // Force re-render of all cards to ensure proper scaling
-            setTimeout(() => {
-                const cards = document.querySelectorAll('.card');
-                cards.forEach(card => {
-                    // Fixed card size
-                });
-            }, 10);
-        }
-    };
-    // Size slider removed - using fixed card size
+    // Column slider removed - using fixed 8 columns
     
     
-    // Animation speed slider
-    const animationSlider=document.getElementById('animationSlider');
-    if(animationSlider) animationSlider.oninput=function(){ 
-        const speed = parseFloat(this.value);
-        document.documentElement.style.setProperty('--animation-speed', String(speed));
-        saveViewPreferences();
-    };
-    
-    // Display toggles
-    const showImages=document.getElementById('showImages');
-    if(showImages) showImages.onchange=function(){ 
-        document.documentElement.style.setProperty('--show-images', this.checked ? '1' : '0');
-        saveViewPreferences();
-    };
-    
-    const showRatings=document.getElementById('showRatings');
-    if(showRatings) showRatings.onchange=function(){ 
-        document.documentElement.style.setProperty('--show-ratings', this.checked ? '1' : '0');
-        saveViewPreferences();
-    };
-    
-    const showPlatforms=document.getElementById('showPlatforms');
-    if(showPlatforms) showPlatforms.onchange=function(){ 
-        document.documentElement.style.setProperty('--show-platforms', this.checked ? '1' : '0');
-        saveViewPreferences();
-    };
-    
-    const showGenres=document.getElementById('showGenres');
-    if(showGenres) showGenres.onchange=function(){ 
-        document.documentElement.style.setProperty('--show-genres', this.checked ? '1' : '0');
-        saveViewPreferences();
-    };
+    // Display toggles - only landscape mode remains
     
     // Landscape mode toggle
     const landscapeModeToggle=document.getElementById('landscapeMode');
@@ -1673,6 +1605,16 @@ function setupControls(){
         applyViewMode();
         saveViewPreferences();
     };
+    
+    // Grid count control
+    const gridCountSelect = document.getElementById("gridCountSelect");
+    if(gridCountSelect) {
+        gridCountSelect.onchange = function() {
+            gridColumns = parseInt(this.value);
+            saveViewPreferences();
+            renderGrid();
+        };
+    }
     
     // View mode is always grid now
     const sortSelect=document.getElementById("sortSelect");
@@ -1715,7 +1657,11 @@ function setupControls(){
     const pickerBtn=document.getElementById('openImagePicker');
     if(pickerBtn) pickerBtn.onclick=async()=>{
         try{
-            const res=await fetch('/list-images');
+            const headers = {};
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            const res=await fetch('/api/list-images', {headers: headers});
             const data=await res.json();
             const listDiv=document.getElementById('imageList');
             listDiv.innerHTML='';
@@ -1757,7 +1703,11 @@ function setupControls(){
             dstPath = `images/${base}/${itemId}.${ext}`;
         }
         try{
-            const res=await fetch('/copy-image',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({src: srcPath, dst: dstPath})});
+            const headers = {'Content-Type':'application/json'};
+            if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            const res=await fetch('/api/copy-image',{method:'POST', headers: headers, body: JSON.stringify({src: srcPath, dst: dstPath})});
             const d=await res.json();
             if(d?.success && d?.saved){ if(pathInput) pathInput.value=d.saved; }
         }catch(e){ console.error(e); }
@@ -1783,10 +1733,18 @@ function setupControls(){
             form.append('file', file);
             form.append('dst', `images/${base}/${itemId}`);
             try{
-                const res = await fetch('/upload-image',{method:'POST', body: form});
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                const res = await fetch('/api/upload-image',{
+                    method:'POST', 
+                    headers: headers,
+                    body: form
+                });
                 const d = await res.json();
                 if(d?.success && d?.saved){ const pathInput=document.getElementById('editPath'); if(pathInput) pathInput.value=d.saved; }
-            }catch(e){ console.error(e); }
+            }catch(e){ console.error('Upload error:', e); }
             uploadInput.value='';
         };
     }
@@ -1865,11 +1823,6 @@ function setActiveCategoryButton(){
 // View preferences management
     function saveViewPreferences() {
         const preferences = {
-            animation: document.getElementById('animationSlider')?.value || '1',
-            showImages: document.getElementById('showImages')?.checked ?? true,
-            showRatings: document.getElementById('showRatings')?.checked ?? true,
-            showPlatforms: document.getElementById('showPlatforms')?.checked ?? true,
-            showGenres: document.getElementById('showGenres')?.checked ?? true,
             landscapeMode: landscapeMode,
             gridColumns: gridColumns
         };
@@ -1881,38 +1834,6 @@ function loadViewPreferences() {
     if (saved) {
         try {
             const preferences = JSON.parse(saved);
-            
-            // Apply animation speed
-            const animationSlider = document.getElementById('animationSlider');
-            if (animationSlider && preferences.animation) {
-                animationSlider.value = preferences.animation;
-                document.documentElement.style.setProperty('--animation-speed', preferences.animation);
-            }
-            
-            // Apply display toggles
-            const showImages = document.getElementById('showImages');
-            if (showImages) {
-                showImages.checked = preferences.showImages;
-                document.documentElement.style.setProperty('--show-images', preferences.showImages ? '1' : '0');
-            }
-            
-            const showRatings = document.getElementById('showRatings');
-            if (showRatings) {
-                showRatings.checked = preferences.showRatings;
-                document.documentElement.style.setProperty('--show-ratings', preferences.showRatings ? '1' : '0');
-            }
-            
-            const showPlatforms = document.getElementById('showPlatforms');
-            if (showPlatforms) {
-                showPlatforms.checked = preferences.showPlatforms;
-                document.documentElement.style.setProperty('--show-platforms', preferences.showPlatforms ? '1' : '0');
-            }
-            
-            const showGenres = document.getElementById('showGenres');
-            if (showGenres) {
-                showGenres.checked = preferences.showGenres;
-                document.documentElement.style.setProperty('--show-genres', preferences.showGenres ? '1' : '0');
-            }
             
             // Apply landscape mode
             if (preferences.landscapeMode !== undefined) {
@@ -1931,9 +1852,9 @@ function loadViewPreferences() {
             if (preferences.gridColumns) {
                 console.log('loadViewPreferences() - setting gridColumns to:', preferences.gridColumns);
                 gridColumns = preferences.gridColumns;
-                const gridSlider = document.getElementById('gridSlider');
-                if (gridSlider) {
-                    gridSlider.value = gridColumns;
+                const gridCountSelect = document.getElementById('gridCountSelect');
+                if (gridCountSelect) {
+                    gridCountSelect.value = gridColumns;
                 }
             }
         } catch (e) {
@@ -2068,7 +1989,13 @@ function createAutocompleteItem(item) {
     // Create thumbnail
     const thumbnail = document.createElement('img');
     thumbnail.className = 'autocomplete-thumbnail';
-    thumbnail.src = item.image || '/thumb?path=' + encodeURIComponent(item.path || '') + '&w=60&fmt=webp';
+    // Use original image for autocomplete
+    const thumbnailPath = item.path || '';
+    if (thumbnailPath) {
+        thumbnail.src = `/${thumbnailPath}`;
+    } else {
+        thumbnail.src = item.image || '';
+    }
     thumbnail.alt = item.title;
     thumbnail.onerror = () => {
         thumbnail.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA2MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjMzMzIi8+Cjx0ZXh0IHg9IjMwIiB5PSI0MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
@@ -2157,53 +2084,7 @@ function selectAutocompleteItem(item) {
     resultsContainer.classList.remove('show');
 }
 
-window.onload=async()=>{
-    setupControls();
-    // Load preferences before loading data to ensure gridColumns is set correctly
-    loadViewPreferences();
-    
-    // Initialize authentication
-    updateAuthUI();
-    
-    // Try to load user data if token exists
-    if (authToken) {
-        try {
-            const response = await fetch('/api/user', {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
-            
-            if (response.ok) {
-                currentUser = await response.json();
-                updateAuthUI();
-            } else {
-                // Token is invalid, clear it
-                authToken = null;
-                localStorage.removeItem('authToken');
-                updateAuthUI();
-            }
-        } catch (error) {
-            console.error('Error checking user:', error);
-            authToken = null;
-            localStorage.removeItem('authToken');
-            updateAuthUI();
-        }
-    }
-    
-    // Only load data after authentication check
-    await loadData();
-    
-    // initial toggle of playtime group based on default category
-    const playtimeGroup = document.getElementById('playtimeGroup');
-    if(playtimeGroup){ playtimeGroup.style.display = (currentCategory==='game' ? 'flex' : 'none'); }
-    // initial toggle of airing group based on default category
-    // View mode group removed - always using grid
-    applyViewMode();
-    setActiveCategoryButton();
-    
-    // Add button functionality is handled directly in HTML
-};
+// Old window.onload removed - now using DOMContentLoaded event listener
 
 // Progress Modal Functions
 function showProgressModal(title, canCancel = false) {
@@ -2294,11 +2175,6 @@ async function exportData() {
                 return itemWithoutUserId;
             }),
             preferences: {
-                animation: document.getElementById('animationSlider')?.value || '1',
-                showImages: document.getElementById('showImages')?.checked ?? true,
-                showRatings: document.getElementById('showRatings')?.checked ?? true,
-                showPlatforms: document.getElementById('showPlatforms')?.checked ?? true,
-                showGenres: document.getElementById('showGenres')?.checked ?? true,
                 landscapeMode: landscapeMode,
                 gridColumns: gridColumns
             }
@@ -2833,38 +2709,6 @@ async function handleChunkedImport(file) {
 }
 
 function applyImportedPreferences(preferences) {
-    // Apply animation speed
-    const animationSlider = document.getElementById('animationSlider');
-    if (animationSlider && preferences.animation) {
-        animationSlider.value = preferences.animation;
-        document.documentElement.style.setProperty('--animation-speed', preferences.animation);
-    }
-    
-    // Apply display toggles
-    const showImages = document.getElementById('showImages');
-    if (showImages && preferences.showImages !== undefined) {
-        showImages.checked = preferences.showImages;
-        document.documentElement.style.setProperty('--show-images', preferences.showImages ? '1' : '0');
-    }
-    
-    const showRatings = document.getElementById('showRatings');
-    if (showRatings && preferences.showRatings !== undefined) {
-        showRatings.checked = preferences.showRatings;
-        document.documentElement.style.setProperty('--show-ratings', preferences.showRatings ? '1' : '0');
-    }
-    
-    const showPlatforms = document.getElementById('showPlatforms');
-    if (showPlatforms && preferences.showPlatforms !== undefined) {
-        showPlatforms.checked = preferences.showPlatforms;
-        document.documentElement.style.setProperty('--show-platforms', preferences.showPlatforms ? '1' : '0');
-    }
-    
-    const showGenres = document.getElementById('showGenres');
-    if (showGenres && preferences.showGenres !== undefined) {
-        showGenres.checked = preferences.showGenres;
-        document.documentElement.style.setProperty('--show-genres', preferences.showGenres ? '1' : '0');
-    }
-    
     // Apply landscape mode
     if (preferences.landscapeMode !== undefined) {
         landscapeMode = preferences.landscapeMode;
@@ -2874,15 +2718,7 @@ function applyImportedPreferences(preferences) {
         }
     }
     
-    // Apply grid columns
-    if (preferences.gridColumns) {
-        gridColumns = preferences.gridColumns;
-        const gridSlider = document.getElementById('gridSlider');
-        if (gridSlider) {
-            gridSlider.value = gridColumns;
-        }
-        applyViewMode();
-    }
+    // Grid columns are now fixed at 8, no need to apply preferences
     
     // Save preferences
     saveViewPreferences();
@@ -2973,11 +2809,23 @@ window.addEventListener("click", (e)=>{
     const detailModal = document.getElementById("detailModal");
     const loginModal = document.getElementById("loginModal");
     const registerModal = document.getElementById("registerModal");
+    const accountModal = document.getElementById("accountModal");
+    const bulkAddModal = document.getElementById("bulkAddModal");
+    const impressumModal = document.getElementById("impressumModal");
+    const contactModal = document.getElementById("contactModal");
+    const privacyModal = document.getElementById("privacyModal");
+    const termsModal = document.getElementById("termsModal");
     
     if(e.target === editModal){ closeModal(); }
     if(e.target === detailModal){ closeDetailModal(); }
     if(e.target === loginModal){ closeLoginModal(); }
     if(e.target === registerModal){ closeRegisterModal(); }
+    if(e.target === accountModal){ closeModal('accountModal'); }
+    if(e.target === bulkAddModal){ closeModal('bulkAddModal'); }
+    if(e.target === impressumModal){ closeModal('impressumModal'); }
+    if(e.target === contactModal){ closeModal('contactModal'); }
+    if(e.target === privacyModal){ closeModal('privacyModal'); }
+    if(e.target === termsModal){ closeModal('termsModal'); }
 });
 
 // Import Console Functions
@@ -3450,5 +3298,1087 @@ async function downloadImageForItem(item, imageUrl) {
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
-    cleanupGridProtection();
+    // Grid protection cleanup no longer needed
 });
+
+// Settings Management
+let settings = {
+    darkMode: true, // Start with dark mode as default
+    autoSync: true,
+    notifications: false
+};
+
+function loadSettings() {
+    const saved = localStorage.getItem('appSettings');
+    if (saved) {
+        try {
+            settings = { ...settings, ...JSON.parse(saved) };
+            applySettings();
+        } catch (e) {
+            console.warn('Failed to load settings:', e);
+        }
+    }
+}
+
+function saveSettings() {
+    localStorage.setItem('appSettings', JSON.stringify(settings));
+}
+
+function applySettings() {
+    // Apply dark mode
+    const body = document.body;
+    if (settings.darkMode) {
+        body.classList.add('dark-mode');
+    } else {
+        body.classList.remove('dark-mode');
+    }
+    
+    // Update toggle states
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const autoSyncToggle = document.getElementById('autoSyncToggle');
+    const notificationsToggle = document.getElementById('notificationsToggle');
+    
+    if (darkModeToggle) darkModeToggle.checked = settings.darkMode;
+    if (autoSyncToggle) autoSyncToggle.checked = settings.autoSync;
+    if (notificationsToggle) notificationsToggle.checked = settings.notifications;
+    
+    // Start auto sync if enabled
+    if (settings.autoSync) {
+        startAutoSync();
+    }
+}
+
+function toggleDarkMode() {
+    settings.darkMode = !settings.darkMode;
+    applySettings();
+    saveSettings();
+}
+
+function toggleAutoSync() {
+    settings.autoSync = !settings.autoSync;
+    applySettings();
+    saveSettings();
+    
+    if (settings.autoSync) {
+        showNotification('Auto sync enabled', 'success');
+        // Start auto sync if enabled
+        startAutoSync();
+    } else {
+        showNotification('Auto sync disabled', 'info');
+        // Stop auto sync if disabled
+        stopAutoSync();
+    }
+}
+
+function toggleNotifications() {
+    settings.notifications = !settings.notifications;
+    applySettings();
+    saveSettings();
+    
+    if (settings.notifications) {
+        showNotification('Notifications enabled', 'success');
+    } else {
+        showNotification('Notifications disabled', 'info');
+    }
+}
+
+// Auto sync functionality
+let autoSyncInterval = null;
+
+function startAutoSync() {
+    if (autoSyncInterval) return; // Already running
+    
+    autoSyncInterval = setInterval(async () => {
+        try {
+            await saveData();
+            console.log('Auto sync completed');
+        } catch (error) {
+            console.error('Auto sync failed:', error);
+        }
+    }, 30000); // Sync every 30 seconds
+}
+
+function stopAutoSync() {
+    if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+    }
+}
+
+// New UI Event Listeners
+function setupNewUIEventListeners() {
+    // Sidebar toggle
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+    
+    if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', toggleMobileSidebar);
+    }
+    
+    // Floating action button
+    const floatingAddButton = document.getElementById('floatingAddButton');
+    const floatingMenu = document.getElementById('floatingMenu');
+    
+    if (floatingAddButton) {
+        floatingAddButton.addEventListener('click', toggleFloatingMenu);
+    }
+    
+    // Close floating menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (floatingMenu && !floatingMenu.contains(e.target) && !floatingAddButton.contains(e.target)) {
+            closeFloatingMenu();
+        }
+    });
+    
+    // Account modal
+    const accountBtn = document.getElementById('accountBtn');
+    const accountModal = document.getElementById('accountModal');
+    const accountCloseBtn = document.getElementById('accountCloseBtn');
+    
+    if (accountBtn) {
+        accountBtn.addEventListener('click', () => openModal('accountModal'));
+    }
+    
+    if (accountCloseBtn) {
+        accountCloseBtn.addEventListener('click', () => closeModal('accountModal'));
+    }
+    
+    // Floating menu items
+    const addItemBtn = document.getElementById('addItemBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const bulkAddBtn = document.getElementById('bulkAddBtn');
+    const exportTitlesBtn = document.getElementById('exportTitlesBtn');
+    const loadTitlesBtn = document.getElementById('loadTitlesBtn');
+    
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            openAddModal();
+        });
+    }
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            exportData();
+        });
+    }
+    
+    if (importBtn) {
+        importBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            document.getElementById('importFileInput').click();
+        });
+    }
+    
+    if (bulkAddBtn) {
+        bulkAddBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            openModal('bulkAddModal');
+        });
+    }
+    
+    if (exportTitlesBtn) {
+        exportTitlesBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            exportTitlesList();
+        });
+    }
+    
+    if (loadTitlesBtn) {
+        loadTitlesBtn.addEventListener('click', () => {
+            closeFloatingMenu();
+            document.getElementById('loadTitlesFileInput').click();
+        });
+    }
+    
+    // Settings toggles
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const autoSyncToggle = document.getElementById('autoSyncToggle');
+    const notificationsToggle = document.getElementById('notificationsToggle');
+    
+    if (darkModeToggle) {
+        darkModeToggle.addEventListener('change', toggleDarkMode);
+    }
+    
+    if (autoSyncToggle) {
+        autoSyncToggle.addEventListener('change', toggleAutoSync);
+    }
+    
+    if (notificationsToggle) {
+        notificationsToggle.addEventListener('change', toggleNotifications);
+    }
+    
+    // About links
+    const impressumLink = document.getElementById('impressumLink');
+    const contactLink = document.getElementById('contactLink');
+    const privacyLink = document.getElementById('privacyLink');
+    const termsLink = document.getElementById('termsLink');
+    
+    if (impressumLink) {
+        impressumLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal('impressumModal');
+        });
+    }
+    
+    if (contactLink) {
+        contactLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal('contactModal');
+        });
+    }
+    
+    if (privacyLink) {
+        privacyLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal('privacyModal');
+        });
+    }
+    
+    if (termsLink) {
+        termsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModal('termsModal');
+        });
+    }
+    
+    // Profile management button
+    const openProfileBtn = document.getElementById('openProfileBtn');
+    if (openProfileBtn) {
+        openProfileBtn.addEventListener('click', () => {
+            window.location.href = 'profile.html';
+        });
+    }
+}
+
+// Export titles list function
+async function exportTitlesList() {
+    try {
+        console.log('Starting titles export...');
+        
+        // Check if user is logged in
+        if (!authToken || !currentUser) {
+            showNotification('Bitte loggen Sie sich ein, um Titel zu exportieren.', 'error');
+            return;
+        }
+        
+        // Show progress modal
+        showProgressModal('Exporting Titles...', false);
+        
+        updateProgress(10, 'Loading data...', 'Fetching user media items...');
+        
+        // Load fresh data from API
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        const res = await fetch("/api/media_relative.json", { headers });
+        
+        if (!res.ok) {
+            throw new Error(`Failed to load data: ${res.status} ${res.statusText}`);
+        }
+        
+        const mediaData = await res.json();
+        console.log('Media data loaded for titles export:', { itemCount: mediaData.length });
+        
+        updateProgress(50, 'Creating titles list...', 'Formatting titles and identifiers...');
+        
+        // Create titles list with unique identifiers
+        const titlesList = mediaData.map(item => {
+            // Use external_id if available, otherwise use id
+            const identifier = item.external_id || item.id;
+            return `${item.title}|${identifier}`;
+        }).join('\n');
+        
+        updateProgress(80, 'Preparing download...', 'Creating text file...');
+        
+        // Create and download the text file
+        const blob = new Blob([titlesList], { type: 'text/plain;charset=utf-8' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `media-titles-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        updateProgress(100, 'Export completed!', `Titles list downloaded successfully.`);
+        
+        console.log('Titles export completed successfully');
+        
+        // Show success message
+        showNotification('Titel-Export erfolgreich! Text-Datei wurde heruntergeladen.', 'success');
+        
+        completeProgress(true, 'Titles export completed successfully!');
+        
+    } catch (error) {
+        console.error('Titles export failed:', error);
+        showNotification('Titel-Export fehlgeschlagen: ' + error.message, 'error');
+        completeProgress(false, 'Titles export failed: ' + error.message);
+    }
+}
+
+// Load titles check function
+async function handleLoadTitlesFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    try {
+        console.log('Starting titles check...');
+        
+        // Check if user is logged in
+        if (!authToken || !currentUser) {
+            showNotification('Bitte loggen Sie sich ein, um Titel zu überprüfen.', 'error');
+            return;
+        }
+        
+        // Show progress modal
+        showProgressModal('Checking Titles...', false);
+        
+        updateProgress(10, 'Reading file...', 'Loading titles from text file...');
+        
+        // Read the file content
+        const fileContent = await file.text();
+        const lines = fileContent.split('\n').filter(line => line.trim());
+        
+        console.log('File loaded:', { lineCount: lines.length });
+        
+        updateProgress(30, 'Loading current data...', 'Fetching user media items...');
+        
+        // Load current user data
+        const headers = { 'Authorization': `Bearer ${authToken}` };
+        const res = await fetch("/api/media_relative.json", { headers });
+        
+        if (!res.ok) {
+            throw new Error(`Failed to load current data: ${res.status} ${res.statusText}`);
+        }
+        
+        const currentMediaData = await res.json();
+        console.log('Current media data loaded:', { itemCount: currentMediaData.length });
+        
+        updateProgress(60, 'Comparing titles...', 'Checking which titles are in your account...');
+        
+        // Create maps for quick lookup
+        const currentTitles = new Map();
+        const currentIdentifiers = new Map();
+        
+        currentMediaData.forEach(item => {
+            const identifier = item.external_id || item.id;
+            currentTitles.set(item.title.toLowerCase(), item);
+            currentIdentifiers.set(identifier.toString(), item);
+        });
+        
+        // Check each line from the file
+        const results = {
+            found: [],
+            notFound: [],
+            errors: []
+        };
+        
+        lines.forEach((line, index) => {
+            try {
+                const parts = line.split('|');
+                if (parts.length !== 2) {
+                    results.errors.push(`Line ${index + 1}: Invalid format - "${line}"`);
+                    return;
+                }
+                
+                const [title, identifier] = parts;
+                const titleLower = title.toLowerCase().trim();
+                
+                // Check by identifier first, then by title
+                let foundItem = currentIdentifiers.get(identifier.trim()) || currentTitles.get(titleLower);
+                
+                if (foundItem) {
+                    results.found.push({
+                        line: index + 1,
+                        title: title.trim(),
+                        identifier: identifier.trim(),
+                        foundBy: currentIdentifiers.has(identifier.trim()) ? 'identifier' : 'title',
+                        currentTitle: foundItem.title,
+                        currentId: foundItem.id
+                    });
+                } else {
+                    results.notFound.push({
+                        line: index + 1,
+                        title: title.trim(),
+                        identifier: identifier.trim()
+                    });
+                }
+            } catch (error) {
+                results.errors.push(`Line ${index + 1}: Error processing - "${line}" (${error.message})`);
+            }
+        });
+        
+        updateProgress(90, 'Generating report...', 'Creating comparison results...');
+        
+        // Generate report
+        const report = generateTitlesCheckReport(results, lines.length);
+        
+        updateProgress(100, 'Check completed!', `Found ${results.found.length} matches, ${results.notFound.length} not found.`);
+        
+        // Show results in a modal or notification
+        showTitlesCheckResults(results, report);
+        
+        console.log('Titles check completed:', results);
+        
+        completeProgress(true, 'Titles check completed successfully!');
+        
+    } catch (error) {
+        console.error('Titles check failed:', error);
+        showNotification('Titel-Überprüfung fehlgeschlagen: ' + error.message, 'error');
+        completeProgress(false, 'Titles check failed: ' + error.message);
+    } finally {
+        // Reset file input
+        event.target.value = '';
+    }
+}
+
+// Generate titles check report
+function generateTitlesCheckReport(results, totalLines) {
+    let report = `TITEL-ÜBERPRÜFUNG BERICHT\n`;
+    report += `========================\n\n`;
+    report += `Gesamt überprüfte Einträge: ${totalLines}\n`;
+    report += `Gefunden: ${results.found.length}\n`;
+    report += `Nicht gefunden: ${results.notFound.length}\n`;
+    report += `Fehler: ${results.errors.length}\n\n`;
+    
+    if (results.found.length > 0) {
+        report += `GEFUNDENE TITEL:\n`;
+        report += `================\n`;
+        results.found.forEach(item => {
+            report += `✓ Zeile ${item.line}: "${item.title}" (${item.identifier})\n`;
+            report += `  → Gefunden als: "${item.currentTitle}" (ID: ${item.currentId})\n`;
+            report += `  → Gefunden durch: ${item.foundBy === 'identifier' ? 'Identifier' : 'Titel'}\n\n`;
+        });
+    }
+    
+    if (results.notFound.length > 0) {
+        report += `NICHT GEFUNDENE TITEL:\n`;
+        report += `=====================\n`;
+        results.notFound.forEach(item => {
+            report += `✗ Zeile ${item.line}: "${item.title}" (${item.identifier})\n`;
+        });
+        report += `\n`;
+    }
+    
+    if (results.errors.length > 0) {
+        report += `FEHLER:\n`;
+        report += `=======\n`;
+        results.errors.forEach(error => {
+            report += `⚠ ${error}\n`;
+        });
+    }
+    
+    return report;
+}
+
+// Show titles check results
+function showTitlesCheckResults(results, report) {
+    // Create modal for results
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>Titel-Überprüfung Ergebnisse</h2>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="results-summary">
+                    <div class="summary-item found">
+                        <span class="summary-icon">✓</span>
+                        <span class="summary-text">Gefunden: ${results.found.length}</span>
+                    </div>
+                    <div class="summary-item not-found">
+                        <span class="summary-icon">✗</span>
+                        <span class="summary-text">Nicht gefunden: ${results.notFound.length}</span>
+                    </div>
+                    <div class="summary-item errors">
+                        <span class="summary-icon">⚠</span>
+                        <span class="summary-text">Fehler: ${results.errors.length}</span>
+                    </div>
+                </div>
+                <div class="results-details">
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto;">${report}</pre>
+                </div>
+                <div class="modal-actions">
+                    <button onclick="downloadTitlesCheckReport('${btoa(report)}')" class="btn btn-primary">Bericht herunterladen</button>
+                    <button onclick="this.closest('.modal').remove()" class="btn btn-secondary">Schließen</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Download titles check report
+function downloadTitlesCheckReport(base64Report) {
+    const report = atob(base64Report);
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `titles-check-report-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Sidebar functions
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebarCollapsed = !sidebarCollapsed;
+    
+    if (sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+    } else {
+        sidebar.classList.remove('collapsed');
+    }
+    
+    // Save state to localStorage
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+}
+
+// Expand sidebar and switch to category
+function expandAndSwitchCategory(category) {
+    const sidebar = document.getElementById('sidebar');
+    
+    // If sidebar is collapsed, expand it first
+    if (sidebarCollapsed) {
+        sidebarCollapsed = false;
+        sidebar.classList.remove('collapsed');
+        localStorage.setItem('sidebarCollapsed', false);
+    }
+    
+    // Switch to the category
+    switchCategory(category);
+}
+
+function toggleMobileSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('mobile-open');
+}
+
+// Floating menu functions
+function toggleFloatingMenu() {
+    const floatingMenu = document.getElementById('floatingMenu');
+    floatingMenuOpen = !floatingMenuOpen;
+    
+    if (floatingMenuOpen) {
+        floatingMenu.classList.add('show');
+    } else {
+        floatingMenu.classList.remove('show');
+    }
+}
+
+function closeFloatingMenu() {
+    const floatingMenu = document.getElementById('floatingMenu');
+    floatingMenuOpen = false;
+    floatingMenu.classList.remove('show');
+}
+
+// Modal functions
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
+}
+
+// Update filter checkboxes in sidebar
+function updateFilterCheckboxes() {
+    updatePlatformFilters();
+    updateGenreFilters();
+}
+
+function updatePlatformFilters() {
+    const container = document.getElementById('platformFilters');
+    if (!container) return;
+    
+    // Get unique platforms from media data
+    const platforms = [...new Set(mediaData
+        .filter(item => item.platforms)
+        .flatMap(item => item.platforms.split(',').map(p => p.trim()))
+        .filter(p => p.length > 0)
+    )].sort();
+    
+    const maxVisible = 5;
+    const hasMore = platforms.length > maxVisible;
+    
+    // Create visible items
+    const visiblePlatforms = platforms.slice(0, maxVisible);
+    const hiddenPlatforms = platforms.slice(maxVisible);
+    
+    let html = visiblePlatforms.map(platform => `
+        <label class="filter-option">
+            <input type="checkbox" value="${platform}" ${activeFilters.includes(platform) ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            <span class="option-text">${platform}</span>
+        </label>
+    `).join('');
+    
+    // Add hidden items with collapsible container
+    if (hasMore) {
+        html += `
+            <div class="filter-collapsible" id="platformCollapsible" style="display: none;">
+                ${hiddenPlatforms.map(platform => `
+                    <label class="filter-option">
+                        <input type="checkbox" value="${platform}" ${activeFilters.includes(platform) ? 'checked' : ''}>
+                        <span class="checkmark"></span>
+                        <span class="option-text">${platform}</span>
+                    </label>
+                `).join('')}
+            </div>
+            <button class="filter-toggle" id="platformToggle">
+                <span class="toggle-text">Show more (${hiddenPlatforms.length})</span>
+                <span class="toggle-icon">▼</span>
+            </button>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Add event listeners for checkboxes
+    container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                if (!activeFilters.includes(this.value)) {
+                    activeFilters.push(this.value);
+                }
+            } else {
+                activeFilters = activeFilters.filter(f => f !== this.value);
+            }
+            renderGrid();
+        });
+    });
+    
+    // Add toggle button event listener
+    const toggleBtn = document.getElementById('platformToggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const collapsible = document.getElementById('platformCollapsible');
+            const toggleText = this.querySelector('.toggle-text');
+            const toggleIcon = this.querySelector('.toggle-icon');
+            
+            if (collapsible.style.display === 'none') {
+                collapsible.style.display = 'block';
+                toggleText.textContent = `Show less`;
+                toggleIcon.textContent = '▲';
+            } else {
+                collapsible.style.display = 'none';
+                toggleText.textContent = `Show more (${hiddenPlatforms.length})`;
+                toggleIcon.textContent = '▼';
+            }
+        });
+    }
+}
+
+function updateGenreFilters() {
+    const container = document.getElementById('genreFilters');
+    if (!container) return;
+    
+    // Get unique genres from media data
+    const genres = [...new Set(mediaData
+        .filter(item => item.genre)
+        .flatMap(item => item.genre.split(',').map(g => g.trim()))
+        .filter(g => g.length > 0)
+    )].sort();
+    
+    const maxVisible = 5;
+    const hasMore = genres.length > maxVisible;
+    
+    // Create visible items
+    const visibleGenres = genres.slice(0, maxVisible);
+    const hiddenGenres = genres.slice(maxVisible);
+    
+    let html = visibleGenres.map(genre => `
+        <label class="filter-option">
+            <input type="checkbox" value="${genre}" ${activeFilters.includes(genre) ? 'checked' : ''}>
+            <span class="checkmark"></span>
+            <span class="option-text">${genre}</span>
+        </label>
+    `).join('');
+    
+    // Add hidden items with collapsible container
+    if (hasMore) {
+        html += `
+            <div class="filter-collapsible" id="genreCollapsible" style="display: none;">
+                ${hiddenGenres.map(genre => `
+                    <label class="filter-option">
+                        <input type="checkbox" value="${genre}" ${activeFilters.includes(genre) ? 'checked' : ''}>
+                        <span class="checkmark"></span>
+                        <span class="option-text">${genre}</span>
+                    </label>
+                `).join('')}
+            </div>
+            <button class="filter-toggle" id="genreToggle">
+                <span class="toggle-text">Show more (${hiddenGenres.length})</span>
+                <span class="toggle-icon">▼</span>
+            </button>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Add event listeners for checkboxes
+    container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                if (!activeFilters.includes(this.value)) {
+                    activeFilters.push(this.value);
+                }
+            } else {
+                activeFilters = activeFilters.filter(f => f !== this.value);
+            }
+            renderGrid();
+        });
+    });
+    
+    // Add toggle button event listener
+    const toggleBtn = document.getElementById('genreToggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const collapsible = document.getElementById('genreCollapsible');
+            const toggleText = this.querySelector('.toggle-text');
+            const toggleIcon = this.querySelector('.toggle-icon');
+            
+            if (collapsible.style.display === 'none') {
+                collapsible.style.display = 'block';
+                toggleText.textContent = `Show less`;
+                toggleIcon.textContent = '▲';
+            } else {
+                collapsible.style.display = 'none';
+                toggleText.textContent = `Show more (${hiddenGenres.length})`;
+                toggleIcon.textContent = '▼';
+            }
+        });
+    }
+}
+
+// Update navigation buttons
+function updateNavigationButtons() {
+    // Remove active class from all nav buttons
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    
+    // Add active class to current category button
+    const categoryMap = {
+        'game': 'btnGames',
+        'series': 'btnSeries', 
+        'movie': 'btnMovies',
+        'games_new': 'btnGamesNew',
+        'series_new': 'btnSeriesNew',
+        'movie_new': 'btnMoviesNew',
+        'calendar': 'btnCalendar'
+    };
+    
+    const activeButton = document.getElementById(categoryMap[currentCategory]);
+    if (activeButton) {
+        activeButton.classList.add('active');
+    }
+}
+
+// Update counts in navigation
+function updateCounts() {
+    const counts = {
+        games: 0,
+        series: 0,
+        movies: 0
+    };
+    
+    mediaData.forEach(item => {
+        if (item.category === 'game' || item.category === 'games_new') {
+            counts.games++;
+        } else if (item.category === 'series' || item.category === 'series_new') {
+            counts.series++;
+        } else if (item.category === 'movie' || item.category === 'movie_new') {
+            counts.movies++;
+        }
+    });
+    
+    // Update count displays
+    const countGames = document.getElementById('countGames');
+    const countSeries = document.getElementById('countSeries');
+    const countMovies = document.getElementById('countMovies');
+    
+    if (countGames) countGames.textContent = counts.games;
+    if (countSeries) countSeries.textContent = counts.series;
+    if (countMovies) countMovies.textContent = counts.movies;
+}
+
+// Load sidebar state from localStorage
+function loadSidebarState() {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState === 'true') {
+        sidebarCollapsed = true;
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.classList.add('collapsed');
+        }
+    }
+}
+
+// Initialize sidebar state
+loadSidebarState();
+
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing app...');
+    
+    // Set up new UI event listeners
+    setupNewUIEventListeners();
+    
+    // Set up existing event listeners
+    setupExistingEventListeners();
+    
+    // Set up controls (including sidebar navigation)
+    setupControls();
+    
+    // Load preferences before loading data to ensure gridColumns is set correctly
+    loadViewPreferences();
+    
+    // Load settings
+    loadSettings();
+    
+    // Update auth UI (will be called again after auth check)
+    updateAuthUI();
+    
+    // Load data
+    loadData();
+    
+    // Initial toggle of playtime group based on default category
+    const playtimeGroup = document.getElementById('playtimeGroup');
+    if(playtimeGroup){ 
+        playtimeGroup.style.display = (currentCategory === 'game' ? 'flex' : 'none'); 
+    }
+    
+    // Initial toggle of airing group based on default category
+    const airingGroup = document.getElementById('airingGroup');
+    if(airingGroup){ 
+        airingGroup.style.display = (currentCategory === 'series' ? 'flex' : 'none'); 
+    }
+    
+    // Apply view mode
+    applyViewMode();
+    setActiveCategoryButton();
+    
+    console.log('App initialized successfully');
+});
+
+// Set up existing event listeners
+function setupExistingEventListeners() {
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            searchQuery = this.value;
+            renderGrid();
+        });
+    }
+    
+    if (searchClear) {
+        searchClear.addEventListener('click', function() {
+            searchInput.value = '';
+            searchQuery = '';
+            renderGrid();
+        });
+    }
+    
+    // Sort functionality
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const [field, order] = this.value.split('_');
+            sortData(field, order);
+            renderGrid();
+        });
+    }
+    
+    // Landscape mode toggle
+    const landscapeModeToggle = document.getElementById('landscapeMode');
+    if (landscapeModeToggle) {
+        landscapeModeToggle.addEventListener('change', function() {
+            landscapeMode = this.checked;
+            document.body.classList.toggle('landscape-mode', landscapeMode);
+            renderGrid();
+        });
+    }
+    
+    // Playtime filters
+    const playMinInput = document.getElementById('playMin');
+    const playMaxInput = document.getElementById('playMax');
+    
+    if (playMinInput) {
+        playMinInput.addEventListener('input', function() {
+            playMin = this.value ? parseInt(this.value) : null;
+            renderGrid();
+        });
+    }
+    
+    if (playMaxInput) {
+        playMaxInput.addEventListener('input', function() {
+            playMax = this.value ? parseInt(this.value) : null;
+            renderGrid();
+        });
+    }
+    
+    // Airing filters
+    const airingAll = document.getElementById('airingAll');
+    const airingTrue = document.getElementById('airingTrue');
+    const airingFalse = document.getElementById('airingFalse');
+    
+    if (airingAll) {
+        airingAll.addEventListener('click', () => {
+            airingFilter = 'all';
+            updateAiringButtons();
+            renderGrid();
+        });
+    }
+    
+    if (airingTrue) {
+        airingTrue.addEventListener('click', () => {
+            airingFilter = 'true';
+            updateAiringButtons();
+            renderGrid();
+        });
+    }
+    
+    if (airingFalse) {
+        airingFalse.addEventListener('click', () => {
+            airingFilter = 'false';
+            updateAiringButtons();
+            renderGrid();
+        });
+    }
+    
+    // Authentication buttons
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => openModal('loginModal'));
+    }
+    
+    if (registerBtn) {
+        registerBtn.addEventListener('click', () => openModal('registerModal'));
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+    
+    // Login form
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                await login(email, password);
+                closeModal('loginModal');
+            } catch (error) {
+                showError('loginError', error.message);
+            }
+        });
+    }
+    
+    // Register form
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerPasswordConfirm').value;
+            
+            if (password !== confirmPassword) {
+                showError('registerError', 'Passwords do not match');
+                return;
+            }
+            
+            try {
+                await register(name, email, password);
+                closeModal('registerModal');
+            } catch (error) {
+                showError('registerError', error.message);
+            }
+        });
+    }
+    
+    // Import file input
+    const importFileInput = document.getElementById('importFileInput');
+    if (importFileInput) {
+        importFileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                importData(this.files[0]);
+            }
+        });
+    }
+}
+
+// Update airing filter buttons
+function updateAiringButtons() {
+    const airingAll = document.getElementById('airingAll');
+    const airingTrue = document.getElementById('airingTrue');
+    const airingFalse = document.getElementById('airingFalse');
+    
+    if (airingAll) airingAll.classList.toggle('active', airingFilter === 'all');
+    if (airingTrue) airingTrue.classList.toggle('active', airingFilter === 'true');
+    if (airingFalse) airingFalse.classList.toggle('active', airingFilter === 'false');
+}
+
+// Show error message
+function showError(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+    }
+}
+
+// Sort data function
+function sortData(field, order) {
+    mediaData.sort((a, b) => {
+        let aVal = a[field];
+        let bVal = b[field];
+        
+        if (field === 'title') {
+            aVal = (aVal || '').toLowerCase();
+            bVal = (bVal || '').toLowerCase();
+        } else if (field === 'release' || field === 'discovered') {
+            aVal = new Date(aVal || 0);
+            bVal = new Date(bVal || 0);
+        } else if (field === 'rating' || field === 'count' || field === 'spielzeit') {
+            aVal = parseFloat(aVal) || 0;
+            bVal = parseFloat(bVal) || 0;
+        }
+        
+        if (order === 'asc') {
+            return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        } else {
+            return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+    });
+}

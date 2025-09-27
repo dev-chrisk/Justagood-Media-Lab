@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
+use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\ExportImportController;
 
 /*
@@ -73,4 +74,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // Chunked upload routes for large files
     Route::post('upload-chunk', [ExportImportController::class, 'uploadChunk']);
     Route::post('finalize-chunked-upload', [ExportImportController::class, 'finalizeChunkedUpload']);
+    
+    // Statistics routes
+    Route::prefix('statistics')->group(function () {
+        Route::get('total', [StatisticsController::class, 'total']);
+        Route::get('categories', [StatisticsController::class, 'categories']);
+        Route::get('ratings', [StatisticsController::class, 'ratings']);
+        Route::get('platforms', [StatisticsController::class, 'platforms']);
+        Route::get('genres', [StatisticsController::class, 'genres']);
+        Route::get('recent', [StatisticsController::class, 'recent']);
+        Route::get('airing', [StatisticsController::class, 'airing']);
+        Route::get('release-years', [StatisticsController::class, 'releaseYears']);
+        Route::get('discovery-timeline', [StatisticsController::class, 'discoveryTimeline']);
+        Route::get('playtime-by-category', [StatisticsController::class, 'playtimeByCategory']);
+        Route::get('user-activity', [StatisticsController::class, 'userActivity']);
+    });
 });

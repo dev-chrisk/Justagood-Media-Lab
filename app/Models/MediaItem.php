@@ -39,6 +39,8 @@ class MediaItem extends Model
         'next_season' => 'integer',
     ];
 
+    protected $appends = ['image_url'];
+
     // Accessor for image URL
     protected function imageUrl(): Attribute
     {

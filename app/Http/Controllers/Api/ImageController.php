@@ -161,7 +161,7 @@ class ImageController extends Controller
     }
 
     /**
-     * Generate thumbnail (simplified - just return original image for now)
+     * Generate optimized thumbnail with caching
      */
     public function thumbnail(Request $request)
     {
@@ -178,29 +178,100 @@ class ImageController extends Controller
         }
 
         $path = $request->path;
+        $width = $request->get('w', 300);
+        $height = $request->get('h', null);
+        $quality = $request->get('q', 85);
+        $format = $request->get('fmt', 'webp');
+        
+        // Set proper cache headers for better performance
+        $cacheTime = 60 * 60 * 24 * 30; // 30 days
 
         // Try to find the actual image path
         $actualPath = null;
-        $possiblePaths = [
-            $path, // Direct path
-            "images/{$path}", // In images subdirectory
-            "images_downloads/{$path}", // In images_downloads subdirectory
-        ];
+        
+        // The path from database is already relative to storage/app/public
+        // So we check it directly first
+        if (Storage::disk('public')->exists($path)) {
+            $actualPath = $path;
+        } else {
+            // Fallback: try different path variations
+            $possiblePaths = [
+                "images/{$path}", // In images subdirectory
+                "images_downloads/{$path}", // In images_downloads subdirectory
+                $path, // Direct path as fallback
+            ];
 
-        foreach ($possiblePaths as $testPath) {
-            if (Storage::disk('public')->exists($testPath)) {
-                $actualPath = $testPath;
-                break;
+            foreach ($possiblePaths as $testPath) {
+                if (Storage::disk('public')->exists($testPath)) {
+                    $actualPath = $testPath;
+                    break;
+                }
             }
         }
+
 
         if (!$actualPath) {
             return response()->json(['success' => false, 'error' => 'Source not found', 'searched_paths' => $possiblePaths], 404);
         }
 
-        // For now, just return the original image
-        // TODO: Implement proper thumbnail generation
-        return Storage::disk('public')->response($actualPath);
+        // Generate cache key
+        $cacheKey = 'thumb_' . md5($actualPath . '_' . $width . '_' . $height . '_' . $quality . '_' . $format);
+        $cachePath = "thumbnails/{$cacheKey}.{$format}";
+
+        // Check if thumbnail already exists
+        if (Storage::disk('public')->exists($cachePath)) {
+            $response = Storage::disk('public')->response($cachePath);
+            $response->headers->set('Cache-Control', "public, max-age={$cacheTime}");
+            $response->headers->set('Expires', gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+            return $response;
+        }
+
+        try {
+            // Create thumbnails directory if it doesn't exist
+            if (!Storage::disk('public')->exists('thumbnails')) {
+                Storage::disk('public')->makeDirectory('thumbnails');
+            }
+
+            // Load original image
+            $manager = new ImageManager(new Driver());
+            
+            // Load image from storage
+            $imageContent = Storage::disk('public')->get($actualPath);
+            
+            $image = $manager->read($imageContent);
+
+            // Resize image maintaining aspect ratio
+            if ($height) {
+                $image->resize($width, $height);
+            } else {
+                $image->resize($width, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                });
+            }
+
+            // Encode with specified format and quality
+            if ($format === 'webp') {
+                $encoded = $image->toWebp($quality);
+            } elseif ($format === 'jpg' || $format === 'jpeg') {
+                $encoded = $image->toJpeg($quality);
+            } else {
+                $encoded = $image->toPng();
+            }
+
+            // Save thumbnail
+            Storage::disk('public')->put($cachePath, $encoded);
+
+            // Return the thumbnail with cache headers
+            $response = Storage::disk('public')->response($cachePath);
+            $response->headers->set('Cache-Control', "public, max-age={$cacheTime}");
+            $response->headers->set('Expires', gmdate('D, d M Y H:i:s', time() + $cacheTime) . ' GMT');
+            return $response;
+
+        } catch (\Exception $e) {
+            // Fallback to original image if thumbnail generation fails
+            return Storage::disk('public')->response($actualPath);
+        }
     }
 
     /**
@@ -215,6 +286,7 @@ class ImageController extends Controller
             "images_downloads/{$path}", // In images_downloads subdirectory
         ];
 
+        // First check in storage/app/public
         foreach ($possiblePaths as $testPath) {
             if (Storage::disk('public')->exists($testPath)) {
                 return Storage::disk('public')->response($testPath);
