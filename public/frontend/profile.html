@@ -8,27 +8,71 @@
     <link rel="stylesheet" href="styles/profile.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="header-left">
-                <button id="backBtn" class="back-btn">
-                    <span class="back-icon">←</span>
-                    <span class="back-text">Back to Library</span>
-                </button>
-            </div>
-            <div class="header-center">
-                <h1>Profile Settings</h1>
-            </div>
-            <div class="header-right">
-                <button id="saveAllBtn" class="save-all-btn">Save All Changes</button>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Justagood Media Lab</h2>
+            <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+        </div>
+        <div class="sidebar-content">
+            <div class="sidebar-section">
+                <h3>Navigation</h3>
+                <nav class="sidebar-nav">
+                    <button class="nav-btn" id="libraryBtn">
+                        <span class="nav-icon">📚</span>
+                        <span class="nav-text">Library</span>
+                    </button>
+                    <button class="nav-btn" id="statisticsBtn">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Statistics</span>
+                    </button>
+                    <button class="nav-btn active" id="profileBtn">
+                        <span class="nav-icon">👤</span>
+                        <span class="nav-text">Profile</span>
+                    </button>
+                </nav>
             </div>
         </div>
-    </header>
+    </aside>
 
     <!-- Main Content -->
-    <main class="profile-main">
-        <div class="profile-container">
+    <div class="main-content">
+        <!-- Main Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <button class="mobile-sidebar-toggle" id="mobileSidebarToggle">☰</button>
+                <div class="search-container">
+                    <input type="text" id="settingsSearchInput" placeholder="Search settings...">
+                    <button class="search-clear" id="settingsSearchClear">✕</button>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="search-results-info" id="searchResultsInfo" style="display: none;">
+                    <span id="searchResultsCount">0</span> settings found
+                </div>
+                <button id="refreshStatsBtn" class="refresh-stats-btn" title="Refresh statistics">
+                    <span class="refresh-icon">🔄</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Content Area -->
+        <main class="content-area">
+            <!-- Profile Header -->
+            <div class="profile-header-section">
+                <div class="profile-header-actions">
+                    <button id="backBtn" class="back-btn">
+                        <span class="back-icon">←</span>
+                        <span class="back-text">Back to Library</span>
+                    </button>
+                    <h1 class="profile-title">Profile Settings</h1>
+                    <button id="saveAllBtn" class="save-all-btn">Save All Changes</button>
+                </div>
+            </div>
+
+            <!-- Profile Content -->
+            <div class="profile-content">
+                <div class="profile-container">
             <!-- Profile Header Section -->
             <div class="profile-header">
                 <div class="profile-avatar-section">
@@ -345,9 +389,10 @@
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
 
     <!-- Confirmation Modal -->
     <div id="confirmationModal" class="modal">

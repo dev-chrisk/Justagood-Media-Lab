@@ -214,6 +214,11 @@ async function loadData(){
         updateCounts();
         updateFilterCheckboxes();
         updateNavigationButtons();
+        
+        // Update statistics if they are currently visible
+        if (statisticsManager && document.getElementById('statisticsView').style.display !== 'none') {
+            statisticsManager.loadStatistics();
+        }
         return;
         } catch(fallbackError) {
             console.error("JSON loading failed:", fallbackError);
@@ -246,6 +251,11 @@ async function loadData(){
         updateCounts();
         updateFilterCheckboxes();
         updateNavigationButtons();
+        
+        // Update statistics if they are currently visible
+        if (statisticsManager && document.getElementById('statisticsView').style.display !== 'none') {
+            statisticsManager.loadStatistics();
+        }
     } catch(e){
         console.error("API failed for logged in user:", e);
         // If user is logged in but API fails, show empty data
@@ -1486,9 +1496,15 @@ function updateCounts(){
     const g = mediaData.filter(i=>i.category==='game').length;
     const s = mediaData.filter(i=>i.category==='series').length;
     const m = mediaData.filter(i=>i.category==='movie').length;
+    const gn = mediaData.filter(i=>i.category==='games_new').length;
+    const sn = mediaData.filter(i=>i.category==='series_new').length;
+    const mn = mediaData.filter(i=>i.category==='movie_new').length;
     const cg=document.getElementById('countGames'); if(cg) cg.textContent = g;
     const cs=document.getElementById('countSeries'); if(cs) cs.textContent = s;
     const cm=document.getElementById('countMovies'); if(cm) cm.textContent = m;
+    const cgn=document.getElementById('countGamesNew'); if(cgn) cgn.textContent = gn;
+    const csn=document.getElementById('countSeriesNew'); if(csn) csn.textContent = sn;
+    const cmn=document.getElementById('countMoviesNew'); if(cmn) cmn.textContent = mn;
 }
 
 // Check Infos
@@ -1583,13 +1599,14 @@ function setupControls(){
     document.getElementById("registerCancel").onclick = closeRegisterModal;
     
     // Category controls
-    document.getElementById("btnGames").onclick=()=>expandAndSwitchCategory("game");
-    document.getElementById("btnSeries").onclick=()=>expandAndSwitchCategory("series");
-    document.getElementById("btnMovies").onclick=()=>expandAndSwitchCategory("movie");
-    const gnew=document.getElementById('btnGamesNew'); if(gnew) gnew.onclick=()=>expandAndSwitchCategory('games_new');
-    const snew=document.getElementById('btnSeriesNew'); if(snew) snew.onclick=()=>expandAndSwitchCategory('series_new');
-    const mnew=document.getElementById('btnMoviesNew'); if(mnew) mnew.onclick=()=>expandAndSwitchCategory('movie_new');
-    const cal=document.getElementById('btnCalendar'); if(cal) cal.onclick=()=>expandAndSwitchCategory('calendar');
+    document.getElementById("btnGames").onclick=()=>{switchToGrid(); expandAndSwitchCategory("game");};
+    document.getElementById("btnSeries").onclick=()=>{switchToGrid(); expandAndSwitchCategory("series");};
+    document.getElementById("btnMovies").onclick=()=>{switchToGrid(); expandAndSwitchCategory("movie");};
+    const gnew=document.getElementById('btnGamesNew'); if(gnew) gnew.onclick=()=>{switchToGrid(); expandAndSwitchCategory('games_new');};
+    const snew=document.getElementById('btnSeriesNew'); if(snew) snew.onclick=()=>{switchToGrid(); expandAndSwitchCategory('series_new');};
+    const mnew=document.getElementById('btnMoviesNew'); if(mnew) mnew.onclick=()=>{switchToGrid(); expandAndSwitchCategory('movie_new');};
+    const cal=document.getElementById('btnCalendar'); if(cal) cal.onclick=()=>{switchToGrid(); expandAndSwitchCategory('calendar');};
+    const stats=document.getElementById('btnStatistics'); if(stats) stats.onclick=()=>switchToStatistics();
     document.getElementById("saveEdit").onclick=saveEdit;
     document.getElementById("cancelEdit").onclick=closeModal;
     // Add Item button is handled directly in HTML with onclick
@@ -3313,11 +3330,12 @@ function loadSettings() {
     if (saved) {
         try {
             settings = { ...settings, ...JSON.parse(saved) };
-            applySettings();
         } catch (e) {
             console.warn('Failed to load settings:', e);
         }
     }
+    // Always apply settings, even if no saved settings exist
+    applySettings();
 }
 
 function saveSettings() {
@@ -3328,12 +3346,12 @@ function applySettings() {
     // Apply dark mode
     const body = document.body;
     if (settings.darkMode) {
-        body.classList.add('dark-mode');
+        body.classList.remove('light-mode');
     } else {
-        body.classList.remove('dark-mode');
+        body.classList.add('light-mode');
     }
     
-    // Update toggle states
+    // Update toggle states (only if elements exist)
     const darkModeToggle = document.getElementById('darkModeToggle');
     const autoSyncToggle = document.getElementById('autoSyncToggle');
     const notificationsToggle = document.getElementById('notificationsToggle');
@@ -3380,6 +3398,17 @@ function toggleNotifications() {
     } else {
         showNotification('Notifications disabled', 'info');
     }
+}
+
+function updateAccountModalToggles() {
+    // Update toggle states in account modal to reflect current settings
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const autoSyncToggle = document.getElementById('autoSyncToggle');
+    const notificationsToggle = document.getElementById('notificationsToggle');
+    
+    if (darkModeToggle) darkModeToggle.checked = settings.darkMode;
+    if (autoSyncToggle) autoSyncToggle.checked = settings.autoSync;
+    if (notificationsToggle) notificationsToggle.checked = settings.notifications;
 }
 
 // Auto sync functionality
@@ -3441,7 +3470,11 @@ function setupNewUIEventListeners() {
     const accountCloseBtn = document.getElementById('accountCloseBtn');
     
     if (accountBtn) {
-        accountBtn.addEventListener('click', () => openModal('accountModal'));
+        accountBtn.addEventListener('click', () => {
+            // Update toggle states when opening account modal
+            updateAccountModalToggles();
+            openModal('accountModal');
+        });
     }
     
     if (accountCloseBtn) {
@@ -4099,16 +4132,25 @@ function updateCounts() {
     const counts = {
         games: 0,
         series: 0,
-        movies: 0
+        movies: 0,
+        gamesNew: 0,
+        seriesNew: 0,
+        moviesNew: 0
     };
     
     mediaData.forEach(item => {
-        if (item.category === 'game' || item.category === 'games_new') {
+        if (item.category === 'game') {
             counts.games++;
-        } else if (item.category === 'series' || item.category === 'series_new') {
+        } else if (item.category === 'games_new') {
+            counts.gamesNew++;
+        } else if (item.category === 'series') {
             counts.series++;
-        } else if (item.category === 'movie' || item.category === 'movie_new') {
+        } else if (item.category === 'series_new') {
+            counts.seriesNew++;
+        } else if (item.category === 'movie') {
             counts.movies++;
+        } else if (item.category === 'movie_new') {
+            counts.moviesNew++;
         }
     });
     
@@ -4116,10 +4158,16 @@ function updateCounts() {
     const countGames = document.getElementById('countGames');
     const countSeries = document.getElementById('countSeries');
     const countMovies = document.getElementById('countMovies');
+    const countGamesNew = document.getElementById('countGamesNew');
+    const countSeriesNew = document.getElementById('countSeriesNew');
+    const countMoviesNew = document.getElementById('countMoviesNew');
     
     if (countGames) countGames.textContent = counts.games;
     if (countSeries) countSeries.textContent = counts.series;
     if (countMovies) countMovies.textContent = counts.movies;
+    if (countGamesNew) countGamesNew.textContent = counts.gamesNew;
+    if (countSeriesNew) countSeriesNew.textContent = counts.seriesNew;
+    if (countMoviesNew) countMoviesNew.textContent = counts.moviesNew;
 }
 
 // Load sidebar state from localStorage
@@ -4141,7 +4189,10 @@ loadSidebarState();
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     
-    // Set up new UI event listeners
+    // Load settings first to ensure dark mode is applied immediately
+    loadSettings();
+    
+    // Set up new UI event listeners (includes settings toggles)
     setupNewUIEventListeners();
     
     // Set up existing event listeners
@@ -4153,8 +4204,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load preferences before loading data to ensure gridColumns is set correctly
     loadViewPreferences();
     
-    // Load settings
-    loadSettings();
+    // Apply settings again after all event listeners are set up
+    applySettings();
     
     // Update auth UI (will be called again after auth check)
     updateAuthUI();
@@ -4381,4 +4432,367 @@ function sortData(field, order) {
             return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
         }
     });
+}
+
+// Statistics functionality
+let statisticsManager = null;
+
+function switchToStatistics() {
+    // Hide grid and show statistics
+    document.getElementById('grid').style.display = 'none';
+    document.getElementById('statisticsView').style.display = 'block';
+    
+    // Update active button
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('btnStatistics').classList.add('active');
+    
+    // Initialize statistics if not already done
+    if (!statisticsManager) {
+        statisticsManager = new StatisticsManager();
+    } else {
+        // If data is not loaded yet, wait a bit and try again
+        if (typeof mediaData === 'undefined' || !mediaData || mediaData.length === 0) {
+            console.log('Data not loaded yet, waiting...');
+            setTimeout(() => {
+                if (statisticsManager) {
+                    statisticsManager.loadStatistics();
+                }
+            }, 1000);
+        } else {
+            statisticsManager.loadStatistics();
+        }
+    }
+}
+
+function switchToGrid() {
+    // Show grid and hide statistics
+    document.getElementById('grid').style.display = 'block';
+    document.getElementById('statisticsView').style.display = 'none';
+    
+    // Update active button
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    // Set active button based on current category
+    setActiveCategoryButton();
+}
+
+class StatisticsManager {
+    constructor() {
+        this.stats = {};
+        this.init();
+    }
+
+    async init() {
+        await this.loadStatistics();
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const refreshBtn = document.getElementById('refreshStats');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadStatistics();
+            });
+        }
+    }
+
+    async loadStatistics() {
+        try {
+            this.showLoading();
+            
+            console.log('Loading statistics...');
+            
+            // Use the same data as the main application
+            if (typeof mediaData === 'undefined' || !mediaData || mediaData.length === 0) {
+                this.showError('Keine Daten gefunden. Bitte lade die Hauptseite neu oder warte, bis die Daten geladen sind.');
+                return;
+            }
+            
+            // Get collections data from localStorage or use empty array
+            const collectionsData = JSON.parse(localStorage.getItem('collectionsData') || '[]');
+            
+            console.log('Data loaded from global mediaData:', mediaData.length, 'items');
+            
+            // Calculate statistics from the same data as main app
+            const stats = this.calculateStatistics(mediaData, collectionsData);
+
+            console.log('Statistics calculated:', stats);
+
+            this.stats = stats;
+
+            this.renderStatistics();
+            this.hideLoading();
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+            this.showError('Fehler beim Laden der Statistiken: ' + error.message);
+        }
+    }
+
+    calculateStatistics(mediaData, collectionsData) {
+        // Total items
+        const totalItems = mediaData.length;
+        const totalCollections = collectionsData.length;
+        
+        // Total playtime
+        const totalPlaytime = mediaData.reduce((sum, item) => sum + (parseInt(item.spielzeit) || 0), 0);
+        
+        // Average rating
+        const ratings = mediaData.filter(item => item.rating && !isNaN(parseFloat(item.rating)));
+        const avgRating = ratings.length > 0 ? ratings.reduce((sum, item) => sum + parseFloat(item.rating), 0) / ratings.length : 0;
+        
+        // Category distribution
+        const categoryStats = {};
+        mediaData.forEach(item => {
+            const category = item.category || 'unknown';
+            categoryStats[category] = (categoryStats[category] || 0) + 1;
+        });
+        const categories = Object.entries(categoryStats).map(([category, count]) => ({ category, count }));
+        
+        // Rating distribution
+        const ratingStats = {};
+        ratings.forEach(item => {
+            const rating = parseFloat(item.rating);
+            ratingStats[rating] = (ratingStats[rating] || 0) + 1;
+        });
+        const ratingsArray = Object.entries(ratingStats).map(([rating, count]) => ({ rating: parseFloat(rating), count }));
+        
+        // Platform distribution
+        const platformStats = {};
+        mediaData.forEach(item => {
+            if (item.platforms) {
+                const platforms = item.platforms.split(',').map(p => p.trim()).filter(p => p);
+                platforms.forEach(platform => {
+                    platformStats[platform] = (platformStats[platform] || 0) + 1;
+                });
+            }
+        });
+        const platforms = Object.entries(platformStats).map(([platform, count]) => ({ platform, count }));
+        
+        // Genre distribution
+        const genreStats = {};
+        mediaData.forEach(item => {
+            if (item.genre) {
+                const genres = item.genre.split(',').map(g => g.trim()).filter(g => g);
+                genres.forEach(genre => {
+                    genreStats[genre] = (genreStats[genre] || 0) + 1;
+                });
+            }
+        });
+        const genres = Object.entries(genreStats).map(([genre, count]) => ({ genre, count }));
+        
+        // Recent activity (last 10 items by discovered date)
+        const recent = mediaData
+            .filter(item => item.discovered)
+            .sort((a, b) => new Date(b.discovered) - new Date(a.discovered))
+            .slice(0, 10)
+            .map(item => ({ title: item.title, discovered: item.discovered, category: item.category }));
+        
+        // Airing series
+        const airing = mediaData
+            .filter(item => item.category === 'series' && item.isAiring === true)
+            .map(item => ({ title: item.title, next_season: item.nextSeason, next_season_release: item.nextSeasonRelease }));
+        
+        return {
+            total: {
+                totalItems,
+                totalCollections,
+                totalPlaytime,
+                avgRating: Math.round(avgRating * 10) / 10
+            },
+            categories: categories.sort((a, b) => b.count - a.count),
+            ratings: ratingsArray.sort((a, b) => a.rating - b.rating),
+            platforms: platforms.sort((a, b) => b.count - a.count),
+            genres: genres.sort((a, b) => b.count - a.count),
+            recent,
+            airing
+        };
+    }
+
+    renderStatistics() {
+        this.renderSummaryCards();
+        this.renderCategoryChart();
+        this.renderRatingChart();
+        this.renderPlatformChart();
+        this.renderGenreChart();
+        this.renderRecentActivity();
+        this.renderAiringSeries();
+    }
+
+    renderSummaryCards() {
+        document.getElementById('totalItems').textContent = this.stats.total.totalItems || 0;
+        document.getElementById('totalCollections').textContent = this.stats.total.totalCollections || 0;
+        document.getElementById('totalPlaytime').textContent = this.formatPlaytime(this.stats.total.totalPlaytime || 0);
+        document.getElementById('avgRating').textContent = (this.stats.total.avgRating || 0).toFixed(1);
+    }
+
+    renderCategoryChart() {
+        const container = document.getElementById('categoryChart');
+        container.innerHTML = '';
+
+        if (this.stats.categories && this.stats.categories.length > 0) {
+            const maxCount = Math.max(...this.stats.categories.map(cat => cat.count));
+            
+            this.stats.categories.forEach(category => {
+                const percentage = Math.max((category.count / maxCount) * 100, 5); // Minimum 5% width
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${category.category}</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%">
+                            ${category.count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine Kategorie-Daten verfügbar</p>';
+        }
+    }
+
+    renderRatingChart() {
+        const container = document.getElementById('ratingChart');
+        container.innerHTML = '';
+
+        if (this.stats.ratings && this.stats.ratings.length > 0) {
+            const maxCount = Math.max(...this.stats.ratings.map(rating => rating.count));
+            
+            this.stats.ratings.forEach(rating => {
+                const percentage = Math.max((rating.count / maxCount) * 100, 5);
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${rating.rating} ⭐</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%">
+                            ${rating.count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine Bewertungs-Daten verfügbar</p>';
+        }
+    }
+
+    renderPlatformChart() {
+        const container = document.getElementById('platformChart');
+        container.innerHTML = '';
+
+        if (this.stats.platforms && this.stats.platforms.length > 0) {
+            const maxCount = Math.max(...this.stats.platforms.map(platform => platform.count));
+            
+            this.stats.platforms.forEach(platform => {
+                const percentage = Math.max((platform.count / maxCount) * 100, 5);
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${platform.platform}</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%">
+                            ${platform.count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine Plattform-Daten verfügbar</p>';
+        }
+    }
+
+    renderGenreChart() {
+        const container = document.getElementById('genreChart');
+        container.innerHTML = '';
+
+        if (this.stats.genres && this.stats.genres.length > 0) {
+            const maxCount = Math.max(...this.stats.genres.map(genre => genre.count));
+            
+            this.stats.genres.slice(0, 10).forEach(genre => {
+                const percentage = Math.max((genre.count / maxCount) * 100, 5);
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${genre.genre}</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%">
+                            ${genre.count}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine Genre-Daten verfügbar</p>';
+        }
+    }
+
+    renderRecentActivity() {
+        const container = document.getElementById('recentActivity');
+        container.innerHTML = '';
+
+        if (this.stats.recent && this.stats.recent.length > 0) {
+            this.stats.recent.forEach(activity => {
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${activity.title}</span>
+                    <span class="category-count">${this.formatDate(activity.discovered)}</span>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine kürzlichen Aktivitäten verfügbar</p>';
+        }
+    }
+
+    renderAiringSeries() {
+        const container = document.getElementById('airingSeries');
+        container.innerHTML = '';
+
+        if (this.stats.airing && this.stats.airing.length > 0) {
+            this.stats.airing.forEach(series => {
+                const item = document.createElement('div');
+                item.className = 'category-item';
+                item.innerHTML = `
+                    <span class="category-name">${series.title}</span>
+                    <span class="category-count">S${series.next_season}</span>
+                `;
+                container.appendChild(item);
+            });
+        } else {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">Keine laufenden Serien verfügbar</p>';
+        }
+    }
+
+    formatPlaytime(minutes) {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours}h ${mins}m`;
+    }
+
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('de-DE');
+    }
+
+    showLoading() {
+        document.getElementById('loadingMessage').style.display = 'block';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('statisticsContent').style.display = 'none';
+    }
+
+    hideLoading() {
+        document.getElementById('loadingMessage').style.display = 'none';
+        document.getElementById('statisticsContent').style.display = 'block';
+    }
+
+    showError(message = 'Fehler beim Laden der Statistiken. Bitte versuche es erneut.') {
+        document.getElementById('loadingMessage').style.display = 'none';
+        const errorElement = document.getElementById('errorMessage');
+        errorElement.querySelector('p').textContent = message;
+        errorElement.style.display = 'block';
+        document.getElementById('statisticsContent').style.display = 'none';
+    }
 }

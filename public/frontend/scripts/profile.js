@@ -43,11 +43,11 @@ let profileData = {
 };
 
 // Initialize profile page
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('Profile page loaded');
     
-    // Load profile data
-    loadProfileData();
+    // Load profile data (now async)
+    await loadProfileData();
     
     // Set up event listeners
     setupEventListeners();
@@ -56,8 +56,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updateUI();
 });
 
-// Load profile data from localStorage
-function loadProfileData() {
+// Load profile data from localStorage and API
+async function loadProfileData() {
     const saved = localStorage.getItem('profileData');
     if (saved) {
         try {
@@ -80,15 +80,62 @@ function loadProfileData() {
         }
     }
     
-    // Load media data for stats
-    const mediaData = localStorage.getItem('mediaData');
-    if (mediaData) {
-        try {
-            const data = JSON.parse(mediaData);
-            profileData.totalItems = data.length;
-        } catch (e) {
-            console.warn('Failed to load media data for stats:', e);
+    // Load media data for stats from API (same as main app)
+    await loadMediaDataForStats();
+}
+
+// Load media data for statistics
+async function loadMediaDataForStats() {
+    const authToken = localStorage.getItem('authToken');
+    
+    try {
+        if (authToken) {
+            // User is logged in, load from API
+            const headers = { 'Authorization': `Bearer ${authToken}` };
+            const response = await fetch("/api/media_relative.json", { headers });
+            
+            if (response.ok) {
+                const mediaData = await response.json();
+                profileData.totalItems = mediaData.length;
+                console.log('Profile: Loaded media data from API', { itemCount: mediaData.length });
+            } else {
+                console.warn('Profile: API request failed, trying fallback');
+                await loadMediaDataFallback();
+            }
+        } else {
+            // User not logged in, try fallback
+            await loadMediaDataFallback();
         }
+    } catch (error) {
+        console.warn('Profile: Failed to load media data from API:', error);
+        await loadMediaDataFallback();
+    }
+}
+
+// Fallback method to load media data
+async function loadMediaDataFallback() {
+    try {
+        // Try to load from JSON file as fallback
+        const response = await fetch("/data/data/media.json");
+        if (response.ok) {
+            const mediaData = await response.json();
+            profileData.totalItems = mediaData.length;
+            console.log('Profile: Loaded media data from JSON fallback', { itemCount: mediaData.length });
+        } else {
+            // Try localStorage as last resort
+            const mediaData = localStorage.getItem('mediaData');
+            if (mediaData) {
+                const data = JSON.parse(mediaData);
+                profileData.totalItems = data.length;
+                console.log('Profile: Loaded media data from localStorage', { itemCount: data.length });
+            } else {
+                profileData.totalItems = 0;
+                console.log('Profile: No media data found, setting totalItems to 0');
+            }
+        }
+    } catch (error) {
+        console.warn('Profile: All fallback methods failed:', error);
+        profileData.totalItems = 0;
     }
 }
 
@@ -107,6 +154,60 @@ function saveProfileData() {
 
 // Set up event listeners
 function setupEventListeners() {
+    // Sidebar toggle
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+    }
+    
+    if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('mobile-open');
+        });
+    }
+    
+    // Navigation buttons
+    const libraryBtn = document.getElementById('libraryBtn');
+    const statisticsBtn = document.getElementById('statisticsBtn');
+    const profileBtn = document.getElementById('profileBtn');
+    
+    if (libraryBtn) {
+        libraryBtn.addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+    }
+    
+    if (statisticsBtn) {
+        statisticsBtn.addEventListener('click', () => {
+            window.location.href = 'statistics.html';
+        });
+    }
+    
+    // Settings search functionality
+    setupSettingsSearch();
+    
+    // Refresh stats button
+    const refreshStatsBtn = document.getElementById('refreshStatsBtn');
+    if (refreshStatsBtn) {
+        refreshStatsBtn.addEventListener('click', async () => {
+            refreshStatsBtn.classList.add('loading');
+            try {
+                await refreshMediaStats();
+                showNotification('Statistics refreshed successfully!', 'success');
+            } catch (error) {
+                console.error('Failed to refresh statistics:', error);
+                showNotification('Failed to refresh statistics', 'error');
+            } finally {
+                refreshStatsBtn.classList.remove('loading');
+            }
+        });
+    }
+    
     // Back button
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
@@ -156,6 +257,18 @@ function setupEventListeners() {
     
     // Confirmation modal
     setupConfirmationModal();
+    
+    // Auto-refresh stats when page becomes visible
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshMediaStats();
+        }
+    });
+    
+    // Auto-refresh stats every 30 seconds
+    setInterval(() => {
+        refreshMediaStats();
+    }, 30000);
 }
 
 // Handle input changes
@@ -238,6 +351,14 @@ function updateProfileHeader() {
     
     // Update avatar
     updateAvatar();
+}
+
+// Refresh media statistics
+async function refreshMediaStats() {
+    console.log('Profile: Refreshing media statistics...');
+    await loadMediaDataForStats();
+    updateProfileHeader();
+    console.log('Profile: Media statistics refreshed', { totalItems: profileData.totalItems });
 }
 
 // Update avatar
@@ -638,5 +759,199 @@ function showNotification(message, type = 'info') {
     setTimeout(() => {
         notification.classList.remove('show');
     }, 3000);
+}
+
+// Settings Search Functionality
+function setupSettingsSearch() {
+    const searchInput = document.getElementById('settingsSearchInput');
+    const searchClear = document.getElementById('settingsSearchClear');
+    const searchResultsInfo = document.getElementById('searchResultsInfo');
+    const searchResultsCount = document.getElementById('searchResultsCount');
+    
+    if (!searchInput) return;
+    
+    // Search input event listener
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+        searchSettings(query);
+    });
+    
+    // Clear search button
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            clearSearch();
+        });
+    }
+    
+    // Clear search on Escape key
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            clearSearch();
+        }
+    });
+}
+
+// Search through settings
+function searchSettings(query) {
+    if (!query) {
+        clearSearch();
+        return;
+    }
+    
+    const sections = document.querySelectorAll('.settings-section');
+    const formGroups = document.querySelectorAll('.form-group');
+    let foundCount = 0;
+    let firstFoundSection = null;
+    
+    // Clear previous search results
+    sections.forEach(section => {
+        section.classList.remove('search-highlighted', 'search-hidden');
+    });
+    
+    formGroups.forEach(group => {
+        group.classList.remove('search-highlighted', 'search-hidden');
+    });
+    
+    // Search through sections
+    sections.forEach(section => {
+        const sectionTitle = section.querySelector('h3');
+        const sectionDescription = section.querySelector('.section-header p');
+        const sectionText = (sectionTitle?.textContent + ' ' + sectionDescription?.textContent).toLowerCase();
+        
+        if (matchesSearch(sectionText, query)) {
+            section.classList.add('search-highlighted');
+            if (!firstFoundSection) firstFoundSection = section;
+            foundCount++;
+        } else {
+            // Search through form groups within this section
+            const groups = section.querySelectorAll('.form-group');
+            let hasMatchingGroups = false;
+            
+            groups.forEach(group => {
+                const label = group.querySelector('label');
+                const input = group.querySelector('input, select, textarea');
+                const groupText = (label?.textContent + ' ' + (input?.placeholder || '')).toLowerCase();
+                
+                if (matchesSearch(groupText, query)) {
+                    group.classList.add('search-highlighted');
+                    section.classList.add('search-highlighted');
+                    hasMatchingGroups = true;
+                    if (!firstFoundSection) firstFoundSection = section;
+                    foundCount++;
+                } else {
+                    group.classList.add('search-hidden');
+                }
+            });
+            
+            if (!hasMatchingGroups) {
+                section.classList.add('search-hidden');
+            }
+        }
+    });
+    
+    // Update search results info
+    updateSearchResultsInfo(foundCount);
+    
+    // Scroll to first found section
+    if (firstFoundSection) {
+        setTimeout(() => {
+            firstFoundSection.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start',
+                inline: 'nearest'
+            });
+        }, 100);
+    }
+}
+
+// Enhanced search matching with German translations
+function matchesSearch(text, query) {
+    if (!text || !query) return false;
+    
+    // Direct match
+    if (text.includes(query)) return true;
+    
+    // German translations for common settings terms
+    const translations = {
+        'password': ['passwort', 'sicherheit'],
+        'email': ['e-mail', 'nachricht'],
+        'notification': ['benachrichtigung', 'meldung'],
+        'theme': ['design', 'darstellung', 'modus'],
+        'language': ['sprache'],
+        'backup': ['sicherung', 'speicherung'],
+        'privacy': ['datenschutz', 'privat'],
+        'security': ['sicherheit', 'schutz'],
+        'personal': ['persönlich', 'eigene'],
+        'preferences': ['einstellungen', 'präferenzen'],
+        'advanced': ['erweitert', 'fortgeschritten'],
+        'data': ['daten'],
+        'account': ['konto', 'benutzer'],
+        'profile': ['profil', 'benutzerprofil'],
+        'settings': ['einstellungen', 'konfiguration'],
+        'danger': ['gefahr', 'löschen', 'entfernen'],
+        'delete': ['löschen', 'entfernen'],
+        'reset': ['zurücksetzen', 'neu'],
+        'clear': ['leeren', 'löschen'],
+        'export': ['exportieren', 'herunterladen'],
+        'import': ['importieren', 'hochladen'],
+        'sync': ['synchronisieren', 'abgleich'],
+        'analytics': ['analysen', 'statistiken'],
+        'debug': ['fehlerbehebung', 'debug'],
+        'compact': ['kompakt', 'klein'],
+        'auto': ['automatisch', 'selbst'],
+        'manual': ['manuell', 'hand'],
+        'enable': ['aktivieren', 'einschalten'],
+        'disable': ['deaktivieren', 'ausschalten']
+    };
+    
+    // Check if query matches any translated terms
+    for (const [english, germanTerms] of Object.entries(translations)) {
+        if (query.includes(english) || english.includes(query)) {
+            for (const germanTerm of germanTerms) {
+                if (text.includes(germanTerm)) return true;
+            }
+        }
+        for (const germanTerm of germanTerms) {
+            if (query.includes(germanTerm) && text.includes(english)) return true;
+        }
+    }
+    
+    return false;
+}
+
+// Clear search results
+function clearSearch() {
+    const sections = document.querySelectorAll('.settings-section');
+    const formGroups = document.querySelectorAll('.form-group');
+    
+    sections.forEach(section => {
+        section.classList.remove('search-highlighted', 'search-hidden');
+    });
+    
+    formGroups.forEach(group => {
+        group.classList.remove('search-highlighted', 'search-hidden');
+    });
+    
+    updateSearchResultsInfo(0);
+}
+
+// Update search results info display
+function updateSearchResultsInfo(count) {
+    const searchResultsInfo = document.getElementById('searchResultsInfo');
+    const searchResultsCount = document.getElementById('searchResultsCount');
+    
+    if (searchResultsInfo && searchResultsCount) {
+        searchResultsCount.textContent = count;
+        
+        if (count > 0) {
+            searchResultsInfo.style.display = 'flex';
+            searchResultsInfo.classList.add('show');
+        } else {
+            searchResultsInfo.style.display = 'none';
+            searchResultsInfo.classList.remove('show');
+        }
+    }
 }
 
