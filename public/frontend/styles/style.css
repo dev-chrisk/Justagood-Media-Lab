@@ -606,6 +606,12 @@ body {
     display: flex;
     align-items: center;
     gap: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.header-right.show {
+    opacity: 1;
 }
 
 .grid-count-container {

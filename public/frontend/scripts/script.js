@@ -450,12 +450,14 @@ function updateAuthUIWithoutProfileStatus() {
     const userInfo = document.getElementById('userInfo');
     const userName = document.getElementById('userName');
     const filterSection = document.getElementById('filtersSection');
+    const headerRight = document.querySelector('.header-right');
     
     console.log('updateAuthUIWithoutProfileStatus called:', { 
         currentUser: !!currentUser, 
         authButtons: !!authButtons, 
         userInfo: !!userInfo, 
-        userName: !!userName 
+        userName: !!userName,
+        headerRight: !!headerRight
     });
     
     if (!authButtons || !userInfo || !userName) {
@@ -489,6 +491,16 @@ function updateAuthUIWithoutProfileStatus() {
                 filterSection.classList.add('show');
             }, 100);
         }
+        
+        // Show header settings when logged in
+        if (headerRight) {
+            headerRight.style.display = 'flex';
+            headerRight.style.setProperty('display', 'flex', 'important');
+            // Trigger smooth fade-in animation for header settings
+            setTimeout(() => {
+                headerRight.classList.add('show');
+            }, 100);
+        }
     } else {
         authButtons.style.display = 'flex';
         authButtons.style.setProperty('display', 'flex', 'important');
@@ -506,6 +518,13 @@ function updateAuthUIWithoutProfileStatus() {
             filterSection.style.display = 'none';
             filterSection.classList.remove('show');
         }
+        
+        // Hide header settings when logged out
+        if (headerRight) {
+            headerRight.style.display = 'none';
+            headerRight.style.setProperty('display', 'none', 'important');
+            headerRight.classList.remove('show');
+        }
     }
 }
 
@@ -514,12 +533,14 @@ function updateAuthUI() {
     const userInfo = document.getElementById('userInfo');
     const userName = document.getElementById('userName');
     const filterSection = document.getElementById('filtersSection');
+    const headerRight = document.querySelector('.header-right');
     
     console.log('updateAuthUI called:', { 
         currentUser: !!currentUser, 
         authButtons: !!authButtons, 
         userInfo: !!userInfo, 
-        userName: !!userName 
+        userName: !!userName,
+        headerRight: !!headerRight
     });
     
     if (!authButtons || !userInfo || !userName) {
@@ -556,6 +577,16 @@ function updateAuthUI() {
             }, 100);
         }
         
+        // Show header settings when logged in
+        if (headerRight) {
+            headerRight.style.display = 'flex';
+            headerRight.style.setProperty('display', 'flex', 'important');
+            // Trigger smooth fade-in animation for header settings
+            setTimeout(() => {
+                headerRight.classList.add('show');
+            }, 100);
+        }
+        
         // Update profile status when user logs in
         updateProfileStatus();
     } else {
@@ -574,6 +605,13 @@ function updateAuthUI() {
         if (filterSection) {
             filterSection.style.display = 'none';
             filterSection.classList.remove('show');
+        }
+        
+        // Hide header settings when logged out
+        if (headerRight) {
+            headerRight.style.display = 'none';
+            headerRight.style.setProperty('display', 'none', 'important');
+            headerRight.classList.remove('show');
         }
     }
 }
