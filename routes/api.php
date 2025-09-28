@@ -113,6 +113,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/database-stats', [DebugController::class, 'databaseStats']);
         Route::get('/image-paths-check', [DebugController::class, 'imagePathsCheck']);
         Route::get('/check-duplicates', [DebugController::class, 'checkDuplicates']);
+        Route::get('/check-duplicates-in-category', [DebugController::class, 'checkDuplicatesInCategory']);
+        Route::get('/duplicate-check-status', [DebugController::class, 'getDuplicateCheckStatus']);
         Route::get('/system-info', [DebugController::class, 'systemInfo']);
         Route::post('/clear-cache', [DebugController::class, 'clearCache']);
         Route::get('/recent-errors', [DebugController::class, 'recentErrors']);

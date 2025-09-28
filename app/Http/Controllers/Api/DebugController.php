@@ -206,7 +206,168 @@ class DebugController extends Controller
     }
 
     /**
-     * Check for duplicate entries
+     * Check for duplicate entries in specific category with progress
+     */
+    public function checkDuplicatesInCategory(Request $request)
+    {
+        try {
+            $category = $request->get('category');
+            $chunkSize = 100; // Process in chunks to avoid memory issues
+            $offset = $request->get('offset', 0);
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category parameter is required'
+                ], 400);
+            }
+
+            // Get total count for progress calculation
+            $totalItems = MediaItem::where('category', $category)->count();
+            
+            if ($totalItems === 0) {
+                return response()->json([
+                    'success' => true,
+                    'category' => $category,
+                    'total_items' => 0,
+                    'processed' => 0,
+                    'progress' => 100,
+                    'duplicates' => [],
+                    'is_complete' => true
+                ]);
+            }
+
+            // Get items in current chunk
+            $items = MediaItem::where('category', $category)
+                ->select('id', 'title', 'category', 'release', 'rating', 'platforms', 'genre', 'link', 'path')
+                ->offset($offset)
+                ->limit($chunkSize)
+                ->get();
+
+            $duplicates = [];
+            $processed = $offset + $items->count();
+            $progress = min(100, round(($processed / $totalItems) * 100, 2));
+
+            // Check for duplicates within this chunk and against all items in category
+            foreach ($items as $item) {
+                // Check for exact duplicates
+                $exactDuplicates = MediaItem::where('category', $category)
+                    ->where('id', '!=', $item->id)
+                    ->where('title', $item->title)
+                    ->where('release', $item->release)
+                    ->where('rating', $item->rating)
+                    ->where('platforms', $item->platforms)
+                    ->where('genre', $item->genre)
+                    ->where('link', $item->link)
+                    ->where('path', $item->path)
+                    ->select('id', 'title')
+                    ->get();
+
+                if ($exactDuplicates->count() > 0) {
+                    $duplicates[] = [
+                        'type' => 'exact',
+                        'item' => [
+                            'id' => $item->id,
+                            'title' => $item->title
+                        ],
+                        'duplicates' => $exactDuplicates->toArray(),
+                        'total_count' => $exactDuplicates->count() + 1
+                    ];
+                }
+
+                // Check for title duplicates (same title, different other fields)
+                $titleDuplicates = MediaItem::where('category', $category)
+                    ->where('id', '!=', $item->id)
+                    ->where('title', $item->title)
+                    ->select('id', 'title', 'release', 'rating')
+                    ->get();
+
+                if ($titleDuplicates->count() > 0) {
+                    $duplicates[] = [
+                        'type' => 'title',
+                        'item' => [
+                            'id' => $item->id,
+                            'title' => $item->title
+                        ],
+                        'duplicates' => $titleDuplicates->toArray(),
+                        'total_count' => $titleDuplicates->count() + 1
+                    ];
+                }
+            }
+
+            // Remove duplicate entries (same item appearing multiple times)
+            $uniqueDuplicates = collect($duplicates)->unique(function ($item) {
+                return $item['item']['id'] . '_' . $item['type'];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'category' => $category,
+                'total_items' => $totalItems,
+                'processed' => $processed,
+                'progress' => $progress,
+                'duplicates' => $uniqueDuplicates->toArray(),
+                'is_complete' => $processed >= $totalItems
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking for duplicates: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get duplicate check status for a category
+     */
+    public function getDuplicateCheckStatus(Request $request)
+    {
+        try {
+            $category = $request->get('category');
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category parameter is required'
+                ], 400);
+            }
+
+            $totalItems = MediaItem::where('category', $category)->count();
+            
+            // Check for existing duplicates in the category
+            $duplicateTitles = MediaItem::select('title', DB::raw('COUNT(*) as count'))
+                ->where('category', $category)
+                ->groupBy('title')
+                ->having('count', '>', 1)
+                ->get();
+
+            $exactDuplicates = MediaItem::select('title', 'release', 'rating', 'platforms', 'genre', 'link', 'path', DB::raw('COUNT(*) as count'))
+                ->where('category', $category)
+                ->groupBy('title', 'release', 'rating', 'platforms', 'genre', 'link', 'path')
+                ->having('count', '>', 1)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'category' => $category,
+                'total_items' => $totalItems,
+                'duplicate_titles_count' => $duplicateTitles->sum('count') - $duplicateTitles->count(),
+                'exact_duplicates_count' => $exactDuplicates->sum('count') - $exactDuplicates->count(),
+                'duplicate_titles' => $duplicateTitles->toArray(),
+                'exact_duplicates' => $exactDuplicates->toArray()
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error getting duplicate check status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Check for duplicate entries (legacy method - kept for backward compatibility)
      */
     public function checkDuplicates(Request $request)
     {
@@ -225,41 +386,6 @@ class DebugController extends Controller
                 ->orderBy('count', 'desc')
                 ->get();
 
-            // Check for similar titles (fuzzy matching)
-            $allItems = MediaItem::select('id', 'title', 'category')->get();
-            $similarTitles = [];
-            
-            foreach ($allItems as $item) {
-                $similar = $allItems->filter(function($other) use ($item) {
-                    if ($other->id === $item->id) return false;
-                    if ($other->category !== $item->category) return false;
-                    
-                    // Check for similar titles (case insensitive, ignoring special characters)
-                    $title1 = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $item->title));
-                    $title2 = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $other->title));
-                    
-                    return $title1 === $title2 || 
-                           levenshtein($title1, $title2) <= 2 ||
-                           strpos($title1, $title2) !== false ||
-                           strpos($title2, $title1) !== false;
-                });
-                
-                if ($similar->count() > 0) {
-                    $similarTitles[] = [
-                        'title' => $item->title,
-                        'category' => $item->category,
-                        'id' => $item->id,
-                        'similar_count' => $similar->count(),
-                        'similar_items' => $similar->map(function($s) {
-                            return ['id' => $s->id, 'title' => $s->title];
-                        })->toArray()
-                    ];
-                }
-            }
-
-            // Remove duplicates from similar titles
-            $similarTitles = collect($similarTitles)->unique('id')->values();
-
             return response()->json([
                 'success' => true,
                 'duplicate_titles' => [
@@ -270,15 +396,10 @@ class DebugController extends Controller
                     'count' => $exactDuplicates->count(),
                     'items' => $exactDuplicates->toArray()
                 ],
-                'similar_titles' => [
-                    'count' => $similarTitles->count(),
-                    'items' => $similarTitles->toArray()
-                ],
                 'summary' => [
                     'total_items' => MediaItem::count(),
                     'duplicate_titles_count' => $duplicateTitles->sum('count') - $duplicateTitles->count(),
-                    'exact_duplicates_count' => $exactDuplicates->sum('count') - $exactDuplicates->count(),
-                    'similar_titles_count' => $similarTitles->count()
+                    'exact_duplicates_count' => $exactDuplicates->sum('count') - $exactDuplicates->count()
                 ]
             ]);
         } catch (\Exception $e) {

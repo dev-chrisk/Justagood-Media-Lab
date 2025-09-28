@@ -5804,7 +5804,20 @@ Missing Files: ${data.missing_files}
     }
 
     async runCheckDuplicates() {
-        this.log('Starting duplicate check...', 'info');
+        // Get current active category
+        const activeCategory = this.getActiveCategory();
+        
+        // Debug information
+        this.log(`Debug: currentCategory = ${typeof currentCategory !== 'undefined' ? currentCategory : 'undefined'}`, 'info');
+        const activeNavBtn = document.querySelector('.nav-btn.active');
+        this.log(`Debug: active nav button = ${activeNavBtn ? activeNavBtn.id : 'none'}`, 'info');
+        
+        if (!activeCategory) {
+            this.log('No active category selected. Please select a category first.', 'error');
+            return;
+        }
+
+        this.log(`Starting duplicate check for category: "${activeCategory}"`, 'info');
         
         try {
             const authHeaders = this.getAuthHeaders();
@@ -5813,66 +5826,192 @@ Missing Files: ${data.missing_files}
                 return;
             }
 
-            const response = await fetch('/api/debug/check-duplicates', {
+            // First get the status to show initial counts
+            const statusResponse = await fetch(`/api/debug/duplicate-check-status?category=${encodeURIComponent(activeCategory)}`, {
                 headers: authHeaders
             });
             
-            if (response.status === 401) {
+            if (statusResponse.status === 401) {
                 this.log('Authentication failed. Please log in again.', 'error');
                 return;
             }
             
-            const data = await response.json();
+            const statusData = await statusResponse.json();
             
-            if (data.success) {
-                this.log('Duplicate check completed', 'success');
+            if (statusData.success) {
+                this.log(`Category "${activeCategory}" has ${statusData.total_items} items`, 'info');
+                this.log(`Quick check found: ${statusData.duplicate_titles_count} duplicate titles, ${statusData.exact_duplicates_count} exact duplicates`, 'warning');
                 
-                // Show summary
-                const summary = data.summary;
-                const summaryDetails = `
-Total Items: ${summary.total_items}
-Duplicate Titles: ${summary.duplicate_titles_count}
-Exact Duplicates: ${summary.exact_duplicates_count}
-Similar Titles: ${summary.similar_titles_count}
-                `;
-                this.log('Summary:', 'info', summaryDetails);
-                
-                // Show duplicate titles
-                if (data.duplicate_titles.count > 0) {
-                    this.log(`Found ${data.duplicate_titles.count} duplicate title groups:`, 'warning');
-                    data.duplicate_titles.items.forEach(dup => {
-                        this.log(`• "${dup.title}" (${dup.category}) - ${dup.count} copies`, 'warning');
-                    });
-                } else {
-                    this.log('No duplicate titles found', 'success');
-                }
-                
-                // Show exact duplicates
-                if (data.exact_duplicates.count > 0) {
-                    this.log(`Found ${data.exact_duplicates.count} exact duplicate groups:`, 'error');
-                    data.exact_duplicates.items.forEach(dup => {
-                        this.log(`• "${dup.title}" (${dup.category}) - ${dup.count} copies`, 'error');
-                    });
-                } else {
-                    this.log('No exact duplicates found', 'success');
-                }
-                
-                // Show similar titles
-                if (data.similar_titles.count > 0) {
-                    this.log(`Found ${data.similar_titles.count} similar title groups:`, 'warning');
-                    data.similar_titles.items.forEach(sim => {
-                        const similarList = sim.similar_items.map(item => `"${item.title}" (ID: ${item.id})`).join(', ');
-                        this.log(`• "${sim.title}" (${sim.category}) - Similar to: ${similarList}`, 'warning');
-                    });
-                } else {
-                    this.log('No similar titles found', 'success');
-                }
+                // Now run the detailed check with progress
+                await this.runDetailedDuplicateCheck(activeCategory, authHeaders);
             } else {
-                this.log('Failed to check for duplicates', 'error', data.message);
+                this.log('Failed to get category status', 'error', statusData.message);
             }
         } catch (error) {
             this.log('Error checking for duplicates', 'error', error.message);
         }
+    }
+
+    async runDetailedDuplicateCheck(category, authHeaders) {
+        this.log('Starting detailed duplicate check with progress...', 'info');
+        
+        let offset = 0;
+        let allDuplicates = [];
+        let totalItems = 0;
+        let isComplete = false;
+        
+        // Create progress indicator
+        const progressId = 'duplicate-check-progress';
+        this.log(`<div id="${progressId}" class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">0% - Starting...</div>
+        </div>`, 'info');
+
+        try {
+            while (!isComplete) {
+                const response = await fetch(`/api/debug/check-duplicates-in-category?category=${encodeURIComponent(category)}&offset=${offset}`, {
+                    headers: authHeaders
+                });
+                
+                if (response.status === 401) {
+                    this.log('Authentication failed during check. Please log in again.', 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (!data.success) {
+                    this.log('Failed to check duplicates', 'error', data.message);
+                    return;
+                }
+
+                totalItems = data.total_items;
+                offset = data.processed;
+                isComplete = data.is_complete;
+                
+                // Update progress
+                this.updateProgress(progressId, data.progress, data.processed, data.total_items);
+                
+                // Collect duplicates
+                allDuplicates = allDuplicates.concat(data.duplicates);
+                
+                // Log progress
+                this.log(`Processed ${data.processed}/${data.total_items} items (${data.progress}%)`, 'info');
+                
+                // Small delay to prevent overwhelming the server
+                if (!isComplete) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+            
+            // Remove progress indicator
+            const progressElement = document.getElementById(progressId);
+            if (progressElement) {
+                progressElement.remove();
+            }
+            
+            // Show results
+            this.log('Duplicate check completed!', 'success');
+            this.log(`Total items checked: ${totalItems}`, 'info');
+            
+            if (allDuplicates.length === 0) {
+                this.log('🎉 No duplicates found in this category!', 'success');
+                return;
+            }
+            
+            // Group duplicates by type
+            const exactDuplicates = allDuplicates.filter(d => d.type === 'exact');
+            const titleDuplicates = allDuplicates.filter(d => d.type === 'title');
+            
+            this.log(`Found ${exactDuplicates.length} exact duplicate groups and ${titleDuplicates.length} title duplicate groups`, 'warning');
+            
+            // Show exact duplicates
+            if (exactDuplicates.length > 0) {
+                this.log('=== EXACT DUPLICATES ===', 'error');
+                exactDuplicates.forEach((dup, index) => {
+                    this.log(`${index + 1}. "${dup.item.title}" (ID: ${dup.item.id})`, 'error');
+                    this.log(`   Found ${dup.total_count} identical entries:`, 'error');
+                    dup.duplicates.forEach(duplicate => {
+                        this.log(`   - ID: ${duplicate.id}, Title: "${duplicate.title}"`, 'error');
+                    });
+                });
+            }
+            
+            // Show title duplicates
+            if (titleDuplicates.length > 0) {
+                this.log('=== TITLE DUPLICATES ===', 'warning');
+                titleDuplicates.forEach((dup, index) => {
+                    this.log(`${index + 1}. "${dup.item.title}" (ID: ${dup.item.id})`, 'warning');
+                    this.log(`   Found ${dup.total_count} entries with same title:`, 'warning');
+                    dup.duplicates.forEach(duplicate => {
+                        this.log(`   - ID: ${duplicate.id}, Title: "${duplicate.title}", Release: ${duplicate.release || 'N/A'}, Rating: ${duplicate.rating || 'N/A'}`, 'warning');
+                    });
+                });
+            }
+            
+        } catch (error) {
+            this.log('Error during detailed duplicate check', 'error', error.message);
+        }
+    }
+
+    updateProgress(progressId, percentage, processed, total) {
+        const progressElement = document.getElementById(progressId);
+        if (progressElement) {
+            const fillElement = progressElement.querySelector('.progress-fill');
+            const textElement = progressElement.querySelector('.progress-text');
+            
+            if (fillElement) {
+                fillElement.style.width = `${percentage}%`;
+            }
+            if (textElement) {
+                textElement.textContent = `${percentage}% - ${processed}/${total} items processed`;
+            }
+        }
+    }
+
+    getActiveCategory() {
+        // Check if currentCategory global variable is available
+        if (typeof currentCategory !== 'undefined' && currentCategory && currentCategory !== 'all') {
+            return currentCategory;
+        }
+        
+        // Try to get from the active nav button
+        const activeNavBtn = document.querySelector('.nav-btn.active');
+        if (activeNavBtn) {
+            const btnId = activeNavBtn.id;
+            // Map button IDs to category names
+            const categoryMap = {
+                'btnGames': 'game',
+                'btnSeries': 'series', 
+                'btnMovies': 'movie',
+                'btnGamesNew': 'game_new',
+                'btnSeriesNew': 'series_new',
+                'btnMoviesNew': 'movie_new'
+            };
+            
+            if (categoryMap[btnId]) {
+                return categoryMap[btnId];
+            }
+        }
+        
+        // Try to get from the current mediaData if available
+        if (typeof mediaData !== 'undefined' && mediaData.length > 0) {
+            const categories = [...new Set(mediaData.map(item => item.category))];
+            if (categories.length === 1) {
+                return categories[0];
+            }
+        }
+        
+        // If no specific category is active, show available categories
+        if (typeof mediaData !== 'undefined' && mediaData.length > 0) {
+            const categories = [...new Set(mediaData.map(item => item.category))];
+            this.log(`Available categories: ${categories.join(', ')}`, 'info');
+            this.log('Please select a specific category using the sidebar navigation first.', 'warning');
+        }
+        
+        return null;
     }
 
     checkAuthStatus() {
