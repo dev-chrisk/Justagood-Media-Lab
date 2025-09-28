@@ -481,6 +481,88 @@ class DebugController extends Controller
     }
 
     /**
+     * Get all duplicates for a category (for direct deletion)
+     */
+    public function getAllDuplicatesForCategory(Request $request)
+    {
+        try {
+            $category = $request->get('category');
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category parameter is required'
+                ], 400);
+            }
+
+            // Get all items in the category
+            $items = MediaItem::where('category', $category)
+                ->select('id', 'title', 'category', 'release', 'rating', 'platforms', 'genre', 'link', 'path', 'created_at')
+                ->orderBy('title')
+                ->orderBy('id')
+                ->get();
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'category' => $category,
+                    'total_items' => 0,
+                    'duplicate_groups' => [],
+                    'message' => 'No items found in this category'
+                ]);
+            }
+
+            // Group items by title
+            $titleGroups = $items->groupBy('title');
+            $duplicateGroups = [];
+
+            foreach ($titleGroups as $title => $titleItems) {
+                if ($titleItems->count() > 1) {
+                    // Check for exact duplicates within this title group
+                    $exactGroups = $titleItems->groupBy(function($item) {
+                        return $item->release . '|' . $item->rating . '|' . $item->platforms . '|' . $item->genre . '|' . $item->link . '|' . $item->path;
+                    });
+
+                    foreach ($exactGroups as $exactKey => $exactItems) {
+                        if ($exactItems->count() > 1) {
+                            $duplicateGroups[] = [
+                                'type' => 'exact',
+                                'title' => $title,
+                                'count' => $exactItems->count(),
+                                'items' => $exactItems->toArray()
+                            ];
+                        }
+                    }
+
+                    // If there are title duplicates but no exact duplicates, add as title duplicate
+                    if ($exactGroups->count() === 1 && $titleItems->count() > 1) {
+                        $duplicateGroups[] = [
+                            'type' => 'title',
+                            'title' => $title,
+                            'count' => $titleItems->count(),
+                            'items' => $titleItems->toArray()
+                        ];
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'category' => $category,
+                'total_items' => $items->count(),
+                'duplicate_groups' => $duplicateGroups,
+                'duplicate_groups_count' => count($duplicateGroups)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error getting duplicates for category: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get detailed information about a specific duplicate group
      */
     public function getDuplicateGroupDetails(Request $request)
