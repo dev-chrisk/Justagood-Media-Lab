@@ -804,7 +804,9 @@ function renderChunk(list, container){
         const img=document.createElement("img");
         
         // Load image with better performance - use original but with lazy loading
-        img.src = `/${item.path}`;
+        // Add /images/ prefix if the path doesn't already start with it
+        const imagePath = item.path.startsWith('images/') ? `/${item.path}` : `/images/${item.path}`;
+        img.src = imagePath;
         img.loading = "lazy";
         img.decoding = "async";
         
@@ -1912,7 +1914,9 @@ function updateCounts(){
 }
 
 // Check Infos
-document.getElementById("checkInfoBtn").onclick=async()=>{
+const checkInfoBtn = document.getElementById("checkInfoBtn");
+if (checkInfoBtn) {
+    checkInfoBtn.onclick = async() => {
     const title=document.getElementById("editTitle").value;
     const cat=document.getElementById("editCategory").value;
     const msgEl=document.getElementById("checkInfoMessage");
@@ -1931,7 +1935,8 @@ document.getElementById("checkInfoBtn").onclick=async()=>{
             if(det){ det.open = true; }
         } else { msgEl.style.color="red"; msgEl.textContent="API Fehler: "+data.error; console.warn("API Fehler:",data.error); }
     } catch(e){ msgEl.style.color="red"; msgEl.textContent="Fehler bei API-Abfrage"; console.error(e); }
-};
+    };
+}
 
 function applyViewMode(){
     console.log('applyViewMode() called - currentCategory:', currentCategory);
@@ -2401,6 +2406,7 @@ function handleAutocompleteInput(e) {
     
     if (query.length < 2) {
         resultsContainer.classList.remove('show');
+        resultsContainer.innerHTML = '';
         return;
     }
     
@@ -2421,7 +2427,10 @@ function handleAutocompleteBlur(e) {
     // Delay hiding to allow click on results
     setTimeout(() => {
         const resultsContainer = document.getElementById('autocompleteResults');
-        resultsContainer.classList.remove('show');
+        // Only hide if it's still visible (not already hidden by selection)
+        if (resultsContainer.classList.contains('show')) {
+            resultsContainer.classList.remove('show');
+        }
     }, 200);
 }
 
@@ -2448,6 +2457,13 @@ async function searchItems(query) {
 
 function displayAutocompleteResults(results) {
     const resultsContainer = document.getElementById('autocompleteResults');
+    
+    // Clear any existing timeout
+    if (autocompleteTimeout) {
+        clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = null;
+    }
+    
     resultsContainer.innerHTML = '';
     
     if (results.length === 0) {
@@ -2474,7 +2490,9 @@ function createAutocompleteItem(item) {
     // Use original image for autocomplete
     const thumbnailPath = item.path || '';
     if (thumbnailPath) {
-        thumbnail.src = `/${thumbnailPath}`;
+        // Add /images/ prefix if the path doesn't already start with it
+        const imagePath = thumbnailPath.startsWith('images/') ? `/${thumbnailPath}` : `/images/${thumbnailPath}`;
+        thumbnail.src = imagePath;
     } else {
         thumbnail.src = item.image || '';
     }
@@ -2511,8 +2529,10 @@ function createAutocompleteItem(item) {
     itemElement.appendChild(thumbnail);
     itemElement.appendChild(info);
     
-    // Add click handler
-    itemElement.addEventListener('click', () => {
+    // Add click handler with event prevention
+    itemElement.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         selectAutocompleteItem(item);
     });
     
@@ -2532,12 +2552,22 @@ function getCategoryDisplayName(category) {
 }
 
 function selectAutocompleteItem(item) {
+    // Prevent any pending autocomplete searches
+    if (autocompleteTimeout) {
+        clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = null;
+    }
+    
     // Map API categories to dropdown values
     const categoryMap = {
         'movie': 'movie',
         'series': 'series', 
         'games': 'game'  // API returns 'games' but dropdown expects 'game'
     };
+    
+    // Temporarily disable input event listener to prevent interference
+    const titleInput = document.getElementById('editTitle');
+    titleInput.removeEventListener('input', handleAutocompleteInput);
     
     // Fill form with selected item data
     document.getElementById('editTitle').value = item.title;
@@ -2561,9 +2591,15 @@ function selectAutocompleteItem(item) {
         document.getElementById('checkApi').checked = true;
     }
     
-    // Hide autocomplete
+    // Hide autocomplete immediately
     const resultsContainer = document.getElementById('autocompleteResults');
     resultsContainer.classList.remove('show');
+    resultsContainer.innerHTML = '';
+    
+    // Re-enable input event listener after a short delay
+    setTimeout(() => {
+        titleInput.addEventListener('input', handleAutocompleteInput);
+    }, 100);
 }
 
 // Old window.onload removed - now using DOMContentLoaded event listener
@@ -5425,3 +5461,440 @@ class StatisticsManager {
         document.getElementById('statisticsContent').style.display = 'none';
     }
 }
+
+// Debug Console System
+class DebugConsole {
+    constructor() {
+        this.isOpen = false;
+        this.outputContainer = null;
+        this.init();
+    }
+
+    init() {
+        this.outputContainer = document.getElementById('debugOutputContent');
+        this.setupEventListeners();
+        this.log('Debug Console initialized', 'info');
+        
+        // Check authentication status
+        const authHeaders = this.getAuthHeaders();
+        if (authHeaders) {
+            this.log('User authenticated - Debug functions available', 'success');
+        } else {
+            this.log('User not authenticated - Please log in to use debug functions', 'warning');
+        }
+    }
+
+    setupEventListeners() {
+        // Toggle button
+        document.getElementById('debugToggle').addEventListener('click', () => {
+            this.toggle();
+        });
+
+        // Close button
+        document.getElementById('debugClose').addEventListener('click', () => {
+            this.close();
+        });
+
+        // Clear output button
+        document.getElementById('debugClearOutput').addEventListener('click', () => {
+            this.clearOutput();
+        });
+
+        // Debug function buttons
+        document.getElementById('debugItemsWithoutImages').addEventListener('click', () => {
+            this.runItemsWithoutImagesReport();
+        });
+
+        document.getElementById('debugDatabaseStats').addEventListener('click', () => {
+            this.runDatabaseStats();
+        });
+
+        document.getElementById('debugImagePaths').addEventListener('click', () => {
+            this.runImagePathsCheck();
+        });
+
+        document.getElementById('debugCheckDuplicates').addEventListener('click', () => {
+            this.runCheckDuplicates();
+        });
+
+        document.getElementById('debugClearCache').addEventListener('click', () => {
+            this.clearCache();
+        });
+
+        document.getElementById('debugExportLogs').addEventListener('click', () => {
+            this.exportLogs();
+        });
+
+        // Add debug auth check button
+        document.getElementById('debugCheckAuth').addEventListener('click', () => {
+            this.checkAuthStatus();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            const debugConsole = document.getElementById('debugConsole');
+            const debugDropdown = document.getElementById('debugDropdown');
+            if (this.isOpen && !debugConsole.contains(e.target)) {
+                this.close();
+            }
+        });
+    }
+
+    toggle() {
+        if (this.isOpen) {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+
+    open() {
+        const dropdown = document.getElementById('debugDropdown');
+        dropdown.classList.add('show');
+        this.isOpen = true;
+        this.log('Debug console opened', 'info');
+    }
+
+    close() {
+        const dropdown = document.getElementById('debugDropdown');
+        dropdown.classList.remove('show');
+        this.isOpen = false;
+    }
+
+    log(message, type = 'info', details = null) {
+        const timestamp = new Date().toLocaleTimeString();
+        const outputItem = document.createElement('div');
+        outputItem.className = `debug-output-item ${type}`;
+        
+        let content = `
+            <div class="debug-output-timestamp">${timestamp}</div>
+            <div class="debug-output-message">${message}</div>
+        `;
+        
+        if (details) {
+            content += `<div class="debug-output-details">${details}</div>`;
+        }
+        
+        outputItem.innerHTML = content;
+        
+        // Remove placeholder if it exists
+        const placeholder = this.outputContainer.querySelector('.debug-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        
+        this.outputContainer.appendChild(outputItem);
+        this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
+    }
+
+    clearOutput() {
+        this.outputContainer.innerHTML = '<p class="debug-placeholder">Debug output will appear here...</p>';
+    }
+
+    getAuthHeaders() {
+        // Check for authToken (global variable) first
+        if (typeof authToken !== 'undefined' && authToken) {
+            return {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+        }
+        
+        // Fallback to currentUser.token if available
+        if (currentUser && currentUser.token) {
+            return {
+                'Authorization': `Bearer ${currentUser.token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            };
+        }
+        
+        return null;
+    }
+
+    async runItemsWithoutImagesReport() {
+        this.log('Starting items without images report...', 'info');
+        
+        try {
+            const authHeaders = this.getAuthHeaders();
+            if (!authHeaders) {
+                this.log('User not authenticated. Please log in first.', 'error');
+                return;
+            }
+
+            const response = await fetch('/api/debug/items-without-images', {
+                headers: authHeaders
+            });
+            
+            if (response.status === 401) {
+                this.log('Authentication failed. Please log in again.', 'error');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.log(`Found ${data.count} items without images out of ${data.total_items} total items`, 'success');
+                
+                // Show debug info
+                if (data.debug_info) {
+                    const debugDetails = `
+Null paths: ${data.debug_info.null_paths}
+Empty paths: ${data.debug_info.empty_paths}
+"null" string paths: ${data.debug_info.null_string_paths}
+                    `;
+                    this.log('Debug Info:', 'info', debugDetails);
+                }
+                
+                // Show sample items with paths
+                if (data.sample_items_with_paths && data.sample_items_with_paths.length > 0) {
+                    const sampleDetails = data.sample_items_with_paths.map(item => 
+                        `• ${item.title} (${item.category}) - Path: "${item.path}"`
+                    ).join('\n');
+                    this.log('Sample items with paths:', 'info', sampleDetails);
+                }
+                
+                if (data.items && data.items.length > 0) {
+                    const details = data.items.map(item => 
+                        `• ${item.title} (${item.category}) - ID: ${item.id} - Path: "${item.path}"`
+                    ).join('\n');
+                    this.log('Items without images:', 'warning', details);
+                } else {
+                    this.log('No items without images found', 'info');
+                }
+            } else {
+                this.log('Failed to get items without images report', 'error', data.message);
+            }
+        } catch (error) {
+            this.log('Error running items without images report', 'error', error.message);
+        }
+    }
+
+    async runDatabaseStats() {
+        this.log('Starting database statistics...', 'info');
+        
+        try {
+            const authHeaders = this.getAuthHeaders();
+            if (!authHeaders) {
+                this.log('User not authenticated. Please log in first.', 'error');
+                return;
+            }
+
+            const response = await fetch('/api/debug/database-stats', {
+                headers: authHeaders
+            });
+            
+            if (response.status === 401) {
+                this.log('Authentication failed. Please log in again.', 'error');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.log('Database statistics retrieved', 'success');
+                const details = `
+Total Items: ${data.stats.total_items}
+Items with Images: ${data.stats.items_with_images}
+Items without Images: ${data.stats.items_without_images}
+Categories: ${JSON.stringify(data.stats.categories, null, 2)}
+Collections: ${data.stats.collections}
+Users: ${data.stats.users}
+                `;
+                this.log('Database Statistics:', 'info', details);
+            } else {
+                this.log('Failed to get database statistics', 'error', data.message);
+            }
+        } catch (error) {
+            this.log('Error running database statistics', 'error', error.message);
+        }
+    }
+
+    async runImagePathsCheck() {
+        this.log('Starting image paths check...', 'info');
+        
+        try {
+            const authHeaders = this.getAuthHeaders();
+            if (!authHeaders) {
+                this.log('User not authenticated. Please log in first.', 'error');
+                return;
+            }
+
+            const response = await fetch('/api/debug/image-paths-check', {
+                headers: authHeaders
+            });
+            
+            if (response.status === 401) {
+                this.log('Authentication failed. Please log in again.', 'error');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.log('Image paths check completed', 'success');
+                const details = `
+Valid Paths: ${data.valid_paths}
+Invalid Paths: ${data.invalid_paths}
+Missing Files: ${data.missing_files}
+                `;
+                this.log('Image Paths Check:', 'info', details);
+                
+                if (data.invalid_paths > 0 || data.missing_files > 0) {
+                    this.log('Found image path issues', 'warning', 'Check the details above for more information');
+                }
+            } else {
+                this.log('Failed to run image paths check', 'error', data.message);
+            }
+        } catch (error) {
+            this.log('Error running image paths check', 'error', error.message);
+        }
+    }
+
+    clearCache() {
+        this.log('Clearing application cache...', 'info');
+        
+        try {
+            // Clear localStorage
+            const keysToKeep = ['currentUser', 'noobTooltipDismissed'];
+            const allKeys = Object.keys(localStorage);
+            allKeys.forEach(key => {
+                if (!keysToKeep.includes(key)) {
+                    localStorage.removeItem(key);
+                }
+            });
+            
+            // Clear sessionStorage
+            sessionStorage.clear();
+            
+            this.log('Cache cleared successfully', 'success');
+            this.log('Page will reload to apply changes', 'warning');
+            
+            // Reload page after a short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+            
+        } catch (error) {
+            this.log('Error clearing cache', 'error', error.message);
+        }
+    }
+
+    exportLogs() {
+        this.log('Exporting debug logs...', 'info');
+        
+        try {
+            const logs = this.outputContainer.innerHTML;
+            const blob = new Blob([logs], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `debug-logs-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.log('Debug logs exported successfully', 'success');
+        } catch (error) {
+            this.log('Error exporting logs', 'error', error.message);
+        }
+    }
+
+    async runCheckDuplicates() {
+        this.log('Starting duplicate check...', 'info');
+        
+        try {
+            const authHeaders = this.getAuthHeaders();
+            if (!authHeaders) {
+                this.log('User not authenticated. Please log in first.', 'error');
+                return;
+            }
+
+            const response = await fetch('/api/debug/check-duplicates', {
+                headers: authHeaders
+            });
+            
+            if (response.status === 401) {
+                this.log('Authentication failed. Please log in again.', 'error');
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.log('Duplicate check completed', 'success');
+                
+                // Show summary
+                const summary = data.summary;
+                const summaryDetails = `
+Total Items: ${summary.total_items}
+Duplicate Titles: ${summary.duplicate_titles_count}
+Exact Duplicates: ${summary.exact_duplicates_count}
+Similar Titles: ${summary.similar_titles_count}
+                `;
+                this.log('Summary:', 'info', summaryDetails);
+                
+                // Show duplicate titles
+                if (data.duplicate_titles.count > 0) {
+                    this.log(`Found ${data.duplicate_titles.count} duplicate title groups:`, 'warning');
+                    data.duplicate_titles.items.forEach(dup => {
+                        this.log(`• "${dup.title}" (${dup.category}) - ${dup.count} copies`, 'warning');
+                    });
+                } else {
+                    this.log('No duplicate titles found', 'success');
+                }
+                
+                // Show exact duplicates
+                if (data.exact_duplicates.count > 0) {
+                    this.log(`Found ${data.exact_duplicates.count} exact duplicate groups:`, 'error');
+                    data.exact_duplicates.items.forEach(dup => {
+                        this.log(`• "${dup.title}" (${dup.category}) - ${dup.count} copies`, 'error');
+                    });
+                } else {
+                    this.log('No exact duplicates found', 'success');
+                }
+                
+                // Show similar titles
+                if (data.similar_titles.count > 0) {
+                    this.log(`Found ${data.similar_titles.count} similar title groups:`, 'warning');
+                    data.similar_titles.items.forEach(sim => {
+                        const similarList = sim.similar_items.map(item => `"${item.title}" (ID: ${item.id})`).join(', ');
+                        this.log(`• "${sim.title}" (${sim.category}) - Similar to: ${similarList}`, 'warning');
+                    });
+                } else {
+                    this.log('No similar titles found', 'success');
+                }
+            } else {
+                this.log('Failed to check for duplicates', 'error', data.message);
+            }
+        } catch (error) {
+            this.log('Error checking for duplicates', 'error', error.message);
+        }
+    }
+
+    checkAuthStatus() {
+        this.log('Checking authentication status...', 'info');
+        
+        const authHeaders = this.getAuthHeaders();
+        const details = `
+AuthToken available: ${typeof authToken !== 'undefined' && !!authToken}
+CurrentUser available: ${!!currentUser}
+CurrentUser token: ${currentUser ? !!currentUser.token : 'N/A'}
+Auth headers: ${authHeaders ? 'Available' : 'Not available'}
+        `;
+        
+        if (authHeaders) {
+            this.log('Authentication status: OK', 'success', details);
+        } else {
+            this.log('Authentication status: FAILED', 'error', details);
+        }
+    }
+}
+
+// Initialize debug console when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.debugConsole = new DebugConsole();
+});

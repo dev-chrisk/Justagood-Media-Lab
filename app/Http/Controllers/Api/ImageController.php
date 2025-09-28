@@ -186,6 +186,9 @@ class ImageController extends Controller
         // Set proper cache headers for better performance
         $cacheTime = 60 * 60 * 24 * 30; // 30 days
 
+        // URL decode the path to handle spaces and special characters
+        $decodedPath = urldecode($path);
+
         // Try to find the actual image path
         $actualPath = null;
         
@@ -193,11 +196,16 @@ class ImageController extends Controller
         // So we check it directly first
         if (Storage::disk('public')->exists($path)) {
             $actualPath = $path;
+        } elseif (Storage::disk('public')->exists($decodedPath)) {
+            $actualPath = $decodedPath;
         } else {
             // Fallback: try different path variations
             $possiblePaths = [
-                "images/{$path}", // In images subdirectory
-                "images_downloads/{$path}", // In images_downloads subdirectory
+                "images/{$decodedPath}", // In images subdirectory (decoded)
+                "images/{$path}", // In images subdirectory (original)
+                "images_downloads/{$decodedPath}", // In images_downloads subdirectory (decoded)
+                "images_downloads/{$path}", // In images_downloads subdirectory (original)
+                $decodedPath, // Direct decoded path
                 $path, // Direct path as fallback
             ];
 
@@ -279,12 +287,31 @@ class ImageController extends Controller
      */
     public function serveImage($path)
     {
+        // URL decode the path to handle spaces and special characters
+        $decodedPath = urldecode($path);
+        
         // Try different possible paths
         $possiblePaths = [
-            $path, // Direct path
-            "images/{$path}", // In images subdirectory
-            "images_downloads/{$path}", // In images_downloads subdirectory
+            $decodedPath, // Direct decoded path
+            $path, // Direct path (original)
+            "images/{$decodedPath}", // In images subdirectory (decoded)
+            "images/{$path}", // In images subdirectory (original)
+            "images_downloads/{$decodedPath}", // In images_downloads subdirectory (decoded)
+            "images_downloads/{$path}", // In images_downloads subdirectory (original)
         ];
+
+        // For legacy routes (games/, movies/, series/), also try with the appropriate subdirectory
+        if (preg_match('/\.(jpg|jpeg|png|webp)$/i', $decodedPath)) {
+            // Try to determine category from the filename or context
+            $possiblePaths = array_merge($possiblePaths, [
+                "images/games/{$decodedPath}",
+                "images/games/{$path}",
+                "images/movies/{$decodedPath}",
+                "images/movies/{$path}",
+                "images/series/{$decodedPath}",
+                "images/series/{$path}",
+            ]);
+        }
 
         // First check in storage/app/public
         foreach ($possiblePaths as $testPath) {

@@ -30,6 +30,7 @@ let profileData = {
     memberSince: new Date().getFullYear()
 };
 
+
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Profile: DOM loaded, initializing...');
@@ -47,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load profile data
     loadProfileData();
+    
     
     // Update UI
     updateUI();
@@ -214,6 +216,7 @@ function updateUI() {
         
         // Update form inputs
         updateFormInputs();
+        
         
         // Apply theme
         applyTheme();
@@ -620,5 +623,6 @@ function hideLoadingState() {
         settingsSections.style.display = 'block';
     }
 }
+
 
 console.log('Profile: Script loaded successfully');

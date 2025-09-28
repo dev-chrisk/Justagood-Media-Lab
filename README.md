@@ -1,8 +1,14 @@
-[![Laravel Forge Site Deployment Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fforge.laravel.com%2Fsite-badges%2F1095eb7a-00d8-4eab-87b6-95ff6044429a%3Fdate%3D1%26label%3D1%26commit%3D1&style=plastic)](https://forge.laravel.com/servers/960996/sites/2857405)
-
-# Media Library - Laravel 10 Application
+# Justagood Media Lab - Laravel 10 Application
 
 A modern media library application built with Laravel 10, featuring movie, TV series, and game management with image storage and external API integration.
+
+## 📚 Documentation
+
+- **[Anwenderbeschreibung](ANWENDERBESCHREIBUNG.md)** - Complete user manual (German)
+- **[Migration Guide](MIGRATION_GUIDE.md)** - Detailed migration from Flask
+- **[Achievement System](ACHIEVEMENT_SYSTEM_README.md)** - Achievement system documentation
+- **[Export/Import System](EXPORT_IMPORT_README.md)** - Data export/import functionality
+- **[Category Duplicate Prevention](CATEGORY_DUPLICATE_PREVENTION.md)** - Category management system
 
 ## 🚀 Quick Start
 
@@ -10,75 +16,41 @@ A modern media library application built with Laravel 10, featuring movie, TV se
 - PHP 8.1+ with required extensions
 - Composer
 - MySQL 5.7+ or MariaDB 10.3+
-- Node.js (optional, for frontend assets)
 
 ### Installation
 
 #### Windows
 ```bash
-# Run the setup script
 setup.bat
 ```
 
 #### Linux/Mac
 ```bash
-# Make script executable and run
 chmod +x setup.sh
 ./setup.sh
 ```
 
 #### Manual Installation
 ```bash
-# Install dependencies
 composer install --ignore-platform-req=ext-fileinfo
-
-# Generate application key
 php artisan key:generate
-
-# Run migrations
 php artisan migrate
-
-# Create storage link
 php artisan storage:link
-
-# Import data
 php artisan import:json-data
-
-# Migrate images
 php artisan migrate:images
-
-# Start server
 php artisan serve
-```
-
-## 📁 Project Structure
-
-```
-media-library-laravel/
-├── app/
-│   ├── Console/Commands/          # Custom Artisan commands
-│   ├── Http/Controllers/Api/      # API controllers
-│   └── Models/                    # Eloquent models
-├── database/migrations/           # Database migrations
-├── routes/
-│   ├── api.php                   # API routes
-│   └── web.php                   # Web routes (frontend)
-├── storage/app/public/           # Image storage
-├── setup.bat                     # Windows setup script
-├── setup.sh                      # Linux/Mac setup script
-└── MIGRATION_GUIDE.md           # Detailed migration guide
 ```
 
 ## 🎯 Features
 
 - **Media Management**: Movies, TV series, and games
 - **Collections**: Organize media into custom collections
-- **Image Storage**: Upload, download, and manage images
-- **Thumbnail Generation**: Automatic thumbnail creation with caching
+- **Achievement System**: Unlock achievements based on your collection
+- **Image Storage**: Upload, download, and manage images with thumbnails
 - **External APIs**: Integration with TMDB and RAWG APIs
-- **Search**: Full-text search across media items
-- **Filtering**: Filter by category, rating, playtime, etc.
-- **Responsive UI**: Modern, mobile-friendly interface
+- **Export/Import**: Full data backup and restore functionality
+- **Category Management**: Automatic duplicate prevention
+- **Search & Filtering**: Full-text search across media items
 
 ## 🔧 API Endpoints
 
@@ -88,7 +60,6 @@ media-library-laravel/
 - `GET /api/media/{id}` - Get specific media item
 - `PUT /api/media/{id}` - Update media item
 - `DELETE /api/media/{id}` - Delete media item
-- `GET /api/api/search` - Search external APIs
 
 ### Collections
 - `GET /api/collections` - List all collections
@@ -102,52 +73,40 @@ media-library-laravel/
 - `POST /api/upload-image` - Upload image
 - `POST /api/delete-image` - Delete image
 - `GET /api/thumb` - Generate thumbnail
-- `GET /api/images/{path}` - Serve image
+
+### Achievements
+- `GET /api/achievements` - List all achievements
+- `POST /api/achievements` - Create new achievement
+- `GET /api/achievements/user/{id}` - Get user achievements
+
+### Export/Import
+- `POST /api/export` - Export all data as ZIP
+- `POST /api/import` - Import data from ZIP file
 
 ## 🗄️ Database Schema
 
-### Media Items
-- `id` - Primary key
-- `title` - Media title
-- `category` - Type (game, series, movie, etc.)
-- `release` - Release date
-- `rating` - User rating (0-10)
-- `count` - View count
-- `platforms` - Available platforms
-- `genre` - Genres
-- `link` - External link
-- `path` - Image path
-- `discovered` - Discovery date
-- `spielzeit` - Playtime in minutes
-- `is_airing` - Currently airing (for series)
-- `next_season` - Next season number
-- `next_season_release` - Next season release date
-- `external_id` - External API ID
-
-### Collections
-- `id` - Primary key
-- `name` - Collection name
-- `description` - Collection description
-- `media_item_ids` - JSON array of media item IDs
+### Core Tables
+- `media_items` - Main media items (movies, series, games)
+- `collections` - User-created collections
+- `categories` - Normalized category system
+- `achievements` - Available achievements
+- `user_achievements` - User achievement progress
+- `users` - User accounts
 
 ## 🛠️ Commands
 
-### Data Import
 ```bash
-# Import from default path
+# Data management
 php artisan import:json-data
-
-# Import from custom path
-php artisan import:json-data --path=/path/to/data
-```
-
-### Image Migration
-```bash
-# Migrate from default paths
 php artisan migrate:images
 
-# Migrate from custom paths
-php artisan migrate:images --source=/path/to/images --downloads=/path/to/downloads
+# Category management
+php artisan categories:cleanup
+php artisan media:link-categories
+
+# Database
+php artisan migrate
+php artisan db:seed
 ```
 
 ## 🔧 Configuration
@@ -159,9 +118,6 @@ php artisan migrate:images --source=/path/to/images --downloads=/path/to/downloa
 - `TMDB_API_KEY` - The Movie Database API key
 - `RAWG_API_KEY` - RAWG Video Games Database API key
 
-### Storage
-Images are stored in `storage/app/public/` and accessible via `/storage/` URL.
-
 ## 🚀 Production Deployment
 
 1. Set `APP_ENV=production` and `APP_DEBUG=false`
@@ -170,11 +126,6 @@ Images are stored in `storage/app/public/` and accessible via `/storage/` URL.
 4. Configure SSL certificates
 5. Set up database backups
 6. Enable caching (Redis recommended)
-
-## 📚 Documentation
-
-- [Migration Guide](MIGRATION_GUIDE.md) - Detailed migration from Flask
-- [Laravel Documentation](https://laravel.com/docs) - Official Laravel docs
 
 ## 🤝 Contributing
 
@@ -186,13 +137,6 @@ Images are stored in `storage/app/public/` and accessible via `/storage/` URL.
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
-
-## 🆘 Support
-
-For issues or questions:
-1. Check the logs: `storage/logs/laravel.log`
-2. Review the migration guide
-3. Check Laravel documentation
 
 ---
 

@@ -6,6 +6,7 @@
 <title>Media Library</title>
     <link rel="stylesheet" href="styles/style.css">
     <link rel="stylesheet" href="styles/statistics.css">
+    <link rel="stylesheet" href="styles/debug.css">
     
     <!-- Simple FOUC prevention -->
     <style>
@@ -325,6 +326,65 @@
                 <span class="menu-icon">📋</span>
                 <span class="menu-text">Load Titles</span>
             </button>
+        </div>
+    </div>
+
+    <!-- Debug Console -->
+    <div id="debugConsole" class="debug-console">
+        <button id="debugToggle" class="debug-toggle">
+            <span class="debug-icon">🐛</span>
+            <span class="debug-text">Debug</span>
+        </button>
+        <div id="debugDropdown" class="debug-dropdown">
+            <div class="debug-header">
+                <h3>Debug Console</h3>
+                <button id="debugClose" class="debug-close">×</button>
+            </div>
+            <div class="debug-content">
+                <div class="debug-section">
+                    <h4>Database Reports</h4>
+                    <button id="debugItemsWithoutImages" class="debug-btn">
+                        <span class="debug-btn-icon">📊</span>
+                        <span class="debug-btn-text">Items without Images Report</span>
+                    </button>
+                    <button id="debugDatabaseStats" class="debug-btn">
+                        <span class="debug-btn-icon">📈</span>
+                        <span class="debug-btn-text">Database Statistics</span>
+                    </button>
+                    <button id="debugImagePaths" class="debug-btn">
+                        <span class="debug-btn-icon">🖼️</span>
+                        <span class="debug-btn-text">Image Paths Check</span>
+                    </button>
+                    <button id="debugCheckDuplicates" class="debug-btn">
+                        <span class="debug-btn-icon">🔍</span>
+                        <span class="debug-btn-text">Check Duplicates</span>
+                    </button>
+                </div>
+                <div class="debug-section">
+                    <h4>System Tools</h4>
+                    <button id="debugCheckAuth" class="debug-btn">
+                        <span class="debug-btn-icon">🔐</span>
+                        <span class="debug-btn-text">Check Auth Status</span>
+                    </button>
+                    <button id="debugClearCache" class="debug-btn">
+                        <span class="debug-btn-icon">🗑️</span>
+                        <span class="debug-btn-text">Clear Cache</span>
+                    </button>
+                    <button id="debugExportLogs" class="debug-btn">
+                        <span class="debug-btn-icon">📄</span>
+                        <span class="debug-btn-text">Export Logs</span>
+                    </button>
+                </div>
+            </div>
+            <div id="debugOutput" class="debug-output">
+                <div class="debug-output-header">
+                    <h4>Output</h4>
+                    <button id="debugClearOutput" class="debug-clear-btn">Clear</button>
+                </div>
+                <div id="debugOutputContent" class="debug-output-content">
+                    <p class="debug-placeholder">Debug output will appear here...</p>
+                </div>
+            </div>
         </div>
     </div>
 

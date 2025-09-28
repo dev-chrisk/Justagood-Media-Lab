@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\DebugController;
 use App\Http\Controllers\ExportImportController;
 
 /*
@@ -22,7 +23,8 @@ use App\Http\Controllers\ExportImportController;
 */
 
 // Public search endpoint (no authentication required)
-Route::get('api/search', [MediaController::class, 'search']);
+Route::get('search', [MediaController::class, 'search']);
+
 
 // Public image serving routes (no authentication required)
 Route::get('thumb', [ImageController::class, 'thumbnail']);
@@ -102,5 +104,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{category}', [CategoryController::class, 'show']);
         Route::put('/{category}', [CategoryController::class, 'update']);
         Route::delete('/{category}', [CategoryController::class, 'destroy']);
+    });
+
+
+    // Debug routes (authenticated users only)
+    Route::prefix('debug')->group(function () {
+        Route::get('/items-without-images', [DebugController::class, 'itemsWithoutImages']);
+        Route::get('/database-stats', [DebugController::class, 'databaseStats']);
+        Route::get('/image-paths-check', [DebugController::class, 'imagePathsCheck']);
+        Route::get('/check-duplicates', [DebugController::class, 'checkDuplicates']);
+        Route::get('/system-info', [DebugController::class, 'systemInfo']);
+        Route::post('/clear-cache', [DebugController::class, 'clearCache']);
+        Route::get('/recent-errors', [DebugController::class, 'recentErrors']);
     });
 });
