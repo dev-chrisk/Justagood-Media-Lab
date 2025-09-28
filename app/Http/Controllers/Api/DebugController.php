@@ -411,6 +411,137 @@ class DebugController extends Controller
     }
 
     /**
+     * Delete a specific duplicate entry by ID
+     */
+    public function deleteDuplicate(Request $request)
+    {
+        try {
+            $duplicateId = $request->get('id');
+            $category = $request->get('category');
+            
+            if (!$duplicateId || !$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ID and category parameters are required'
+                ], 400);
+            }
+
+            // Find the item to delete
+            $item = MediaItem::where('id', $duplicateId)
+                ->where('category', $category)
+                ->first();
+
+            if (!$item) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not found or not in specified category'
+                ], 404);
+            }
+
+            // Get the item details for logging
+            $itemDetails = [
+                'id' => $item->id,
+                'title' => $item->title,
+                'category' => $item->category,
+                'release' => $item->release,
+                'rating' => $item->rating
+            ];
+
+            // Check if there are other items with the same title in the same category
+            $remainingItems = MediaItem::where('category', $category)
+                ->where('title', $item->title)
+                ->where('id', '!=', $duplicateId)
+                ->count();
+
+            // Only allow deletion if there are other items with the same title
+            // This prevents deleting the last/only item of a title
+            if ($remainingItems === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete the last remaining item with this title. At least one item must remain.'
+                ], 400);
+            }
+
+            // Delete the item
+            $item->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Duplicate item deleted successfully',
+                'deleted_item' => $itemDetails,
+                'remaining_items_with_same_title' => $remainingItems
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting duplicate: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get detailed information about a specific duplicate group
+     */
+    public function getDuplicateGroupDetails(Request $request)
+    {
+        try {
+            $title = $request->get('title');
+            $category = $request->get('category');
+            $type = $request->get('type', 'title'); // 'title' or 'exact'
+            
+            if (!$title || !$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Title and category parameters are required'
+                ], 400);
+            }
+
+            $query = MediaItem::where('category', $category)
+                ->where('title', $title);
+
+            if ($type === 'exact') {
+                // For exact duplicates, we need to get the first item's details to match against
+                $firstItem = $query->first();
+                if (!$firstItem) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No items found with this title'
+                    ], 404);
+                }
+
+                $query = MediaItem::where('category', $category)
+                    ->where('title', $title)
+                    ->where('release', $firstItem->release)
+                    ->where('rating', $firstItem->rating)
+                    ->where('platforms', $firstItem->platforms)
+                    ->where('genre', $firstItem->genre)
+                    ->where('link', $firstItem->link)
+                    ->where('path', $firstItem->path);
+            }
+
+            $items = $query->select('id', 'title', 'category', 'release', 'rating', 'platforms', 'genre', 'link', 'path', 'created_at')
+                ->orderBy('id', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'category' => $category,
+                'title' => $title,
+                'type' => $type,
+                'count' => $items->count(),
+                'items' => $items->toArray()
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error getting duplicate group details: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get recent errors from logs
      */
     public function recentErrors(Request $request)

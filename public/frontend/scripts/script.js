@@ -5933,9 +5933,9 @@ Missing Files: ${data.missing_files}
                 exactDuplicates.forEach((dup, index) => {
                     this.log(`${index + 1}. "${dup.item.title}" (ID: ${dup.item.id})`, 'error');
                     this.log(`   Found ${dup.total_count} identical entries:`, 'error');
-                    dup.duplicates.forEach(duplicate => {
-                        this.log(`   - ID: ${duplicate.id}, Title: "${duplicate.title}"`, 'error');
-                    });
+                    
+                    // Show all items in this duplicate group with delete buttons
+                    this.showDuplicateGroup(category, dup.item.title, 'exact', [dup.item, ...dup.duplicates]);
                 });
             }
             
@@ -5945,9 +5945,9 @@ Missing Files: ${data.missing_files}
                 titleDuplicates.forEach((dup, index) => {
                     this.log(`${index + 1}. "${dup.item.title}" (ID: ${dup.item.id})`, 'warning');
                     this.log(`   Found ${dup.total_count} entries with same title:`, 'warning');
-                    dup.duplicates.forEach(duplicate => {
-                        this.log(`   - ID: ${duplicate.id}, Title: "${duplicate.title}", Release: ${duplicate.release || 'N/A'}, Rating: ${duplicate.rating || 'N/A'}`, 'warning');
-                    });
+                    
+                    // Show all items in this duplicate group with delete buttons
+                    this.showDuplicateGroup(category, dup.item.title, 'title', [dup.item, ...dup.duplicates]);
                 });
             }
             
@@ -6012,6 +6012,101 @@ Missing Files: ${data.missing_files}
         }
         
         return null;
+    }
+
+    showDuplicateGroup(category, title, type, items) {
+        const groupId = `duplicate-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create a container for this duplicate group
+        const groupHtml = `
+            <div id="${groupId}" class="duplicate-group">
+                <div class="duplicate-group-header">
+                    <strong>${title}</strong> (${type} duplicates - ${items.length} items)
+                </div>
+                <div class="duplicate-items">
+                    ${items.map((item, index) => `
+                        <div class="duplicate-item" data-id="${item.id}">
+                            <div class="duplicate-item-info">
+                                <span class="duplicate-item-id">ID: ${item.id}</span>
+                                <span class="duplicate-item-title">"${item.title}"</span>
+                                ${item.release ? `<span class="duplicate-item-release">Release: ${item.release}</span>` : ''}
+                                ${item.rating ? `<span class="duplicate-item-rating">Rating: ${item.rating}</span>` : ''}
+                            </div>
+                            <button class="duplicate-delete-btn" onclick="window.debugConsole.deleteDuplicate('${item.id}', '${category}', '${title}', '${type}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        this.log(groupHtml, 'info');
+    }
+
+    async deleteDuplicate(itemId, category, title, type) {
+        if (!confirm(`Are you sure you want to delete item ID ${itemId}?\n\nTitle: "${title}"\nCategory: ${category}\nType: ${type}\n\nThis action cannot be undone!`)) {
+            return;
+        }
+
+        try {
+            const authHeaders = this.getAuthHeaders();
+            if (!authHeaders) {
+                this.log('User not authenticated. Please log in first.', 'error');
+                return;
+            }
+
+            this.log(`Deleting duplicate item ID ${itemId}...`, 'info');
+
+            const response = await fetch(`/api/debug/delete-duplicate?id=${itemId}&category=${encodeURIComponent(category)}`, {
+                method: 'DELETE',
+                headers: authHeaders
+            });
+
+            if (response.status === 401) {
+                this.log('Authentication failed. Please log in again.', 'error');
+                return;
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.log(`✅ Successfully deleted item ID ${itemId}`, 'success');
+                this.log(`   Title: "${data.deleted_item.title}"`, 'success');
+                this.log(`   Remaining items with same title: ${data.remaining_items_with_same_title}`, 'info');
+                
+                // Remove the deleted item from the UI
+                this.removeDeletedItemFromUI(itemId);
+                
+                // If this was the last duplicate, refresh the duplicate check
+                if (data.remaining_items_with_same_title === 1) {
+                    this.log('This was the last duplicate. Refreshing duplicate check...', 'info');
+                    setTimeout(() => {
+                        this.runCheckDuplicates();
+                    }, 1000);
+                }
+            } else {
+                this.log(`❌ Failed to delete item: ${data.message}`, 'error');
+            }
+
+        } catch (error) {
+            this.log(`❌ Error deleting duplicate: ${error.message}`, 'error');
+        }
+    }
+
+    removeDeletedItemFromUI(itemId) {
+        // Find and remove the deleted item from all duplicate groups
+        const duplicateItems = document.querySelectorAll(`.duplicate-item[data-id="${itemId}"]`);
+        duplicateItems.forEach(item => {
+            const group = item.closest('.duplicate-group');
+            item.remove();
+            
+            // If this was the last item in the group, remove the entire group
+            const remainingItems = group.querySelectorAll('.duplicate-item');
+            if (remainingItems.length === 0) {
+                group.remove();
+            }
+        });
     }
 
     checkAuthStatus() {
