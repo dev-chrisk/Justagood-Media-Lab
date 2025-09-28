@@ -52,11 +52,12 @@
     border-radius: var(--border-radius);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
     min-width: 300px;
-    max-width: 400px;
-    max-height: 70vh;
+    max-width: 90vw;
+    max-height: 90vh;
     overflow: hidden;
     display: none;
     flex-direction: column;
+    resize: both;
 }
 
 .debug-dropdown.show {
@@ -213,7 +214,64 @@
     font-size: 0.8rem;
     line-height: 1.4;
     color: var(--text-secondary);
-    max-height: 150px;
+    max-height: none;
+    min-height: 200px;
+}
+
+/* Resize handle for debug console */
+.debug-dropdown::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(-45deg, transparent 30%, var(--border-color) 30%, var(--border-color) 40%, transparent 40%, transparent 60%, var(--border-color) 60%, var(--border-color) 70%, transparent 70%);
+    cursor: se-resize;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.debug-dropdown:hover::after {
+    opacity: 1;
+}
+
+/* Expand button for debug console */
+.debug-expand-btn {
+    position: absolute;
+    top: 16px;
+    right: 50px;
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: var(--transition);
+}
+
+.debug-expand-btn:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
+
+.debug-dropdown.expanded {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
+    z-index: 1001;
+}
+
+.debug-dropdown.expanded .debug-output-content {
+    max-height: none;
+    height: calc(100vh - 200px);
 }
 
 .debug-placeholder {

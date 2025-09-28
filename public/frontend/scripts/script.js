@@ -5495,6 +5495,11 @@ class DebugConsole {
             this.close();
         });
 
+        // Expand button
+        document.getElementById('debugExpand').addEventListener('click', () => {
+            this.toggleExpand();
+        });
+
         // Clear output button
         document.getElementById('debugClearOutput').addEventListener('click', () => {
             this.clearOutput();
@@ -5561,7 +5566,21 @@ class DebugConsole {
     close() {
         const dropdown = document.getElementById('debugDropdown');
         dropdown.classList.remove('show');
+        dropdown.classList.remove('expanded');
         this.isOpen = false;
+    }
+
+    toggleExpand() {
+        const dropdown = document.getElementById('debugDropdown');
+        dropdown.classList.toggle('expanded');
+        const expandBtn = document.getElementById('debugExpand');
+        if (dropdown.classList.contains('expanded')) {
+            expandBtn.textContent = '⛶';
+            expandBtn.title = 'Minimize console';
+        } else {
+            expandBtn.textContent = '⛶';
+            expandBtn.title = 'Expand console';
+        }
     }
 
     log(message, type = 'info', details = null) {
@@ -5880,11 +5899,11 @@ Missing Files: ${data.missing_files}
                 
                 if (response.status === 401) {
                     this.log('Authentication failed during check. Please log in again.', 'error');
-                    return;
-                }
-                
-                const data = await response.json();
-                
+                return;
+            }
+            
+            const data = await response.json();
+            
                 if (!data.success) {
                     this.log('Failed to check duplicates', 'error', data.message);
                     return;
@@ -6088,7 +6107,7 @@ Missing Files: ${data.missing_files}
                         this.runCheckDuplicates();
                     }, 1000);
                 }
-            } else {
+                } else {
                 this.log(`❌ Failed to delete item: ${data.message}`, 'error');
             }
 
@@ -6116,17 +6135,18 @@ Missing Files: ${data.missing_files}
         // Get current active category
         const activeCategory = this.getActiveCategory();
         
-        // Debug information
-        this.log(`Debug: currentCategory = ${typeof currentCategory !== 'undefined' ? currentCategory : 'undefined'}`, 'info');
-        const activeNavBtn = document.querySelector('.nav-btn.active');
-        this.log(`Debug: active nav button = ${activeNavBtn ? activeNavBtn.id : 'none'}`, 'info');
-        
         if (!activeCategory) {
             this.log('No active category selected. Please select a category first.', 'error');
             return;
         }
 
-        this.log(`Starting direct duplicate deletion for category: "${activeCategory}"`, 'info');
+        // Ask for confirmation
+        if (!confirm(`This will automatically delete ALL duplicates in category "${activeCategory}" in batches of 50.\n\nThis action cannot be undone!\n\nContinue?`)) {
+            return;
+        }
+
+        this.log(`Starting automatic duplicate deletion for category: "${activeCategory}"`, 'info');
+        this.log('Deleting in batches of 50...', 'info');
         
         try {
             const authHeaders = this.getAuthHeaders();
@@ -6135,41 +6155,107 @@ Missing Files: ${data.missing_files}
                 return;
             }
 
-            this.log('Loading duplicates for direct deletion...', 'info');
-
-            const response = await fetch(`/api/debug/get-all-duplicates?category=${encodeURIComponent(activeCategory)}`, {
-                headers: authHeaders
-            });
-            
-            if (response.status === 401) {
-                this.log('Authentication failed. Please log in again.', 'error');
-                return;
-            }
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                this.log('Failed to load duplicates', 'error', data.message);
-                return;
-            }
-
-            this.log(`Found ${data.duplicate_groups_count} duplicate groups in category "${activeCategory}"`, 'info');
-            this.log(`Total items in category: ${data.total_items}`, 'info');
-
-            if (data.duplicate_groups_count === 0) {
-                this.log('🎉 No duplicates found in this category!', 'success');
-                return;
-            }
-
-            // Show all duplicate groups with delete options
-            this.log('=== DUPLICATE GROUPS FOR DELETION ===', 'warning');
-            data.duplicate_groups.forEach((group, index) => {
-                this.log(`Group ${index + 1}: "${group.title}" (${group.type} duplicates - ${group.count} items)`, 'warning');
-                this.showDuplicateGroup(activeCategory, group.title, group.type, group.items);
-            });
+            await this.runAutoDeleteBatches(activeCategory, authHeaders);
 
         } catch (error) {
-            this.log('Error loading duplicates for deletion', 'error', error.message);
+            this.log('Error during automatic duplicate deletion', 'error', error.message);
+        }
+    }
+
+    async runAutoDeleteBatches(category, authHeaders) {
+        let offset = 0;
+        let totalDeleted = 0;
+        let batchNumber = 1;
+        let isComplete = false;
+
+        // Create progress indicator
+        const progressId = 'auto-delete-progress';
+        this.log(`<div id="${progressId}" class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text">Starting automatic deletion...</div>
+        </div>`, 'info');
+
+        try {
+            while (!isComplete) {
+                this.log(`Processing batch ${batchNumber} (offset: ${offset})...`, 'info');
+
+                const response = await fetch('/api/debug/auto-delete-duplicates', {
+                    method: 'POST',
+                    headers: {
+                        ...authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category: category,
+                        offset: offset
+                    })
+                });
+
+                if (response.status === 401) {
+                    this.log('Authentication failed during deletion. Please log in again.', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    this.log(`Failed to delete batch ${batchNumber}`, 'error', data.message);
+                    return;
+                }
+
+                // Update progress
+                const progress = data.is_complete ? 100 : Math.min(95, (offset / (offset + data.deleted_count + data.remaining_duplicates)) * 100);
+                this.updateProgress(progressId, progress, `Batch ${batchNumber}: Deleted ${data.deleted_count} duplicates`);
+
+                // Log results
+                if (data.deleted_count > 0) {
+                    this.log(`✅ Batch ${batchNumber}: Deleted ${data.deleted_count} duplicates`, 'success');
+                    
+                    // Show some deleted items
+                    data.deleted_items.slice(0, 5).forEach(item => {
+                        this.log(`   - ID ${item.id}: "${item.title}" (${item.type})`, 'success');
+                    });
+                    
+                    if (data.deleted_items.length > 5) {
+                        this.log(`   ... and ${data.deleted_items.length - 5} more`, 'success');
+                    }
+                } else {
+                    this.log(`Batch ${batchNumber}: No duplicates found to delete`, 'info');
+                }
+
+                // Show errors if any
+                if (data.errors && data.errors.length > 0) {
+                    data.errors.forEach(error => {
+                        this.log(`⚠️ ${error}`, 'warning');
+                    });
+                }
+
+                totalDeleted += data.deleted_count;
+                offset = data.offset;
+                isComplete = data.is_complete;
+                batchNumber++;
+
+                // Small delay between batches
+                if (!isComplete) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+
+            // Remove progress indicator
+            const progressElement = document.getElementById(progressId);
+            if (progressElement) {
+                progressElement.remove();
+            }
+
+            // Final results
+            this.log('🎉 Automatic duplicate deletion completed!', 'success');
+            this.log(`Total duplicates deleted: ${totalDeleted}`, 'success');
+            this.log(`Category "${category}" is now clean of duplicates!`, 'success');
+
+        } catch (error) {
+            this.log('Error during automatic deletion', 'error', error.message);
         }
     }
 

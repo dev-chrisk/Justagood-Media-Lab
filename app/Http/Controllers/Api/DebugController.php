@@ -563,6 +563,165 @@ class DebugController extends Controller
     }
 
     /**
+     * Auto-delete duplicates in batches of 50
+     */
+    public function autoDeleteDuplicates(Request $request)
+    {
+        try {
+            $category = $request->get('category');
+            $batchSize = 50;
+            $offset = $request->get('offset', 0);
+            
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category parameter is required'
+                ], 400);
+            }
+
+            // Get duplicates for this batch
+            $duplicates = $this->getDuplicatesForBatch($category, $offset, $batchSize);
+            
+            if (empty($duplicates)) {
+                return response()->json([
+                    'success' => true,
+                    'category' => $category,
+                    'deleted_count' => 0,
+                    'remaining_duplicates' => 0,
+                    'is_complete' => true,
+                    'message' => 'No more duplicates to delete'
+                ]);
+            }
+
+            $deletedCount = 0;
+            $deletedItems = [];
+            $errors = [];
+
+            foreach ($duplicates as $duplicate) {
+                try {
+                    // Check if there are other items with the same title
+                    $remainingItems = MediaItem::where('category', $category)
+                        ->where('title', $duplicate['title'])
+                        ->where('id', '!=', $duplicate['id'])
+                        ->count();
+
+                    // Only delete if there are other items with the same title
+                    if ($remainingItems > 0) {
+                        $item = MediaItem::find($duplicate['id']);
+                        if ($item) {
+                            $deletedItems[] = [
+                                'id' => $item->id,
+                                'title' => $item->title,
+                                'type' => $duplicate['type']
+                            ];
+                            $item->delete();
+                            $deletedCount++;
+                        }
+                    } else {
+                        $errors[] = "Skipped ID {$duplicate['id']} - last remaining item with title '{$duplicate['title']}'";
+                    }
+                } catch (\Exception $e) {
+                    $errors[] = "Error deleting ID {$duplicate['id']}: " . $e->getMessage();
+                }
+            }
+
+            // Check if there are more duplicates
+            $remainingDuplicates = $this->countRemainingDuplicates($category);
+
+            return response()->json([
+                'success' => true,
+                'category' => $category,
+                'deleted_count' => $deletedCount,
+                'deleted_items' => $deletedItems,
+                'remaining_duplicates' => $remainingDuplicates,
+                'is_complete' => $remainingDuplicates === 0,
+                'errors' => $errors,
+                'offset' => $offset + $batchSize
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error auto-deleting duplicates: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get duplicates for a specific batch
+     */
+    private function getDuplicatesForBatch($category, $offset, $limit)
+    {
+        // Get all items in the category
+        $items = MediaItem::where('category', $category)
+            ->select('id', 'title', 'category', 'release', 'rating', 'platforms', 'genre', 'link', 'path')
+            ->orderBy('title')
+            ->orderBy('id')
+            ->get();
+
+        // Group items by title
+        $titleGroups = $items->groupBy('title');
+        $allDuplicates = [];
+
+        foreach ($titleGroups as $title => $titleItems) {
+            if ($titleItems->count() > 1) {
+                // Check for exact duplicates within this title group
+                $exactGroups = $titleItems->groupBy(function($item) {
+                    return $item->release . '|' . $item->rating . '|' . $item->platforms . '|' . $item->genre . '|' . $item->link . '|' . $item->path;
+                });
+
+                foreach ($exactGroups as $exactKey => $exactItems) {
+                    if ($exactItems->count() > 1) {
+                        // Add all but the first item (keep the first one)
+                        $itemsToDelete = $exactItems->skip(1);
+                        foreach ($itemsToDelete as $item) {
+                            $allDuplicates[] = [
+                                'id' => $item->id,
+                                'title' => $item->title,
+                                'type' => 'exact'
+                            ];
+                        }
+                    }
+                }
+
+                // If there are title duplicates but no exact duplicates, add as title duplicate
+                if ($exactGroups->count() === 1 && $titleItems->count() > 1) {
+                    // Add all but the first item (keep the first one)
+                    $itemsToDelete = $titleItems->skip(1);
+                    foreach ($itemsToDelete as $item) {
+                        $allDuplicates[] = [
+                            'id' => $item->id,
+                            'title' => $item->title,
+                            'type' => 'title'
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Return the requested batch
+        return array_slice($allDuplicates, $offset, $limit);
+    }
+
+    /**
+     * Count remaining duplicates in category
+     */
+    private function countRemainingDuplicates($category)
+    {
+        $items = MediaItem::where('category', $category)->get();
+        $titleGroups = $items->groupBy('title');
+        $duplicateCount = 0;
+
+        foreach ($titleGroups as $title => $titleItems) {
+            if ($titleItems->count() > 1) {
+                $duplicateCount += $titleItems->count() - 1; // -1 because we keep one
+            }
+        }
+
+        return $duplicateCount;
+    }
+
+    /**
      * Get detailed information about a specific duplicate group
      */
     public function getDuplicateGroupDetails(Request $request)

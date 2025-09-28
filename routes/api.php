@@ -118,6 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/delete-duplicate', [DebugController::class, 'deleteDuplicate']);
         Route::get('/duplicate-group-details', [DebugController::class, 'getDuplicateGroupDetails']);
         Route::get('/get-all-duplicates', [DebugController::class, 'getAllDuplicatesForCategory']);
+        Route::post('/auto-delete-duplicates', [DebugController::class, 'autoDeleteDuplicates']);
         Route::get('/system-info', [DebugController::class, 'systemInfo']);
         Route::post('/clear-cache', [DebugController::class, 'clearCache']);
         Route::get('/recent-errors', [DebugController::class, 'recentErrors']);
