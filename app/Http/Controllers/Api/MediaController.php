@@ -214,15 +214,63 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        // Only clear and insert data if user is authenticated
+        // Only process data if user is authenticated
         if ($request->user()) {
-            // Clear existing data for this user
-            MediaItem::forUser($request->user()->id)->delete();
+            $userId = $request->user()->id;
+            $incomingData = $request->all();
             
-            foreach ($request->all() as $item) {
-                $item['user_id'] = $request->user()->id;
-                MediaItem::create($item);
+            // Get existing data for comparison
+            $existingItems = MediaItem::forUser($userId)->get()->keyBy('id');
+            $incomingItems = collect($incomingData)->keyBy('id');
+            
+            $stats = [
+                'created' => 0,
+                'updated' => 0,
+                'deleted' => 0,
+                'unchanged' => 0
+            ];
+            
+            // Process incoming items
+            foreach ($incomingItems as $itemId => $itemData) {
+                $itemData['user_id'] = $userId;
+                
+                if ($existingItems->has($itemId)) {
+                    // Check if item has actually changed
+                    $existingItem = $existingItems->get($itemId);
+                    $hasChanges = false;
+                    
+                    foreach ($itemData as $key => $value) {
+                        if ($key !== 'user_id' && $existingItem->$key != $value) {
+                            $hasChanges = true;
+                            break;
+                        }
+                    }
+                    
+                    if ($hasChanges) {
+                        $existingItem->update($itemData);
+                        $stats['updated']++;
+                    } else {
+                        $stats['unchanged']++;
+                    }
+                } else {
+                    // New item
+                    MediaItem::create($itemData);
+                    $stats['created']++;
+                }
             }
+            
+            // Delete items that are no longer in incoming data
+            $incomingIds = $incomingItems->keys();
+            $deletedCount = MediaItem::forUser($userId)
+                ->whereNotIn('id', $incomingIds)
+                ->delete();
+            $stats['deleted'] = $deletedCount;
+            
+            return response()->json([
+                'success' => true,
+                'stats' => $stats,
+                'message' => "Sync completed: {$stats['created']} created, {$stats['updated']} updated, {$stats['deleted']} deleted, {$stats['unchanged']} unchanged"
+            ]);
         }
 
         return response()->json(['success' => true]);
