@@ -86,6 +86,9 @@
           </div>
         </div>
       </div>
+      
+      <!-- Version Info -->
+      <VersionInfo />
     </aside>
 
     <!-- Main Content -->
@@ -207,6 +210,7 @@ import LoginModal from '@/components/LoginModal.vue'
 import RegisterModal from '@/components/RegisterModal.vue'
 import EditModal from '@/components/EditModal.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import VersionInfo from '@/components/VersionInfo.vue'
 
 export default {
   name: 'MediaLibrary',
@@ -215,7 +219,8 @@ export default {
     LoginModal,
     RegisterModal,
     EditModal,
-    LoadingSpinner
+    LoadingSpinner,
+    VersionInfo
   },
   setup() {
     const router = useRouter()

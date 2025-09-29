@@ -51,9 +51,6 @@ class AuthController extends Controller
 
         // Prüfe und bereinige Duplikate beim Login
         $this->checkAndCleanupDuplicates();
-        
-        // Korrigiere Bildpfade beim Login (nur wenn nötig)
-        $this->fixImagePathsIfNeeded();
 
         return response()->json([
             'user' => $user,
@@ -94,98 +91,6 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             \Log::error('Failed to check/cleanup category duplicates during login', [
                 'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Fix image paths from old structure to new merged structure (only if needed)
-     */
-    private function fixImagePathsIfNeeded(): void
-    {
-        try {
-            // Prüfe ob überhaupt Korrekturen nötig sind
-            $needsFix = MediaItem::whereNotNull('path')
-                ->where(function($query) {
-                    $query->where('path', 'like', 'images_downloads/%')
-                          ->orWhere('path', 'like', 'images/%')
-                          ->orWhere('path', 'like', 'games/%')
-                          ->orWhere('path', 'like', 'movies/%')
-                          ->orWhere('path', 'like', 'series/%');
-                })
-                ->where('path', 'not like', 'merged_images/%')
-                ->exists();
-            
-            if (!$needsFix) {
-                \Log::info('Image paths already correct, skipping fix');
-                return;
-            }
-            
-            \Log::info('Image paths need fixing, starting correction');
-            
-            // Nur eine kleine Batch verarbeiten, um den Login nicht zu blockieren
-            $items = MediaItem::whereNotNull('path')
-                ->where(function($query) {
-                    $query->where('path', 'like', 'images_downloads/%')
-                          ->orWhere('path', 'like', 'images/%')
-                          ->orWhere('path', 'like', 'games/%')
-                          ->orWhere('path', 'like', 'movies/%')
-                          ->orWhere('path', 'like', 'series/%');
-                })
-                ->where('path', 'not like', 'merged_images/%')
-                ->limit(50) // Nur 50 Einträge pro Login
-                ->get();
-            
-            \Log::info('Processing image path fix batch', ['count' => $items->count()]);
-            
-            $updatedCount = 0;
-            $errors = [];
-            
-            foreach ($items as $item) {
-                try {
-                    $oldPath = $item->path;
-                    $newPath = null;
-                    
-                    if (strpos($oldPath, 'images_downloads/') === 0) {
-                        $newPath = str_replace('images_downloads/', 'merged_images/', $oldPath);
-                    } elseif (strpos($oldPath, 'images/') === 0) {
-                        $newPath = str_replace('images/', 'merged_images/', $oldPath);
-                    } elseif (strpos($oldPath, 'games/') === 0) {
-                        $newPath = 'merged_images/' . $oldPath;
-                    } elseif (strpos($oldPath, 'movies/') === 0) {
-                        $newPath = 'merged_images/' . $oldPath;
-                    } elseif (strpos($oldPath, 'series/') === 0) {
-                        $newPath = 'merged_images/' . $oldPath;
-                    }
-                    
-                    if ($newPath && $newPath !== $oldPath) {
-                        $item->path = $newPath;
-                        $item->save();
-                        $updatedCount++;
-                    }
-                } catch (\Exception $e) {
-                    $errors[] = [
-                        'item_id' => $item->id,
-                        'title' => $item->title,
-                        'old_path' => $item->path,
-                        'error' => $e->getMessage()
-                    ];
-                }
-            }
-            
-            \Log::info('Image path fix batch completed', [
-                'updated' => $updatedCount,
-                'errors' => count($errors)
-            ]);
-            
-            if (!empty($errors)) {
-                \Log::warning('Image path fix batch errors', ['errors' => $errors]);
-            }
-            
-        } catch (\Exception $e) {
-            \Log::error('Failed to fix image paths during login', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
         }
     }
