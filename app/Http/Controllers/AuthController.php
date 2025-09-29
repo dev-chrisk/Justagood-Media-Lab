@@ -52,8 +52,8 @@ class AuthController extends Controller
         // Prüfe und bereinige Duplikate beim Login
         $this->checkAndCleanupDuplicates();
         
-        // Korrigiere Bildpfade beim Login
-        $this->fixImagePaths();
+        // Korrigiere Bildpfade beim Login (nur wenn nötig)
+        $this->fixImagePathsIfNeeded();
 
         return response()->json([
             'user' => $user,
@@ -99,49 +99,62 @@ class AuthController extends Controller
     }
 
     /**
-     * Fix image paths from old structure to new merged structure
+     * Fix image paths from old structure to new merged structure (only if needed)
      */
-    private function fixImagePaths(): void
+    private function fixImagePathsIfNeeded(): void
     {
         try {
-            \Log::info('Starting image path fix during login');
+            // Prüfe ob überhaupt Korrekturen nötig sind
+            $needsFix = MediaItem::whereNotNull('path')
+                ->where(function($query) {
+                    $query->where('path', 'like', 'images_downloads/%')
+                          ->orWhere('path', 'like', 'images/%')
+                          ->orWhere('path', 'like', 'games/%')
+                          ->orWhere('path', 'like', 'movies/%')
+                          ->orWhere('path', 'like', 'series/%');
+                })
+                ->where('path', 'not like', 'merged_images/%')
+                ->exists();
             
-            // Alle Media Items mit Pfaden abrufen
-            $items = MediaItem::whereNotNull('path')->get();
+            if (!$needsFix) {
+                \Log::info('Image paths already correct, skipping fix');
+                return;
+            }
             
-            \Log::info('Found media items with paths', ['count' => $items->count()]);
+            \Log::info('Image paths need fixing, starting correction');
+            
+            // Nur eine kleine Batch verarbeiten, um den Login nicht zu blockieren
+            $items = MediaItem::whereNotNull('path')
+                ->where(function($query) {
+                    $query->where('path', 'like', 'images_downloads/%')
+                          ->orWhere('path', 'like', 'images/%')
+                          ->orWhere('path', 'like', 'games/%')
+                          ->orWhere('path', 'like', 'movies/%')
+                          ->orWhere('path', 'like', 'series/%');
+                })
+                ->where('path', 'not like', 'merged_images/%')
+                ->limit(50) // Nur 50 Einträge pro Login
+                ->get();
+            
+            \Log::info('Processing image path fix batch', ['count' => $items->count()]);
             
             $updatedCount = 0;
-            $skippedCount = 0;
             $errors = [];
             
             foreach ($items as $item) {
                 try {
                     $oldPath = $item->path;
-                    
-                    // Prüfe ob der Pfad bereits korrekt ist
-                    if (strpos($oldPath, 'merged_images/') === 0) {
-                        $skippedCount++;
-                        continue; // Bereits korrekt
-                    }
-                    
-                    // Konvertiere alte Pfade zu neuen Pfaden
                     $newPath = null;
                     
                     if (strpos($oldPath, 'images_downloads/') === 0) {
-                        // images_downloads/games/... -> merged_images/games/...
                         $newPath = str_replace('images_downloads/', 'merged_images/', $oldPath);
                     } elseif (strpos($oldPath, 'images/') === 0) {
-                        // images/games/... -> merged_images/games/...
                         $newPath = str_replace('images/', 'merged_images/', $oldPath);
                     } elseif (strpos($oldPath, 'games/') === 0) {
-                        // games/... -> merged_images/games/...
                         $newPath = 'merged_images/' . $oldPath;
                     } elseif (strpos($oldPath, 'movies/') === 0) {
-                        // movies/... -> merged_images/movies/...
                         $newPath = 'merged_images/' . $oldPath;
                     } elseif (strpos($oldPath, 'series/') === 0) {
-                        // series/... -> merged_images/series/...
                         $newPath = 'merged_images/' . $oldPath;
                     }
                     
@@ -149,10 +162,6 @@ class AuthController extends Controller
                         $item->path = $newPath;
                         $item->save();
                         $updatedCount++;
-                        
-                        if ($updatedCount % 100 == 0) {
-                            \Log::info('Image path fix progress', ['updated' => $updatedCount]);
-                        }
                     }
                 } catch (\Exception $e) {
                     $errors[] = [
@@ -164,26 +173,14 @@ class AuthController extends Controller
                 }
             }
             
-            // Log Ergebnisse
-            \Log::info('Image path fix completed', [
+            \Log::info('Image path fix batch completed', [
                 'updated' => $updatedCount,
-                'skipped' => $skippedCount,
                 'errors' => count($errors)
             ]);
             
             if (!empty($errors)) {
-                \Log::warning('Image path fix errors', ['errors' => $errors]);
+                \Log::warning('Image path fix batch errors', ['errors' => $errors]);
             }
-            
-            // Statistiken loggen
-            $pathStats = MediaItem::selectRaw('SUBSTRING_INDEX(path, "/", 1) as path_prefix, COUNT(*) as count')
-                ->whereNotNull('path')
-                ->groupBy('path_prefix')
-                ->get();
-            
-            \Log::info('Image path statistics after fix', [
-                'statistics' => $pathStats->pluck('count', 'path_prefix')->toArray()
-            ]);
             
         } catch (\Exception $e) {
             \Log::error('Failed to fix image paths during login', [

@@ -3,16 +3,19 @@
     <ErrorBoundary>
       <router-view />
     </ErrorBoundary>
+    <VersionInfo />
   </div>
 </template>
 
 <script>
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
+import VersionInfo from '@/components/VersionInfo.vue'
 
 export default {
   name: 'App',
   components: {
-    ErrorBoundary
+    ErrorBoundary,
+    VersionInfo
   }
 }
 </script>
