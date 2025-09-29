@@ -5,7 +5,7 @@ import { mediaApi } from '@/services/api'
 export const useMediaStore = defineStore('media', () => {
   // State
   const mediaData = ref([])
-  const currentCategory = ref('game')
+  const currentCategory = ref('watchlist')
   const searchQuery = ref('')
   const activeFilters = ref([])
   const loading = ref(false)
@@ -29,9 +29,9 @@ export const useMediaStore = defineStore('media', () => {
     // Filter by category
     if (currentCategory.value && currentCategory.value !== 'all') {
       filtered = filtered.filter(item => {
-        if (currentCategory.value.endsWith('_new')) {
-          const baseCategory = currentCategory.value.replace('_new', '')
-          return item.category === baseCategory && item.isNew === true
+        // For watchlist, show items that are marked as new or in watchlist category
+        if (currentCategory.value === 'watchlist') {
+          return item.category === 'watchlist' || item.isNew === true
         }
         return item.category === currentCategory.value
       })
@@ -70,8 +70,11 @@ export const useMediaStore = defineStore('media', () => {
     error.value = null
     
     try {
+      // Load all media data without category filter
       const data = await mediaApi.getMedia()
       mediaData.value = data || []
+      console.log('Loaded media data:', data.length, 'items')
+      console.log('Categories found:', [...new Set(data.map(item => item.category))])
     } catch (err) {
       error.value = err.response?.data?.message || err.message || 'Failed to load media data'
       console.error('Failed to load media:', err)
@@ -141,6 +144,17 @@ export const useMediaStore = defineStore('media', () => {
 
   async function deleteMediaItem(id) {
     try {
+      // Try to delete via API first if user is logged in
+      const token = localStorage.getItem('authToken')
+      if (token) {
+        try {
+          await mediaApi.deleteMediaItem(id)
+        } catch (apiError) {
+          console.warn('API delete failed, falling back to local delete:', apiError)
+        }
+      }
+      
+      // Remove from local data
       const index = mediaData.value.findIndex(item => item.id === id)
       if (index !== -1) {
         mediaData.value.splice(index, 1)

@@ -1,5 +1,5 @@
 <template>
-  <div class="media-item" @click="showDetails">
+  <div class="media-item" @click="editItem">
     <div class="media-image">
       <img 
         v-if="item.path" 
@@ -15,7 +15,14 @@
     <div class="media-info">
       <h3 class="media-title">{{ item.title }}</h3>
       <div class="media-meta">
-        <span v-if="item.release" class="media-release">{{ formatDate(item.release) }}</span>
+        <span v-if="item.release" class="media-release">
+          <span v-if="isWatchlistItem && item.release" :class="getWatchlistReleaseStatusClass()">
+            {{ getWatchlistReleaseStatus() }}
+          </span>
+          <span v-else>
+            {{ formatDate(item.release) }}
+          </span>
+        </span>
         <span v-if="item.rating" class="media-rating">
           {{ '★'.repeat(Math.max(0, Math.min(5, Math.floor(item.rating)))) }}{{ '☆'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.floor(item.rating))))) }}
         </span>
@@ -33,15 +40,18 @@
         <span class="airing-badge">Airing</span>
         <span v-if="item.nextSeason">S{{ item.nextSeason }}</span>
       </div>
+      
+      <!-- Watchlist Type Tag -->
+      <div v-if="showWatchlistTag" class="watchlist-type-tag">
+        <span class="type-tag" :class="getTypeTagClass()">
+          {{ getTypeTagText() }}
+        </span>
+      </div>
     </div>
     
-    <div class="media-actions">
-      <button class="action-btn edit-btn" @click.stop="editItem" title="Edit">
-        ✏️
-      </button>
-      <button class="action-btn delete-btn" @click.stop="deleteItem" title="Delete">
-        🗑️
-      </button>
+    <!-- Edit indicator -->
+    <div class="edit-indicator">
+      <span class="edit-icon">✏️</span>
     </div>
   </div>
 </template>
@@ -55,7 +65,18 @@ export default {
       required: true
     }
   },
-  emits: ['edit', 'delete'],
+  emits: ['edit'],
+  computed: {
+    showWatchlistTag() {
+      // Show tag only if item is in watchlist category or marked as new
+      return this.item.category === 'watchlist' || this.item.isNew === true
+    },
+    
+    isWatchlistItem() {
+      // Check if this is a watchlist item
+      return this.item.category === 'watchlist' || this.item.isNew === true
+    }
+  },
   methods: {
     getImageUrl(path) {
       // Handle different image path formats
@@ -79,17 +100,112 @@ export default {
       return date.toLocaleDateString()
     },
     
-    showDetails() {
-      // Show item details modal
-      console.log('Show details for:', this.item.title)
-    },
-    
     editItem() {
       this.$emit('edit', this.item)
     },
     
-    deleteItem() {
-      this.$emit('delete', this.item)
+    getWatchlistReleaseStatus() {
+      if (!this.item.release) return ''
+      
+      const releaseDate = new Date(this.item.release)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset time to start of day
+      releaseDate.setHours(0, 0, 0, 0) // Reset time to start of day
+      
+      const timeDiff = releaseDate.getTime() - today.getTime()
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+      
+      if (daysDiff > 0) {
+        // Future release - show countdown
+        if (daysDiff === 1) {
+          return 'Tomorrow!'
+        } else if (daysDiff <= 7) {
+          return `${daysDiff} days left`
+        } else if (daysDiff <= 30) {
+          return `${daysDiff} days left`
+        } else {
+          return `${Math.ceil(daysDiff / 30)} months left`
+        }
+      } else if (daysDiff === 0) {
+        // Released today
+        return 'Released today!'
+      } else {
+        // Already released - show status based on type
+        const type = this.getTypeTagText().toLowerCase()
+        if (type === 'game') {
+          return 'Unplayed yet'
+        } else if (type === 'series' || type === 'movie') {
+          return 'Unwatched yet'
+        } else {
+          return 'Unconsumed yet'
+        }
+      }
+    },
+    
+    getWatchlistReleaseStatusClass() {
+      if (!this.item.release) return ''
+      
+      const releaseDate = new Date(this.item.release)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0) // Reset time to start of day
+      releaseDate.setHours(0, 0, 0, 0) // Reset time to start of day
+      
+      const timeDiff = releaseDate.getTime() - today.getTime()
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+      
+      if (daysDiff > 0) {
+        // Future release - countdown
+        return 'countdown'
+      } else if (daysDiff === 0) {
+        // Released today
+        return 'released-today'
+      } else {
+        // Already released - unconsumed
+        return 'unconsumed'
+      }
+    },
+    
+    getTypeTagText() {
+      // Use manually set watchlistType if available
+      if (this.item.watchlistType) {
+        return this.item.watchlistType.charAt(0).toUpperCase() + this.item.watchlistType.slice(1)
+      }
+      
+      // Fallback to auto-detection if no manual type is set
+      if (this.item.genre) {
+        const genre = this.item.genre.toLowerCase()
+        if (genre.includes('game') || genre.includes('gaming') || this.item.platforms?.toLowerCase().includes('steam') || this.item.platforms?.toLowerCase().includes('ps') || this.item.platforms?.toLowerCase().includes('xbox')) {
+          return 'Game'
+        }
+        if (genre.includes('series') || genre.includes('tv') || genre.includes('episode') || this.item.isAiring) {
+          return 'Series'
+        }
+        if (genre.includes('movie') || genre.includes('film') || genre.includes('cinema')) {
+          return 'Movie'
+        }
+      }
+      
+      // Fallback based on platforms
+      if (this.item.platforms) {
+        const platforms = this.item.platforms.toLowerCase()
+        if (platforms.includes('steam') || platforms.includes('ps') || platforms.includes('xbox') || platforms.includes('nintendo') || platforms.includes('pc')) {
+          return 'Game'
+        }
+        if (platforms.includes('netflix') || platforms.includes('hulu') || platforms.includes('disney') || platforms.includes('hbo')) {
+          return 'Series'
+        }
+        if (platforms.includes('cinema') || platforms.includes('theater')) {
+          return 'Movie'
+        }
+      }
+      
+      // Default fallback
+      return 'Media'
+    },
+    
+    getTypeTagClass() {
+      const type = this.getTypeTagText().toLowerCase()
+      return `type-${type}`
     }
   }
 }
@@ -102,14 +218,36 @@ export default {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
   cursor: pointer;
   border: 1px solid #404040;
 }
 
 .media-item:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  border-color: #4a9eff;
+  background: #333333;
+}
+
+.media-item:active {
+  transform: translateY(-2px) scale(1.01);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .media-item:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border-color: #404040;
+    background: #2d2d2d;
+  }
+  
+  .media-item:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
 }
 
 .media-image {
@@ -152,6 +290,11 @@ export default {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  transition: color 0.2s ease;
+}
+
+.media-item:hover .media-title {
+  color: #4a9eff;
 }
 
 .media-meta {
@@ -165,6 +308,23 @@ export default {
 
 .media-release {
   font-weight: 500;
+}
+
+/* Watchlist release status styles */
+.media-release .countdown {
+  color: #4a9eff;
+  font-weight: 600;
+}
+
+.media-release .released-today {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.media-release .unconsumed {
+  color: #e67e22;
+  font-weight: 600;
+  font-style: italic;
 }
 
 .media-rating {
@@ -199,42 +359,73 @@ export default {
   font-weight: 600;
 }
 
-.media-actions {
+.edit-indicator {
   position: absolute;
   top: 8px;
   right: 8px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.media-item:hover .media-actions {
-  opacity: 1;
-}
-
-.action-btn {
   background: rgba(0, 0, 0, 0.7);
-  border: none;
-  border-radius: 4px;
-  padding: 4px 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.2s;
-  color: #e0e0e0;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s;
 }
 
-.action-btn:hover {
-  background: rgba(0, 0, 0, 0.9);
+.media-item:hover .edit-indicator {
+  opacity: 1;
+  background: rgba(74, 158, 255, 0.9);
 }
 
-.edit-btn:hover {
-  background: #4a9eff;
+.edit-icon {
+  font-size: 14px;
   color: white;
 }
 
-.delete-btn:hover {
-  background: #e74c3c;
+/* Always show edit indicator on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .edit-indicator {
+    opacity: 1;
+    background: rgba(74, 158, 255, 0.8);
+  }
+}
+
+/* Watchlist Type Tags */
+.watchlist-type-tag {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.type-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.type-game {
+  background: #4CAF50;
+  color: white;
+}
+
+.type-series {
+  background: #2196F3;
+  color: white;
+}
+
+.type-movie {
+  background: #FF9800;
+  color: white;
+}
+
+.type-media {
+  background: #9C27B0;
   color: white;
 }
 </style>

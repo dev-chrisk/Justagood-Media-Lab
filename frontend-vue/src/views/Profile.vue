@@ -285,7 +285,7 @@ export default {
     }
     
     const toggleMobileSidebar = () => {
-      // Mobile sidebar toggle logic
+      // Mobile sidebar toggle logic - can be implemented if needed
     }
     
     const navigateToLibrary = () => {

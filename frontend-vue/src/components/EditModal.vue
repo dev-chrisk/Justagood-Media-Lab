@@ -8,12 +8,10 @@
           <div class="form-group">
             <label for="category">Category:</label>
             <select id="category" v-model="form.category" required>
+              <option value="watchlist">Watchlist</option>
               <option value="game">Game</option>
               <option value="series">Series</option>
               <option value="movie">Movie</option>
-              <option value="games_new">Games New</option>
-              <option value="series_new">Series New</option>
-              <option value="movie_new">Movies New</option>
             </select>
           </div>
         </div>
@@ -28,9 +26,12 @@
                 v-model="form.title" 
                 @input="searchApi"
                 required
-                placeholder="Enter title"
+                :placeholder="isWatchlist ? 'Manuell eingeben (keine API-Suche)' : 'Enter title'"
                 :disabled="loading"
               />
+              <div v-if="isWatchlist" class="watchlist-hint">
+                📋 Watchlist: Bitte alle Felder manuell ausfüllen
+              </div>
               <div v-if="apiResults.length > 0" class="search-results">
                 <div 
                   v-for="result in apiResults" 
@@ -51,12 +52,22 @@
         
         <div class="form-row">
           <div class="form-group">
-            <label for="release">Release:</label>
+            <label for="release">
+              {{ isWatchlist ? 'Release Date:' : 'Release:' }}
+              <span v-if="isWatchlist" class="required">*</span>
+            </label>
             <input 
               type="date" 
               id="release"
               v-model="form.release"
+              :required="isWatchlist"
             />
+            <div v-if="isWatchlist" class="field-hint">
+              📅 Set the release date to track countdown or status
+            </div>
+            <div v-if="isWatchlist && form.release" class="release-preview">
+              <strong>Preview:</strong> {{ getReleasePreview() }}
+            </div>
           </div>
           
           <div class="form-group">
@@ -114,6 +125,22 @@
               v-model="form.genre" 
               placeholder="Action, Adventure, RPG"
             />
+          </div>
+        </div>
+        
+        <!-- Watchlist Type Selection -->
+        <div v-if="form.category === 'watchlist'" class="form-row">
+          <div class="form-group">
+            <label for="watchlistType">Type: <span class="required">*</span></label>
+            <select id="watchlistType" v-model="form.watchlistType">
+              <option value="">Select Type</option>
+              <option value="game">Game</option>
+              <option value="series">Series</option>
+              <option value="movie">Movie</option>
+            </select>
+            <div v-if="form.category === 'watchlist' && !form.watchlistType" class="field-error">
+              Please select a type for watchlist items
+            </div>
           </div>
         </div>
         
@@ -209,6 +236,15 @@
           <button type="button" @click="closeModal" :disabled="loading">
             Cancel
           </button>
+          <button 
+            v-if="isEditing" 
+            type="button" 
+            @click="deleteItem" 
+            :disabled="loading"
+            class="delete-btn"
+          >
+            Delete
+          </button>
         </div>
       </form>
     </div>
@@ -227,7 +263,7 @@ export default {
       default: null
     }
   },
-  emits: ['close', 'save'],
+  emits: ['close', 'save', 'delete'],
   setup(props, { emit }) {
     const loading = ref(false)
     const error = ref('')
@@ -235,7 +271,7 @@ export default {
     const searchTimeout = ref(null)
     
     const form = reactive({
-      category: 'game',
+      category: 'watchlist',
       title: '',
       release: '',
       rating: '',
@@ -249,12 +285,14 @@ export default {
       isAiring: false,
       nextSeason: '',
       nextSeasonRelease: '',
-      imageUrl: ''
+      imageUrl: '',
+      watchlistType: ''
     })
     
     const isEditing = computed(() => !!props.item)
-    const isGame = computed(() => form.category === 'game' || form.category === 'games_new')
-    const isSeries = computed(() => form.category === 'series' || form.category === 'series_new')
+    const isGame = computed(() => form.category === 'game')
+    const isSeries = computed(() => form.category === 'series')
+    const isWatchlist = computed(() => form.category === 'watchlist')
     
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
@@ -265,7 +303,7 @@ export default {
       } else {
         // Reset form for new item
         Object.keys(form).forEach(key => {
-          form[key] = key === 'category' ? 'game' : ''
+          form[key] = key === 'category' ? 'watchlist' : ''
         })
       }
     }, { immediate: true })
@@ -276,6 +314,18 @@ export default {
         return
       }
       
+      // Validate watchlist type
+      if (form.category === 'watchlist' && !form.watchlistType) {
+        error.value = 'Please select a type for watchlist items'
+        return
+      }
+      
+      // Validate watchlist release date
+      if (form.category === 'watchlist' && !form.release) {
+        error.value = 'Release date is required for watchlist items'
+        return
+      }
+      
       loading.value = true
       error.value = ''
       
@@ -283,9 +333,9 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
-        // Convert empty strings to null for optional fields
+        // Convert empty strings to null for optional fields (except watchlistType)
         Object.keys(itemData).forEach(key => {
-          if (itemData[key] === '') {
+          if (itemData[key] === '' && key !== 'watchlistType') {
             itemData[key] = null
           }
         })
@@ -308,7 +358,20 @@ export default {
       emit('close')
     }
     
+    const deleteItem = () => {
+      if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        emit('delete', props.item)
+        closeModal()
+      }
+    }
+    
     const searchApi = async () => {
+      // Deaktiviere API-Suche für Watchlist (manuelle Eingabe)
+      if (form.category === 'watchlist') {
+        apiResults.value = []
+        return
+      }
+      
       if (searchTimeout.value) {
         clearTimeout(searchTimeout.value)
       }
@@ -369,6 +432,41 @@ export default {
       return date.toLocaleDateString()
     }
     
+    const getReleasePreview = () => {
+      if (!form.release) return ''
+      
+      const releaseDate = new Date(form.release)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      releaseDate.setHours(0, 0, 0, 0)
+      
+      const timeDiff = releaseDate.getTime() - today.getTime()
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+      
+      if (daysDiff > 0) {
+        if (daysDiff === 1) {
+          return 'Tomorrow!'
+        } else if (daysDiff <= 7) {
+          return `${daysDiff} days left`
+        } else if (daysDiff <= 30) {
+          return `${daysDiff} days left`
+        } else {
+          return `${Math.ceil(daysDiff / 30)} months left`
+        }
+      } else if (daysDiff === 0) {
+        return 'Released today!'
+      } else {
+        const type = form.watchlistType?.toLowerCase() || 'media'
+        if (type === 'game') {
+          return 'Unplayed yet'
+        } else if (type === 'series' || type === 'movie') {
+          return 'Unwatched yet'
+        } else {
+          return 'Unconsumed yet'
+        }
+      }
+    }
+    
     return {
       form,
       loading,
@@ -377,11 +475,14 @@ export default {
       isEditing,
       isGame,
       isSeries,
+      isWatchlist,
       handleSave,
       closeModal,
+      deleteItem,
       searchApi,
       selectApiResult,
-      formatDate
+      formatDate,
+      getReleasePreview
     }
   }
 }
@@ -403,6 +504,14 @@ export default {
   padding: 20px;
 }
 
+@media (max-width: 768px) {
+  .modal {
+    align-items: flex-start;
+    padding: 10px;
+    padding-top: 20px;
+  }
+}
+
 .modal-content {
   background: #2d2d2d;
   padding: 24px;
@@ -413,6 +522,15 @@ export default {
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   border: 1px solid #404040;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    padding: 16px;
+    max-height: 95vh;
+    margin: 0;
+    border-radius: 8px 8px 0 0;
+  }
 }
 
 .modal-content h2 {
@@ -442,12 +560,13 @@ export default {
 
 .form-group input,
 .form-group select {
-  padding: 8px 12px;
+  padding: 12px; /* Larger for touch */
   border: 1px solid #555;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 16px; /* Prevent zoom on iOS */
   background: #3a3a3a;
   color: #e0e0e0;
+  min-height: 44px; /* Touch-friendly */
 }
 
 .form-group input:focus,
@@ -475,12 +594,13 @@ export default {
 }
 
 .modal-buttons button {
-  padding: 8px 16px;
+  padding: 12px 20px; /* Larger for touch */
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px; /* Prevent zoom on iOS */
   transition: background 0.2s;
+  min-height: 44px; /* Touch-friendly */
 }
 
 .modal-buttons button[type="submit"] {
@@ -500,6 +620,17 @@ export default {
 
 .modal-buttons button[type="button"]:hover:not(:disabled) {
   background: #4a4a4a;
+}
+
+.modal-buttons .delete-btn {
+  background: #e74c3c;
+  color: white;
+  border: 1px solid #c0392b;
+}
+
+.modal-buttons .delete-btn:hover:not(:disabled) {
+  background: #c0392b;
+  border-color: #a93226;
 }
 
 .modal-buttons button:disabled {
@@ -554,9 +685,62 @@ export default {
   gap: 12px;
 }
 
+.watchlist-hint {
+  background: #2d4a2d;
+  border: 1px solid #4a7c4a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #90ee90;
+  text-align: center;
+}
+
+.required {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.field-error {
+  color: #e74c3c;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.field-hint {
+  color: #4a9eff;
+  font-size: 12px;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.release-preview {
+  background: #2d4a2d;
+  border: 1px solid #4a7c4a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #90ee90;
+}
+
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .modal-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .modal-buttons button {
+    width: 100%;
+  }
+  
+  .search-results {
+    max-height: 150px;
   }
 }
 </style>

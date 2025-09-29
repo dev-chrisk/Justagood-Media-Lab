@@ -115,49 +115,12 @@ export const mediaApi = {
     try {
       // Try API for logged in users
       const response = await api.get('/api/media')
+      console.log('API Response:', response.data)
       return response.data
     } catch (error) {
-      // Fallback to demo data if API fails
-      return [
-        {
-          id: 1,
-          title: "Sample Game",
-          category: "game",
-          release: "2023-01-01",
-          rating: 8.5,
-          platforms: "PC, PS5",
-          genre: "Action, Adventure",
-          path: null,
-          isNew: false,
-          __order: 0
-        },
-        {
-          id: 2,
-          title: "Sample Series",
-          category: "series",
-          release: "2023-02-01",
-          rating: 9.0,
-          platforms: "Netflix",
-          genre: "Drama, Thriller",
-          path: null,
-          isNew: false,
-          isAiring: true,
-          nextSeason: 2,
-          __order: 1
-        },
-        {
-          id: 3,
-          title: "Sample Movie",
-          category: "movie",
-          release: "2023-03-01",
-          rating: 7.5,
-          platforms: "Cinema",
-          genre: "Comedy, Romance",
-          path: null,
-          isNew: false,
-          __order: 2
-        }
-      ]
+      console.error('API Error:', error)
+      // Don't fallback to demo data for logged in users - throw the error
+      throw error
     }
   },
 
@@ -173,6 +136,16 @@ export const mediaApi = {
     } catch (error) {
       console.error('API fetch failed:', error)
       return { success: false, error: error.message }
+    }
+  },
+
+  async deleteMediaItem(id) {
+    try {
+      const response = await api.delete(`/api/media/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('API delete failed:', error)
+      throw error
     }
   }
 }

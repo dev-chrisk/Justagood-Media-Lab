@@ -24,7 +24,14 @@ class MediaController extends Controller
 
         // Filter by category
         if ($request->has('category')) {
-            $query->category($request->category);
+            $category = $request->category;
+            // Filter by both category_id and category field for compatibility
+            $query->where(function($q) use ($category) {
+                $q->where('category', $category)
+                  ->orWhereHas('categoryRelation', function($subQ) use ($category) {
+                      $subQ->where('name', $category);
+                  });
+            });
         }
 
         // Search by title
@@ -54,6 +61,14 @@ class MediaController extends Controller
 
         $mediaItems = $query->get();
 
+        // Debug logging
+        \Log::info('Media API Debug', [
+            'user_id' => $request->user()?->id,
+            'category' => $request->get('category'),
+            'total_items' => $mediaItems->count(),
+            'categories' => $mediaItems->groupBy('category')->map->count()
+        ]);
+
         return response()->json($mediaItems);
     }
 
@@ -64,7 +79,7 @@ class MediaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'category' => 'required|string|in:game,series,movie,games_new,series_new,movie_new',
+            'category' => 'required|string|in:game,series,movie,watchlist',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'nullable|integer|min:0',
@@ -136,7 +151,7 @@ class MediaController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
-            'category' => 'sometimes|string|in:game,series,movie,games_new,series_new,movie_new',
+            'category' => 'sometimes|string|in:game,series,movie,watchlist',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'nullable|integer|min:0',
@@ -207,7 +222,7 @@ class MediaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             '*.title' => 'required|string|max:255',
-            '*.category' => 'required|string|in:game,series,movie,games_new,series_new,movie_new',
+            '*.category' => 'required|string|in:game,series,movie,watchlist',
         ]);
 
         if ($validator->fails()) {
