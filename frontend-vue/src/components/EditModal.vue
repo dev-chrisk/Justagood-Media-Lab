@@ -29,9 +29,6 @@
                 :placeholder="isWatchlist ? 'Manuell eingeben (keine API-Suche)' : 'Enter title'"
                 :disabled="loading"
               />
-              <div v-if="isWatchlist" class="watchlist-hint">
-                📋 Watchlist: Bitte alle Felder manuell ausfüllen
-              </div>
               <div v-if="apiResults.length > 0" class="search-results">
                 <div 
                   v-for="result in apiResults" 
@@ -245,6 +242,15 @@
           >
             Delete
           </button>
+          <button 
+            type="button" 
+            @click="handleSave" 
+            :disabled="loading"
+            class="check-btn"
+            title="Add to list"
+          >
+            ✓
+          </button>
         </div>
       </form>
     </div>
@@ -383,13 +389,24 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
-          const result = await mediaApi.fetchApiData(form.title, form.category)
-          if (result && result.success) {
-            apiResults.value = [result]
+          const results = await mediaApi.searchApi(form.title, form.category, 10)
+          if (results && results.length > 0) {
+            // Transform API results to match expected format
+            apiResults.value = results.map(result => ({
+              title: result.title,
+              release: result.release,
+              genre: result.overview || '',
+              platforms: result.platforms || '',
+              link: result.link || '',
+              imageUrl: result.image || '',
+              rating: result.rating || '',
+              apiSource: result.api_source || '',
+              id: result.id || ''
+            }))
           } else {
             // Show a message that API is not available
             apiResults.value = [{
-              title: `"${form.title}" - API nicht verfügbar`,
+              title: `"${form.title}" - Keine Ergebnisse gefunden`,
               release: '',
               genre: 'Bitte manuell ausfüllen',
               isPlaceholder: true
@@ -631,6 +648,20 @@ export default {
 .modal-buttons .delete-btn:hover:not(:disabled) {
   background: #c0392b;
   border-color: #a93226;
+}
+
+.modal-buttons .check-btn {
+  background: #27ae60;
+  color: white;
+  border: 1px solid #229954;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 12px 16px;
+}
+
+.modal-buttons .check-btn:hover:not(:disabled) {
+  background: #229954;
+  border-color: #1e8449;
 }
 
 .modal-buttons button:disabled {

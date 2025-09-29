@@ -139,6 +139,22 @@ export const mediaApi = {
     }
   },
 
+  async searchApi(title, category, limit = 10) {
+    try {
+      const response = await api.get('/api/search', { 
+        params: { 
+          q: title, 
+          category: category,
+          limit: limit 
+        } 
+      })
+      return response.data
+    } catch (error) {
+      console.error('API search failed:', error)
+      return []
+    }
+  },
+
   async deleteMediaItem(id) {
     try {
       const response = await api.delete(`/api/media/${id}`)

@@ -298,6 +298,7 @@ class MediaController extends Controller
     {
         $query = $request->get('q', '');
         $limit = (int) $request->get('limit', 10);
+        $category = $request->get('category', '');
 
         if (empty($query) || strlen($query) < 2) {
             return response()->json([]);
@@ -305,67 +306,78 @@ class MediaController extends Controller
 
         $results = [];
 
-        // Search TMDB for movies and TV shows
-        try {
-            $tmdbApiKey = config('services.tmdb.api_key');
-            
-            // Search movies
-            $movieUrl = "https://api.themoviedb.org/3/search/movie?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
-            $movieResponse = json_decode(file_get_contents($movieUrl), true);
-            
-            foreach (array_slice($movieResponse['results'] ?? [], 0, $limit / 2) as $item) {
-                $results[] = [
-                    'id' => "tmdb_movie_{$item['id']}",
-                    'title' => $item['title'],
-                    'release' => $item['release_date'] ?? '',
-                    'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
-                    'category' => 'movie',
-                    'overview' => $item['overview'] ?? '',
-                    'rating' => round($item['vote_average'] ?? 0, 1),
-                    'api_source' => 'tmdb'
-                ];
+        // Search TMDB for movies and TV shows (only if category is not specified or is movie/series)
+        if (empty($category) || in_array($category, ['movie', 'series'])) {
+            try {
+                $tmdbApiKey = config('services.tmdb.api_key');
+                
+                // Search movies (only if category is not specified or is movie)
+                if (empty($category) || $category === 'movie') {
+                    $movieUrl = "https://api.themoviedb.org/3/search/movie?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
+                    $movieResponse = json_decode(file_get_contents($movieUrl), true);
+                    
+                    $movieLimit = empty($category) ? $limit / 2 : $limit;
+                    foreach (array_slice($movieResponse['results'] ?? [], 0, $movieLimit) as $item) {
+                        $results[] = [
+                            'id' => "tmdb_movie_{$item['id']}",
+                            'title' => $item['title'],
+                            'release' => $item['release_date'] ?? '',
+                            'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
+                            'category' => 'movie',
+                            'overview' => $item['overview'] ?? '',
+                            'rating' => round($item['vote_average'] ?? 0, 1),
+                            'api_source' => 'tmdb'
+                        ];
+                    }
+                }
+                
+                // Search TV shows (only if category is not specified or is series)
+                if (empty($category) || $category === 'series') {
+                    $tvUrl = "https://api.themoviedb.org/3/search/tv?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
+                    $tvResponse = json_decode(file_get_contents($tvUrl), true);
+                    
+                    $tvLimit = empty($category) ? $limit / 2 : $limit;
+                    foreach (array_slice($tvResponse['results'] ?? [], 0, $tvLimit) as $item) {
+                        $results[] = [
+                            'id' => "tmdb_tv_{$item['id']}",
+                            'title' => $item['name'],
+                            'release' => $item['first_air_date'] ?? '',
+                            'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
+                            'category' => 'series',
+                            'overview' => $item['overview'] ?? '',
+                            'rating' => round($item['vote_average'] ?? 0, 1),
+                            'api_source' => 'tmdb'
+                        ];
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::error("TMDB search error: " . $e->getMessage());
             }
-            
-            // Search TV shows
-            $tvUrl = "https://api.themoviedb.org/3/search/tv?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
-            $tvResponse = json_decode(file_get_contents($tvUrl), true);
-            
-            foreach (array_slice($tvResponse['results'] ?? [], 0, $limit / 2) as $item) {
-                $results[] = [
-                    'id' => "tmdb_tv_{$item['id']}",
-                    'title' => $item['name'],
-                    'release' => $item['first_air_date'] ?? '',
-                    'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
-                    'category' => 'series',
-                    'overview' => $item['overview'] ?? '',
-                    'rating' => round($item['vote_average'] ?? 0, 1),
-                    'api_source' => 'tmdb'
-                ];
-            }
-        } catch (\Exception $e) {
-            \Log::error("TMDB search error: " . $e->getMessage());
         }
 
-        // Search RAWG for games
-        try {
-            $rawgApiKey = config('services.rawg.api_key');
-            $gameUrl = "https://api.rawg.io/api/games?key={$rawgApiKey}&search=" . urlencode($query) . "&page_size=" . ($limit / 3);
-            $gameResponse = json_decode(file_get_contents($gameUrl), true);
-            
-            foreach (array_slice($gameResponse['results'] ?? [], 0, $limit / 3) as $item) {
-                $results[] = [
-                    'id' => "rawg_game_{$item['id']}",
-                    'title' => $item['name'],
-                    'release' => $item['released'] ?? '',
-                    'image' => $item['background_image'] ?? '',
-                    'category' => 'games',
-                    'overview' => $item['description_raw'] ?? '',
-                    'rating' => round($item['rating'] ?? 0, 1),
-                    'api_source' => 'rawg'
-                ];
+        // Search RAWG for games (only if category is not specified or is game)
+        if (empty($category) || $category === 'game') {
+            try {
+                $rawgApiKey = config('services.rawg.api_key');
+                $gameLimit = empty($category) ? $limit / 3 : $limit;
+                $gameUrl = "https://api.rawg.io/api/games?key={$rawgApiKey}&search=" . urlencode($query) . "&page_size=" . $gameLimit;
+                $gameResponse = json_decode(file_get_contents($gameUrl), true);
+                
+                foreach (array_slice($gameResponse['results'] ?? [], 0, $gameLimit) as $item) {
+                    $results[] = [
+                        'id' => "rawg_game_{$item['id']}",
+                        'title' => $item['name'],
+                        'release' => $item['released'] ?? '',
+                        'image' => $item['background_image'] ?? '',
+                        'category' => 'game',
+                        'overview' => $item['description_raw'] ?? '',
+                        'rating' => round($item['rating'] ?? 0, 1),
+                        'api_source' => 'rawg'
+                    ];
+                }
+            } catch (\Exception $e) {
+                \Log::error("RAWG search error: " . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            \Log::error("RAWG search error: " . $e->getMessage());
         }
 
         // Sort by relevance (rating) and limit results
