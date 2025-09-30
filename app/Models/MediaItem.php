@@ -15,6 +15,7 @@ class MediaItem extends Model
         'title',
         'category', // Legacy field - wird für Migration beibehalten
         'category_id', // Neue Beziehung zur categories Tabelle
+        'watchlist_type', // Type für Watchlist-Items (game, series, movie)
         'release',
         'rating',
         'count',

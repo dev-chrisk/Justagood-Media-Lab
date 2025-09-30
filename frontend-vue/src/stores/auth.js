@@ -74,6 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null
       localStorage.removeItem('authToken')
       localStorage.removeItem('currentUser')
+      localStorage.removeItem('mediaData') // Clear media data on logout
     }
   }
 

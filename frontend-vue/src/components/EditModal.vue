@@ -4,8 +4,9 @@
       <h2>{{ isEditing ? 'Edit Item' : 'Add Item' }}</h2>
       
       <form @submit.prevent="handleSave">
-        <div class="form-row">
-          <div class="form-group">
+        <!-- Header Section with Category and Title -->
+        <div class="form-header">
+          <div class="form-group category-group">
             <label for="category">Category:</label>
             <select id="category" v-model="form.category" required>
               <option value="watchlist">Watchlist</option>
@@ -14,10 +15,8 @@
               <option value="movie">Movie</option>
             </select>
           </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
+          
+          <div class="form-group title-group">
             <label for="title">Title:</label>
             <div class="search-container">
               <input 
@@ -26,7 +25,7 @@
                 v-model="form.title" 
                 @input="searchApi"
                 required
-                :placeholder="isWatchlist ? 'Manuell eingeben (keine API-Suche)' : 'Enter title'"
+                :placeholder="isWatchlist ? 'Enter title (API search + manual input available)' : 'Enter title'"
                 :disabled="loading"
               />
               <div v-if="apiResults.length > 0" class="search-results">
@@ -36,10 +35,19 @@
                   class="search-result-item"
                   @click="selectApiResult(result)"
                 >
-                  <div class="result-title">{{ result.title }}</div>
-                  <div class="result-meta">
-                    <span v-if="result.release">{{ formatDate(result.release) }}</span>
-                    <span v-if="result.genre">{{ result.genre }}</span>
+                  <div class="result-thumbnail">
+                    <img v-if="result.imageUrl" :src="result.imageUrl" :alt="result.title" />
+                    <div v-else class="no-image">
+                      <span>{{ result.title.charAt(0).toUpperCase() }}</span>
+                    </div>
+                  </div>
+                  <div class="result-content">
+                    <div class="result-title">{{ result.title }}</div>
+                    <div class="result-meta">
+                      <span v-if="result.release">{{ formatDate(result.release) }}</span>
+                      <span v-if="result.genre">{{ result.genre }}</span>
+                      <span v-if="result.rating" class="rating">⭐ {{ result.rating }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -210,15 +218,63 @@
           </div>
         </div>
         
+        <!-- Image Section -->
         <div class="form-row">
           <div class="form-group">
-            <label for="imageUrl">Image URL:</label>
+            <label for="imageUrl">Image URL (optional):</label>
             <input 
-              type="url" 
+              type="text" 
               id="imageUrl"
               v-model="form.imageUrl" 
-              placeholder="https://..."
+              placeholder="https://... or leave empty for API images"
             />
+          </div>
+          
+          <div class="form-group">
+            <label for="imageUpload">Upload Image:</label>
+            <div class="image-upload-container">
+              <input 
+                type="file" 
+                id="imageUpload"
+                ref="imageUploadRef"
+                @change="handleImageUpload"
+                accept="image/*"
+                style="display: none"
+              />
+              <button 
+                type="button" 
+                @click="triggerImageUpload"
+                class="upload-btn"
+                :disabled="loading"
+              >
+                📁 Choose Image
+              </button>
+              <div v-if="uploadedImagePath" class="upload-success">
+                ✅ Image uploaded: {{ uploadedImagePath }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Image Preview -->
+        <div v-if="form.imageUrl || uploadedImagePath" class="form-row">
+          <div class="form-group image-preview-group">
+            <label>Image Preview:</label>
+            <div class="image-preview">
+              <img 
+                :src="getImagePreviewUrl()" 
+                :alt="form.title"
+                @error="handleImageError"
+              />
+              <button 
+                type="button" 
+                @click="clearImage"
+                class="clear-image-btn"
+                title="Remove image"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         </div>
         
@@ -260,6 +316,7 @@
 <script>
 import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
+import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 
 export default {
   name: 'EditModal',
@@ -267,6 +324,10 @@ export default {
     item: {
       type: Object,
       default: null
+    },
+    currentCategory: {
+      type: String,
+      default: 'watchlist'
     }
   },
   emits: ['close', 'save', 'delete'],
@@ -275,6 +336,8 @@ export default {
     const error = ref('')
     const apiResults = ref([])
     const searchTimeout = ref(null)
+    const imageUploadRef = ref(null)
+    const uploadedImagePath = ref('')
     
     const form = reactive({
       category: 'watchlist',
@@ -307,12 +370,23 @@ export default {
           form[key] = newItem[key] || ''
         })
       } else {
-        // Reset form for new item
+        // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
-          form[key] = key === 'category' ? 'watchlist' : ''
+          if (key === 'category') {
+            form[key] = props.currentCategory || 'watchlist'
+          } else {
+            form[key] = ''
+          }
         })
       }
     }, { immediate: true })
+    
+    // Watch for currentCategory changes to update form when adding new items
+    watch(() => props.currentCategory, (newCategory) => {
+      if (!props.item && newCategory) {
+        form.category = newCategory
+      }
+    })
     
     const handleSave = async () => {
       if (!form.title) {
@@ -338,6 +412,16 @@ export default {
       try {
         // Clean up form data
         const itemData = { ...form }
+        
+        // Process image URL - use original URL directly
+        if (itemData.imageUrl && itemData.imageUrl.trim()) {
+          // Use the same URL for both imageUrl and path
+          itemData.path = itemData.imageUrl
+        } else {
+          // Clear empty image fields
+          itemData.imageUrl = null
+          itemData.path = null
+        }
         
         // Convert empty strings to null for optional fields (except watchlistType)
         Object.keys(itemData).forEach(key => {
@@ -365,18 +449,12 @@ export default {
     }
     
     const deleteItem = () => {
-      if (confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
-        emit('delete', props.item)
-        closeModal()
-      }
+      emit('delete', props.item)
+      closeModal()
     }
     
     const searchApi = async () => {
-      // Deaktiviere API-Suche für Watchlist (manuelle Eingabe)
-      if (form.category === 'watchlist') {
-        apiResults.value = []
-        return
-      }
+      // API-Suche ist jetzt auch für Watchlist verfügbar
       
       if (searchTimeout.value) {
         clearTimeout(searchTimeout.value)
@@ -389,7 +467,17 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
-          const results = await mediaApi.searchApi(form.title, form.category, 10)
+          // For watchlist, use the watchlistType as category for API search
+          const searchCategory = form.category === 'watchlist' ? form.watchlistType : form.category
+          
+          // Skip API search if watchlist type is not selected
+          if (form.category === 'watchlist' && !form.watchlistType) {
+            apiResults.value = []
+            return
+          }
+          
+          const results = await mediaApi.searchApi(form.title, searchCategory, 10)
+          
           if (results && results.length > 0) {
             // Transform API results to match expected format
             apiResults.value = results.map(result => ({
@@ -425,7 +513,7 @@ export default {
       }, 500) // Debounce search
     }
     
-    const selectApiResult = (result) => {
+    const selectApiResult = async (result) => {
       if (result.isPlaceholder) {
         // Don't fill form for placeholder results
         apiResults.value = []
@@ -437,8 +525,17 @@ export default {
       if (result.platforms) form.platforms = result.platforms
       if (result.genre) form.genre = result.genre
       if (result.link) form.link = result.link
-      if (result.path) form.path = result.path
-      if (result.imageUrl) form.imageUrl = result.imageUrl
+      if (result.rating) form.rating = result.rating
+      
+      // Handle image URL - use original URL directly
+      if (result.imageUrl) {
+        form.imageUrl = result.imageUrl
+        form.path = result.imageUrl // Use same URL for path
+      } else {
+        // Clear image fields if no image URL from API
+        form.imageUrl = ''
+        form.path = ''
+      }
       
       apiResults.value = []
     }
@@ -484,6 +581,77 @@ export default {
       }
     }
     
+    // Image upload functions
+    const triggerImageUpload = () => {
+      imageUploadRef.value?.click()
+    }
+    
+    const handleImageUpload = async (event) => {
+      const file = event.target.files[0]
+      if (!file) return
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        error.value = 'Please select a valid image file'
+        return
+      }
+      
+      // Validate file size (10MB max)
+      if (file.size > 10 * 1024 * 1024) {
+        error.value = 'Image file too large. Maximum size is 10MB'
+        return
+      }
+      
+      loading.value = true
+      error.value = ''
+      
+      try {
+        // Generate custom path based on title and category
+        const safeTitle = form.title.replace(/[^a-zA-Z0-9\s\-_\.]/g, '').trim() || 'item'
+        const timestamp = Date.now()
+        const extension = file.name.split('.').pop() || 'jpg'
+        const customPath = `images_downloads/uploads/${safeTitle}_${timestamp}.${extension}`
+        
+        const result = await mediaApi.uploadImage(file, customPath)
+        
+        if (result.success) {
+          uploadedImagePath.value = result.saved
+          form.path = result.saved
+          form.imageUrl = result.saved
+        } else {
+          error.value = result.error || 'Failed to upload image'
+        }
+      } catch (err) {
+        error.value = err.message || 'Failed to upload image'
+      } finally {
+        loading.value = false
+      }
+    }
+    
+    const getImagePreviewUrl = () => {
+      if (uploadedImagePath.value) {
+        return `/storage/${uploadedImagePath.value}`
+      }
+      if (form.imageUrl) {
+        return form.imageUrl
+      }
+      return ''
+    }
+    
+    const handleImageError = (event) => {
+      console.warn('Image preview failed:', event.target.src)
+      event.target.style.display = 'none'
+    }
+    
+    const clearImage = () => {
+      form.imageUrl = ''
+      form.path = ''
+      uploadedImagePath.value = ''
+      if (imageUploadRef.value) {
+        imageUploadRef.value.value = ''
+      }
+    }
+    
     return {
       form,
       loading,
@@ -493,13 +661,20 @@ export default {
       isGame,
       isSeries,
       isWatchlist,
+      imageUploadRef,
+      uploadedImagePath,
       handleSave,
       closeModal,
       deleteItem,
       searchApi,
       selectApiResult,
       formatDate,
-      getReleasePreview
+      getReleasePreview,
+      triggerImageUpload,
+      handleImageUpload,
+      getImagePreviewUrl,
+      handleImageError,
+      clearImage
     }
   }
 }
@@ -532,12 +707,12 @@ export default {
 .modal-content {
   background: #2d2d2d;
   padding: 24px;
-  border-radius: 8px;
-  max-width: 600px;
-  width: 100%;
+  border-radius: 12px;
+  max-width: 1000px;
+  width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid #404040;
 }
 
@@ -547,6 +722,8 @@ export default {
     max-height: 95vh;
     margin: 0;
     border-radius: 8px 8px 0 0;
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -554,6 +731,14 @@ export default {
   margin: 0 0 20px 0;
   text-align: center;
   color: #e0e0e0;
+}
+
+.form-header {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+  align-items: start;
 }
 
 .form-row {
@@ -607,7 +792,7 @@ export default {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .modal-buttons button {
@@ -681,18 +866,21 @@ export default {
   background: #3a3a3a;
   border: 1px solid #555;
   border-top: none;
-  border-radius: 0 0 4px 4px;
-  max-height: 200px;
+  border-radius: 0 0 8px 8px;
+  max-height: 400px;
   overflow-y: auto;
   z-index: 1000;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 .search-result-item {
-  padding: 12px;
+  padding: 16px;
   cursor: pointer;
   border-bottom: 1px solid #555;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .search-result-item:hover {
@@ -703,10 +891,47 @@ export default {
   border-bottom: none;
 }
 
+.result-thumbnail {
+  flex-shrink: 0;
+  width: 80px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #2a2a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-thumbnail .no-image {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4a9eff, #6bb6ff);
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+}
+
+.result-content {
+  flex: 1;
+  min-width: 0;
+}
+
 .result-title {
   font-weight: 600;
   color: #e0e0e0;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  line-height: 1.3;
 }
 
 .result-meta {
@@ -714,6 +939,12 @@ export default {
   color: #a0a0a0;
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.result-meta .rating {
+  color: #ffd700;
+  font-weight: 500;
 }
 
 .watchlist-hint {
@@ -755,15 +986,108 @@ export default {
   color: #90ee90;
 }
 
+/* Image Upload Styles */
+.image-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-btn {
+  background: #4a9eff;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+  min-height: 44px;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #3a8eef;
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-success {
+  background: #2d4a2d;
+  border: 1px solid #4a7c4a;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #90ee90;
+  word-break: break-all;
+}
+
+.image-preview-group {
+  grid-column: 1 / -1;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  object-fit: cover;
+}
+
+.clear-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.clear-image-btn:hover {
+  background: #c0392b;
+}
+
 @media (max-width: 768px) {
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px;
+    max-height: 95vh;
+  }
+  
+  .form-header {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
   .form-row {
     grid-template-columns: 1fr;
     gap: 12px;
+    margin-bottom: 12px;
   }
   
   .modal-buttons {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
+    margin-top: 16px;
   }
   
   .modal-buttons button {
@@ -771,7 +1095,21 @@ export default {
   }
   
   .search-results {
-    max-height: 150px;
+    max-height: 250px;
+  }
+  
+  .result-thumbnail {
+    width: 50px;
+    height: 70px;
+  }
+  
+  .result-title {
+    font-size: 13px;
+  }
+  
+  .result-meta {
+    font-size: 11px;
+    gap: 8px;
   }
 }
 </style>

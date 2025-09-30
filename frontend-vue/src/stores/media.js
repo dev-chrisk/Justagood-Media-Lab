@@ -1,15 +1,51 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { mediaApi } from '@/services/api'
+import realtimeService from '@/services/realtime'
 
 export const useMediaStore = defineStore('media', () => {
   // State
-  const mediaData = ref([])
-  const currentCategory = ref('watchlist')
+  const mediaData = ref(loadMediaFromStorage())
+  const currentCategory = ref('game')
   const searchQuery = ref('')
   const activeFilters = ref([])
   const loading = ref(false)
   const error = ref(null)
+
+  // Load media from localStorage on initialization
+  function loadMediaFromStorage() {
+    try {
+      // Only load from localStorage if user is not logged in
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (!token || !user) {
+        const saved = localStorage.getItem('mediaData')
+        return saved ? JSON.parse(saved) : []
+      }
+      
+      // For logged in users, don't load from localStorage
+      return []
+    } catch (err) {
+      console.error('Failed to load media from storage:', err)
+      return []
+    }
+  }
+
+  // Save media to localStorage
+  function saveMediaToStorage() {
+    try {
+      // Only save to localStorage if user is not logged in
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (!token || !user) {
+        localStorage.setItem('mediaData', JSON.stringify(mediaData.value))
+      }
+    } catch (err) {
+      console.error('Failed to save media to storage:', err)
+    }
+  }
 
   // Getters
   const totalItems = computed(() => mediaData.value.length)
@@ -70,11 +106,32 @@ export const useMediaStore = defineStore('media', () => {
     error.value = null
     
     try {
-      // Load all media data without category filter
-      const data = await mediaApi.getMedia()
-      mediaData.value = data || []
-      console.log('Loaded media data:', data.length, 'items')
-      console.log('Categories found:', [...new Set(data.map(item => item.category))])
+      // Check if user is logged in
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        try {
+          // For logged in users, only load from API
+          const data = await mediaApi.getMedia()
+          mediaData.value = data || []
+        } catch (apiError) {
+          console.warn('API load failed for logged in user:', apiError)
+          // Clear data for logged in users if API fails
+          mediaData.value = []
+        }
+      } else {
+        // For non-logged in users, use local storage or demo data
+        const localData = loadMediaFromStorage()
+        if (localData.length > 0) {
+          mediaData.value = localData
+        } else {
+          // Load demo data if no local data exists
+          const demoData = await mediaApi.getMedia()
+          mediaData.value = demoData || []
+          saveMediaToStorage()
+        }
+      }
     } catch (err) {
       error.value = err.response?.data?.message || err.message || 'Failed to load media data'
       console.error('Failed to load media:', err)
@@ -112,15 +169,33 @@ export const useMediaStore = defineStore('media', () => {
 
   async function addMediaItem(itemData) {
     try {
-      const newItem = {
-        id: Date.now(), // Simple ID generation
-        ...itemData,
-        __order: mediaData.value.length
-      }
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
       
-      mediaData.value.push(newItem)
-      await saveMedia()
-      return newItem
+      if (token && user) {
+        // For logged in users, save via API only
+        try {
+          const newItem = await mediaApi.addMediaItem(itemData)
+          // Reload data from API to get the correct ID and data
+          await loadMedia()
+          return newItem
+        } catch (apiError) {
+          console.error('API save failed for logged in user:', apiError)
+          throw apiError
+        }
+      } else {
+        // For non-logged in users, save locally
+        const newItem = {
+          id: Date.now(), // Simple ID generation
+          ...itemData,
+          __order: mediaData.value.length
+        }
+        
+        mediaData.value.push(newItem)
+        saveMediaToStorage()
+        
+        return newItem
+      }
     } catch (err) {
       error.value = err.message || 'Failed to add media item'
       throw err
@@ -129,13 +204,30 @@ export const useMediaStore = defineStore('media', () => {
 
   async function updateMediaItem(id, itemData) {
     try {
-      const index = mediaData.value.findIndex(item => item.id === id)
-      if (index !== -1) {
-        mediaData.value[index] = { ...mediaData.value[index], ...itemData }
-        await saveMedia()
-        return mediaData.value[index]
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, update via API only
+        try {
+          const updatedItem = await mediaApi.updateMediaItem(id, itemData)
+          // Reload data from API
+          await loadMedia()
+          return updatedItem
+        } catch (apiError) {
+          console.error('API update failed for logged in user:', apiError)
+          throw apiError
+        }
+      } else {
+        // For non-logged in users, update locally
+        const index = mediaData.value.findIndex(item => item.id === id)
+        if (index !== -1) {
+          mediaData.value[index] = { ...mediaData.value[index], ...itemData }
+          saveMediaToStorage()
+          return mediaData.value[index]
+        }
+        throw new Error('Media item not found')
       }
-      throw new Error('Media item not found')
     } catch (err) {
       error.value = err.message || 'Failed to update media item'
       throw err
@@ -144,33 +236,118 @@ export const useMediaStore = defineStore('media', () => {
 
   async function deleteMediaItem(id) {
     try {
-      // Try to delete via API first if user is logged in
       const token = localStorage.getItem('authToken')
-      if (token) {
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, delete via API only
         try {
           await mediaApi.deleteMediaItem(id)
+          // Reload data from API
+          await loadMedia()
+          return true
         } catch (apiError) {
-          console.warn('API delete failed, falling back to local delete:', apiError)
+          console.error('API delete failed for logged in user:', apiError)
+          throw apiError
         }
+      } else {
+        // For non-logged in users, delete locally
+        const index = mediaData.value.findIndex(item => item.id === id)
+        if (index !== -1) {
+          mediaData.value.splice(index, 1)
+          saveMediaToStorage()
+          return true
+        }
+        throw new Error('Media item not found')
       }
-      
-      // Remove from local data
-      const index = mediaData.value.findIndex(item => item.id === id)
-      if (index !== -1) {
-        mediaData.value.splice(index, 1)
-        await saveMedia()
-        return true
-      }
-      throw new Error('Media item not found')
     } catch (err) {
       error.value = err.message || 'Failed to delete media item'
       throw err
     }
   }
 
+  async function batchAddMediaItems(items) {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, add via API only
+        try {
+          const result = await mediaApi.batchAddMediaItems(items)
+          // Reload data from API
+          await loadMedia()
+          return result
+        } catch (apiError) {
+          console.error('API batch add failed for logged in user:', apiError)
+          throw apiError
+        }
+      } else {
+        // For non-logged in users, add locally
+        const newItems = items.map((item, index) => ({
+          id: Date.now() + index, // Simple ID generation
+          ...item,
+          __order: mediaData.value.length + index
+        }))
+        
+        mediaData.value.push(...newItems)
+        saveMediaToStorage()
+        
+        return {
+          success: true,
+          stats: {
+            created: newItems.length,
+            failed: 0,
+            errors: []
+          }
+        }
+      }
+    } catch (err) {
+      error.value = err.message || 'Failed to add media items'
+      throw err
+    }
+  }
+
+  async function batchDeleteMediaItems(ids) {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, delete via API only
+        try {
+          await mediaApi.batchDeleteMediaItems(ids)
+          // Reload data from API
+          await loadMedia()
+          return true
+        } catch (apiError) {
+          console.error('API batch delete failed for logged in user:', apiError)
+          throw apiError
+        }
+      } else {
+        // For non-logged in users, delete locally
+        mediaData.value = mediaData.value.filter(item => !ids.includes(item.id))
+        saveMediaToStorage()
+        return true
+      }
+    } catch (err) {
+      error.value = err.message || 'Failed to delete media items'
+      throw err
+    }
+  }
+
   async function saveMedia() {
     try {
-      await mediaApi.saveMedia(mediaData.value)
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, save via API
+        await mediaApi.saveMedia(mediaData.value)
+      } else {
+        // For non-logged in users, save locally
+        saveMediaToStorage()
+      }
     } catch (err) {
       console.error('Failed to save media:', err)
       // Don't throw error for save failures to avoid breaking UI
@@ -179,6 +356,58 @@ export const useMediaStore = defineStore('media', () => {
 
   function clearError() {
     error.value = null
+  }
+
+  // Real-time update handlers
+  function handleRealtimeUpdate(data) {
+    console.log('Processing real-time update:', data)
+    
+    if (data.type === 'media_updated' && data.items) {
+      // Handle polling updates
+      data.items.forEach(item => {
+        const existingIndex = mediaData.value.findIndex(m => m.id === item.id)
+        
+        if (existingIndex !== -1) {
+          // Update existing item
+          mediaData.value[existingIndex] = { ...mediaData.value[existingIndex], ...item }
+        } else {
+          // Add new item
+          mediaData.value.push(item)
+        }
+      })
+    } else if (data.action === 'created' || data.action === 'updated') {
+      const item = data.item
+      const existingIndex = mediaData.value.findIndex(m => m.id === item.id)
+      
+      if (existingIndex !== -1) {
+        // Update existing item
+        mediaData.value[existingIndex] = { ...mediaData.value[existingIndex], ...item }
+      } else {
+        // Add new item
+        mediaData.value.push(item)
+      }
+    } else if (data.action === 'deleted') {
+      // Remove deleted item
+      const index = mediaData.value.findIndex(m => m.id === data.id)
+      if (index !== -1) {
+        mediaData.value.splice(index, 1)
+      }
+    }
+    
+    // Save to localStorage for non-logged in users
+    saveMediaToStorage()
+  }
+
+  function initializeRealtimeUpdates() {
+    // Add listener for real-time updates
+    realtimeService.addListener('media-store', handleRealtimeUpdate)
+    
+    // Connect to real-time service
+    realtimeService.connect()
+  }
+
+  function cleanupRealtimeUpdates() {
+    realtimeService.removeListener('media-store')
   }
 
   return {
@@ -205,7 +434,11 @@ export const useMediaStore = defineStore('media', () => {
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,
+    batchAddMediaItems,
+    batchDeleteMediaItems,
     saveMedia,
-    clearError
+    clearError,
+    initializeRealtimeUpdates,
+    cleanupRealtimeUpdates
   }
 })

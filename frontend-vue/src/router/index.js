@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const MediaLibrary = () => import('@/views/MediaLibrary.vue')
 const Profile = () => import('@/views/Profile.vue')
 const Statistics = () => import('@/views/Statistics.vue')
+const Calendar = () => import('@/views/Calendar.vue')
 
 const routes = [
   {
@@ -23,6 +24,12 @@ const routes = [
     name: 'Statistics',
     component: Statistics,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/calendar',
+    name: 'Calendar',
+    component: Calendar,
+    meta: { requiresAuth: false }
   },
   {
     path: '/:pathMatch(.*)*',

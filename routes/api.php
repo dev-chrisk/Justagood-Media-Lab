@@ -25,6 +25,8 @@ use App\Http\Controllers\ExportImportController;
 // Public search endpoint (no authentication required)
 Route::get('search', [MediaController::class, 'search']);
 
+// Server-Sent Events for real-time updates
+Route::get('events', [MediaController::class, 'events']);
 
 // Public image serving routes (no authentication required)
 Route::get('thumb', [ImageController::class, 'thumbnail']);
@@ -49,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Media items with user filtering
     Route::apiResource('media', MediaController::class);
+    Route::post('media/batch-delete', [MediaController::class, 'batchDelete']);
     Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
     Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);
     

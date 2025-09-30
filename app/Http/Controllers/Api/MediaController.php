@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MediaItem;
+use App\Events\MediaUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -54,6 +55,17 @@ class MediaController extends Controller
             $query->where('is_airing', $request->boolean('is_airing'));
         }
 
+        // Filter by date (for polling)
+        if ($request->has('since')) {
+            $since = $request->get('since');
+            try {
+                $sinceDate = \Carbon\Carbon::parse($since);
+                $query->where('updated_at', '>', $sinceDate);
+            } catch (\Exception $e) {
+                // Invalid date format, ignore
+            }
+        }
+
         // Sorting
         $sortBy = $request->get('sort', 'id');
         $sortOrder = $request->get('order', 'asc');
@@ -80,16 +92,17 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'category' => 'required|string|in:game,series,movie,watchlist',
+            'watchlist_type' => 'nullable|string|in:game,series,movie',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
-            'count' => 'nullable|integer|min:0',
+            'count' => 'required|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
             'discovered' => 'nullable|date',
             'spielzeit' => 'nullable|integer|min:0',
-            'is_airing' => 'nullable|boolean',
+            'is_airing' => 'required|boolean',
             'next_season' => 'nullable|integer|min:1',
             'next_season_release' => 'nullable|date',
             'external_id' => 'nullable|string',
@@ -106,6 +119,9 @@ class MediaController extends Controller
         }
 
         $mediaItem = MediaItem::create($data);
+
+        // Dispatch event for real-time updates
+        event(new MediaUpdated($mediaItem, 'created', $request->user()?->id));
 
         return response()->json(['success' => true, 'data' => $mediaItem], 201);
     }
@@ -152,16 +168,17 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
             'category' => 'sometimes|string|in:game,series,movie,watchlist',
+            'watchlist_type' => 'nullable|string|in:game,series,movie',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
-            'count' => 'nullable|integer|min:0',
+            'count' => 'sometimes|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
             'discovered' => 'nullable|date',
             'spielzeit' => 'nullable|integer|min:0',
-            'is_airing' => 'nullable|boolean',
+            'is_airing' => 'sometimes|boolean',
             'next_season' => 'nullable|integer|min:1',
             'next_season_release' => 'nullable|date',
             'external_id' => 'nullable|string',
@@ -172,6 +189,9 @@ class MediaController extends Controller
         }
 
         $mediaItem->update($request->all());
+
+        // Dispatch event for real-time updates
+        event(new MediaUpdated($mediaItem, 'updated', $request->user()?->id));
 
         return response()->json(['success' => true, 'data' => $mediaItem]);
     }
@@ -195,6 +215,9 @@ class MediaController extends Controller
         }
 
         $mediaItem->delete();
+
+        // Dispatch event for real-time updates
+        event(new MediaUpdated($mediaItem, 'deleted', $request->user()?->id));
 
         return response()->json(['success' => true]);
     }
@@ -289,6 +312,135 @@ class MediaController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Add multiple media items in batch
+     */
+    public function batchAdd(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'items' => 'required|array|min:1',
+            'items.*.title' => 'required|string|max:255',
+            'items.*.category' => 'required|string|in:game,series,movie,watchlist',
+            'items.*.rating' => 'nullable|integer|min:0|max:10',
+            'items.*.count' => 'required|integer|min:0',
+            'items.*.platforms' => 'nullable|string',
+            'items.*.genre' => 'nullable|string',
+            'items.*.link' => 'nullable|url',
+            'items.*.path' => 'nullable|string',
+            'items.*.discovered' => 'nullable|date',
+            'items.*.spielzeit' => 'required|integer|min:0',
+            'items.*.is_airing' => 'required|boolean',
+            'items.*.next_season' => 'nullable|integer|min:1',
+            'items.*.next_season_release' => 'nullable|date',
+            'items.*.external_id' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            \Log::error('Batch add validation failed', [
+                'errors' => $validator->errors(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
+        }
+
+        if (!$request->user()) {
+            return response()->json(['success' => false, 'error' => 'Authentication required'], 401);
+        }
+
+        $userId = $request->user()->id;
+        $items = $request->get('items', []);
+        
+        $stats = [
+            'created' => 0,
+            'failed' => 0,
+            'errors' => []
+        ];
+        
+        foreach ($items as $index => $itemData) {
+            try {
+                $itemData['user_id'] = $userId;
+                
+                // Ensure required fields are set (validation should catch missing ones)
+                $itemData['count'] = (int) ($itemData['count'] ?? 0);
+                $itemData['is_airing'] = (bool) ($itemData['is_airing'] ?? false);
+                $itemData['spielzeit'] = (int) ($itemData['spielzeit'] ?? 0);
+                
+                // Download image if path is provided and it's a URL
+                if (!empty($itemData['path']) && filter_var($itemData['path'], FILTER_VALIDATE_URL)) {
+                    try {
+                        $itemData['path'] = $this->downloadImageFromUrl($itemData['path'], $itemData['title']);
+                    } catch (\Exception $e) {
+                        \Log::warning("Failed to download image for {$itemData['title']}: " . $e->getMessage());
+                        $itemData['path'] = null; // Continue without image
+                    }
+                }
+                
+                $newItem = MediaItem::create($itemData);
+                $stats['created']++;
+                
+                // Dispatch event for real-time updates
+                event(new MediaUpdated($newItem, 'created', $userId));
+                
+            } catch (\Exception $e) {
+                $stats['failed']++;
+                $stats['errors'][] = [
+                    'index' => $index,
+                    'title' => $itemData['title'] ?? 'Unknown',
+                    'error' => $e->getMessage()
+                ];
+                
+                \Log::error('Bulk add item error', [
+                    'item' => $itemData,
+                    'error' => $e->getMessage(),
+                    'index' => $index
+                ]);
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'stats' => $stats,
+            'message' => "Bulk add completed: {$stats['created']} created, {$stats['failed']} failed"
+        ]);
+    }
+
+    /**
+     * Delete multiple media items in batch
+     */
+    public function batchDelete(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'ids' => 'required|array',
+            'ids.*' => 'integer|exists:media_items,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
+        }
+
+        $query = MediaItem::query();
+        
+        // Filter by authenticated user
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        
+        $ids = $request->get('ids', []);
+        $deletedItems = $query->whereIn('id', $ids)->get();
+        $deletedCount = $query->whereIn('id', $ids)->delete();
+
+        // Dispatch events for real-time updates
+        foreach ($deletedItems as $item) {
+            event(new MediaUpdated($item, 'deleted', $request->user()?->id));
+        }
+
+        return response()->json([
+            'success' => true,
+            'deleted_count' => $deletedCount,
+            'message' => "Successfully deleted {$deletedCount} items"
+        ]);
     }
 
     /**
@@ -548,5 +700,101 @@ class MediaController extends Controller
         \Storage::disk('public')->put($path, $content);
 
         return $path;
+    }
+
+    /**
+     * Download image from URL and save to storage (for bulk add)
+     */
+    private function downloadImageFromUrl($url, $title)
+    {
+        $content = file_get_contents($url);
+        
+        if (!$content || strlen($content) < 200) {
+            throw new \Exception('Empty or invalid image content');
+        }
+
+        // Sanitize title for filename
+        $safeTitle = preg_replace('/[^a-zA-Z0-9\s\-_\.]/', '', $title);
+        $safeTitle = trim($safeTitle) ?: 'item';
+        
+        // Determine file extension
+        $extension = 'jpg';
+        if (strpos($url, '.png') !== false) {
+            $extension = 'png';
+        } elseif (strpos($url, '.webp') !== false) {
+            $extension = 'webp';
+        }
+
+        // Create unique filename
+        $filename = $safeTitle . '_' . time() . '.' . $extension;
+        $path = 'images_downloads/bulk/' . $filename;
+        
+        \Storage::disk('public')->put($path, $content);
+
+        return $path;
+    }
+
+    /**
+     * Server-Sent Events endpoint for real-time updates
+     */
+    public function events(Request $request)
+    {
+        // Set headers for SSE
+        $response = response()->stream(function () use ($request) {
+            // Set SSE headers
+            echo "data: " . json_encode(['type' => 'connected', 'timestamp' => now()->toISOString()]) . "\n\n";
+            
+            // Keep connection alive and send periodic updates
+            $lastUpdate = now();
+            $userId = $request->user()?->id;
+            $heartbeatCount = 0;
+            
+            while (true) {
+                // Check for new media items or updates
+                $query = MediaItem::query();
+                if ($userId) {
+                    $query->forUser($userId);
+                }
+                
+                $recentItems = $query->where('updated_at', '>', $lastUpdate)->get();
+                
+                if ($recentItems->count() > 0) {
+                    $updateData = [
+                        'type' => 'media_updated',
+                        'timestamp' => now()->toISOString(),
+                        'items' => $recentItems->toArray(),
+                        'count' => $recentItems->count()
+                    ];
+                    
+                    echo "data: " . json_encode($updateData) . "\n\n";
+                    $lastUpdate = now();
+                }
+                
+                // Send heartbeat every 10 seconds
+                $heartbeatCount++;
+                if ($heartbeatCount >= 10) {
+                    echo "data: " . json_encode(['type' => 'heartbeat', 'timestamp' => now()->toISOString()]) . "\n\n";
+                    $heartbeatCount = 0;
+                }
+                
+                // Flush output
+                if (ob_get_level()) {
+                    ob_flush();
+                }
+                flush();
+                
+                // Sleep for 1 second before next check
+                sleep(1);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Headers' => 'Cache-Control',
+            'X-Accel-Buffering' => 'no', // Disable nginx buffering
+        ]);
+
+        return $response;
     }
 }

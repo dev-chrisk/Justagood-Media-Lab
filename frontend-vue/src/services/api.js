@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || window.location.origin,
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8050',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -115,7 +115,6 @@ export const mediaApi = {
     try {
       // Try API for logged in users
       const response = await api.get('/api/media')
-      console.log('API Response:', response.data)
       return response.data
     } catch (error) {
       console.error('API Error:', error)
@@ -161,6 +160,118 @@ export const mediaApi = {
       return response.data
     } catch (error) {
       console.error('API delete failed:', error)
+      throw error
+    }
+  },
+
+  async batchAddMediaItems(items) {
+    try {
+      const response = await api.post('/api/media/batch-add', { items })
+      return response.data
+    } catch (error) {
+      console.error('API batch add failed:', error)
+      throw error
+    }
+  },
+
+  async batchDeleteMediaItems(ids) {
+    try {
+      const response = await api.post('/api/media/batch-delete', { ids })
+      return response.data
+    } catch (error) {
+      console.error('API batch delete failed:', error)
+      throw error
+    }
+  },
+
+  async addMediaItem(itemData) {
+    try {
+      // Transform data to match backend expectations
+      const transformedData = {
+        title: itemData.title,
+        category: itemData.category,
+        watchlist_type: itemData.watchlistType, // Add watchlist type support
+        release: itemData.release,
+        rating: itemData.rating ? Math.round(itemData.rating) : null, // Convert to integer
+        count: itemData.count || 0, // Default to 0 if not provided
+        platforms: itemData.platforms,
+        genre: itemData.genre,
+        link: itemData.link,
+        path: itemData.path,
+        discovered: itemData.discovered,
+        spielzeit: itemData.spielzeit || 0, // Default to 0 if not provided
+        is_airing: itemData.isAiring || false, // Default to false if not provided
+        next_season: itemData.nextSeason,
+        next_season_release: itemData.nextSeasonRelease,
+        external_id: itemData.externalId
+      }
+      
+      const response = await api.post('/api/media', transformedData)
+      return response.data
+    } catch (error) {
+      console.error('API add media failed:', error)
+      throw error
+    }
+  },
+
+  async updateMediaItem(id, itemData) {
+    try {
+      // Transform data to match backend expectations
+      const transformedData = {
+        title: itemData.title,
+        category: itemData.category,
+        watchlist_type: itemData.watchlistType, // Add watchlist type support
+        release: itemData.release,
+        rating: itemData.rating ? Math.round(itemData.rating) : null, // Convert to integer
+        count: itemData.count || 0, // Default to 0 if not provided
+        platforms: itemData.platforms,
+        genre: itemData.genre,
+        link: itemData.link,
+        path: itemData.path,
+        discovered: itemData.discovered,
+        spielzeit: itemData.spielzeit || 0, // Default to 0 if not provided
+        is_airing: itemData.isAiring || false, // Default to false if not provided
+        next_season: itemData.nextSeason,
+        next_season_release: itemData.nextSeasonRelease,
+        external_id: itemData.externalId
+      }
+      
+      const response = await api.put(`/api/media/${id}`, transformedData)
+      return response.data
+    } catch (error) {
+      console.error('API update media failed:', error)
+      throw error
+    }
+  },
+
+  // Image upload functionality
+  async uploadImage(file, customPath = null) {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (customPath) {
+        formData.append('dst', customPath)
+      }
+      
+      const response = await api.post('/api/upload-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Image upload failed:', error)
+      throw error
+    }
+  },
+
+  // Download image from URL
+  async downloadImageFromUrl(url, path) {
+    try {
+      const response = await api.post('/api/download-image', { url, path })
+      return response.data
+    } catch (error) {
+      console.error('Image download failed:', error)
       throw error
     }
   }
