@@ -21,6 +21,7 @@
       @navigate-to-profile="navigateToProfile"
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
+      @toggle-airing-filter="toggleAiringFilter"
       @add-item="addItemFromSidebar"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
@@ -241,6 +242,7 @@ export default {
       clearSearch,
       togglePlatformFilter,
       toggleGenreFilter,
+      toggleAiringFilter,
       editItem,
       closeEditModal,
       closeBulkAddModal,
@@ -293,8 +295,28 @@ export default {
       showRegisterModal.value = true
     }
 
-    const handleLoginSuccess = () => {
+    const handleLoginSuccess = (loginData) => {
       showLoginModal.value = false
+      
+      // Check for duplicate information in login response
+      if (loginData && loginData.duplicate_check) {
+        const { categories, media_items } = loginData.duplicate_check
+        
+        if (categories.found > 0) {
+          messageStore.showInfo(
+            `${categories.found} Kategorie-Duplikate wurden beim Login automatisch bereinigt.`,
+            'Duplikate bereinigt'
+          )
+        }
+        
+        if (media_items.found > 0) {
+          messageStore.showWarning(
+            `Es wurden ${media_items.found} Duplikat-Gruppen in Ihren Medien gefunden. Bitte überprüfen Sie die Einträge.`,
+            'Duplikate gefunden'
+          )
+        }
+      }
+      
       loadMedia()
     }
 
@@ -303,12 +325,36 @@ export default {
       loadMedia()
     }
 
+    // Duplicate event handlers
+    const handleDuplicatesFound = (event) => {
+      const { count, duplicates } = event.detail
+      messageStore.showWarning(
+        `Es wurden ${count} Duplikat-Gruppen in Ihren Medien gefunden. Bitte überprüfen Sie die Einträge.`,
+        'Duplikate gefunden',
+        { duplicates }
+      )
+    }
+
+    const handleCategoryDuplicatesFound = (event) => {
+      const { category, count, duplicates } = event.detail
+      const categoryName = categories.find(c => c.key === category)?.name || category
+      messageStore.showWarning(
+        `Es wurden ${count} Duplikat-Gruppen in der Kategorie "${categoryName}" gefunden.`,
+        'Duplikate in Kategorie',
+        { category, duplicates }
+      )
+    }
+
     // Lifecycle
     onMounted(async () => {
       try {
         await loadMedia()
         // Initialize real-time updates
         mediaStore.initializeRealtimeUpdates()
+        
+        // Listen for duplicate events
+        window.addEventListener('duplicates-found', handleDuplicatesFound)
+        window.addEventListener('category-duplicates-found', handleCategoryDuplicatesFound)
       } catch (error) {
         console.error('Error during initialization:', error)
       }
@@ -317,6 +363,10 @@ export default {
     onUnmounted(() => {
       // Cleanup real-time updates
       mediaStore.cleanupRealtimeUpdates()
+      
+      // Remove event listeners
+      window.removeEventListener('duplicates-found', handleDuplicatesFound)
+      window.removeEventListener('category-duplicates-found', handleCategoryDuplicatesFound)
     })
 
     return {

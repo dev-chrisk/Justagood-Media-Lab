@@ -71,6 +71,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Fetch API endpoint
     Route::post('fetch-api', [MediaController::class, 'fetchApi']);
     
+    // Duplicate check endpoints
+    Route::get('media/check-duplicates', [MediaController::class, 'checkDuplicates']);
+    Route::get('media/check-duplicates/{category}', [MediaController::class, 'checkCategoryDuplicates']);
+    
     // Export/Import routes (authenticated)
     Route::post('export-data', [ExportImportController::class, 'exportData']);
     Route::post('import-data', [ExportImportController::class, 'importData']);

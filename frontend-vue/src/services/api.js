@@ -154,6 +154,26 @@ export const mediaApi = {
     }
   },
 
+  async checkDuplicates() {
+    try {
+      const response = await api.get('/api/media/check-duplicates')
+      return response.data
+    } catch (error) {
+      console.error('Duplicate check failed:', error)
+      return { success: false, count: 0, duplicates: [] }
+    }
+  },
+
+  async checkCategoryDuplicates(category) {
+    try {
+      const response = await api.get(`/api/media/check-duplicates/${category}`)
+      return response.data
+    } catch (error) {
+      console.error('Category duplicate check failed:', error)
+      return { success: false, count: 0, duplicates: [] }
+    }
+  },
+
   async deleteMediaItem(id) {
     try {
       const response = await api.delete(`/api/media/${id}`)

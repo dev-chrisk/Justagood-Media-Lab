@@ -59,6 +59,10 @@ export function useMediaLibrary() {
       if (field === 'order') {
         aVal = a.__order || 0
         bVal = b.__order || 0
+      } else if (field === 'airing') {
+        // Sort by airing status (airing first, then finished)
+        aVal = a.isAiring ? 1 : 0
+        bVal = b.isAiring ? 1 : 0
       }
       
       if (typeof aVal === 'string') {
@@ -136,6 +140,14 @@ export function useMediaLibrary() {
       mediaStore.addFilter({ type: 'genre', value: genre })
     } else {
       mediaStore.removeFilter({ type: 'genre', value: genre })
+    }
+  }
+
+  const toggleAiringFilter = (status, checked) => {
+    if (checked) {
+      mediaStore.addFilter({ type: 'airing', value: status })
+    } else {
+      mediaStore.removeFilter({ type: 'airing', value: status })
     }
   }
 
@@ -463,6 +475,7 @@ export function useMediaLibrary() {
     clearSearch,
     togglePlatformFilter,
     toggleGenreFilter,
+    toggleAiringFilter,
     editItem,
     closeEditModal,
     closeBulkAddModal,

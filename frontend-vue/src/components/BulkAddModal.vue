@@ -198,7 +198,37 @@ export default {
     })
     
     const closeModal = () => {
+      // Clear any error when closing modal
+      error.value = null
       emit('close')
+    }
+    
+    const checkForBulkDuplicates = async () => {
+      try {
+        const token = localStorage.getItem('authToken')
+        const user = localStorage.getItem('currentUser')
+        
+        if (!token || !user) return { hasDuplicates: false, duplicates: [] }
+        
+        // Get existing items in the category
+        const response = await mediaApi.checkCategoryDuplicates(bulkData.value.category)
+        if (response.success && response.duplicates) {
+          const existingTitles = response.duplicates.flat().map(item => item.title.toLowerCase())
+          const newTitles = previewItems.value.map(item => item.title.toLowerCase())
+          
+          const duplicates = newTitles.filter(title => existingTitles.includes(title))
+          
+          return {
+            hasDuplicates: duplicates.length > 0,
+            duplicates: duplicates
+          }
+        }
+        
+        return { hasDuplicates: false, duplicates: [] }
+      } catch (error) {
+        console.error('Bulk duplicate check failed:', error)
+        return { hasDuplicates: false, duplicates: [] }
+      }
     }
     
     const searchApiData = async () => {
@@ -292,6 +322,14 @@ export default {
       error.value = null
       
       try {
+        // Check for duplicates before saving
+        const duplicateCheck = await checkForBulkDuplicates()
+        if (duplicateCheck.hasDuplicates) {
+          error.value = `Duplikate gefunden: ${duplicateCheck.duplicates.length} Einträge existieren bereits. Bitte überprüfen Sie die Liste.`
+          loading.value = false
+          return
+        }
+        
         const items = previewItems.value.map(item => {
           // Use API data if available, otherwise use form data
           const apiData = item.apiData

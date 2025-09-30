@@ -31,6 +31,8 @@
           <option value="release_desc">Release ↓</option>
           <option value="rating_asc">Rating ↑</option>
           <option value="rating_desc">Rating ↓</option>
+          <option value="airing_desc">Airing first</option>
+          <option value="airing_asc">Finished first</option>
         </select>
       </div>
     </div>

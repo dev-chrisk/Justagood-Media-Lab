@@ -94,6 +94,12 @@ export const useMediaStore = defineStore('media', () => {
         filtered = filtered.filter(item => 
           item.genre?.toLowerCase().includes(filter.value.toLowerCase())
         )
+      } else if (filter.type === 'airing') {
+        if (filter.value === 'airing') {
+          filtered = filtered.filter(item => item.isAiring === true)
+        } else if (filter.value === 'finished') {
+          filtered = filtered.filter(item => item.isAiring === false || item.isAiring === null)
+        }
       }
     })
 
@@ -115,6 +121,9 @@ export const useMediaStore = defineStore('media', () => {
           // For logged in users, only load from API
           const data = await mediaApi.getMedia()
           mediaData.value = data || []
+          
+          // Check for duplicates after loading
+          await checkForDuplicates()
         } catch (apiError) {
           console.warn('API load failed for logged in user:', apiError)
           // Clear data for logged in users if API fails
@@ -140,8 +149,64 @@ export const useMediaStore = defineStore('media', () => {
     }
   }
 
+  // Check for duplicates
+  async function checkForDuplicates() {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (!token || !user) return
+      
+      const response = await mediaApi.checkDuplicates()
+      if (response.success && response.count > 0) {
+        console.warn(`Found ${response.count} duplicate groups in media items`)
+        // You could emit an event or show a notification here
+        window.dispatchEvent(new CustomEvent('duplicates-found', { 
+          detail: { 
+            count: response.count, 
+            duplicates: response.duplicates 
+          } 
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to check for duplicates:', error)
+    }
+  }
+
+  // Check for duplicates in specific category
+  async function checkCategoryDuplicates(category) {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (!token || !user) return null
+      
+      const response = await mediaApi.checkCategoryDuplicates(category)
+      return response
+    } catch (error) {
+      console.error('Failed to check category duplicates:', error)
+      return null
+    }
+  }
+
   function setCategory(category) {
     currentCategory.value = category
+    
+    // Check for duplicates when switching categories
+    if (currentCategory.value !== 'all') {
+      checkCategoryDuplicates(category).then(result => {
+        if (result && result.success && result.count > 0) {
+          console.warn(`Found ${result.count} duplicate groups in ${category} category`)
+          window.dispatchEvent(new CustomEvent('category-duplicates-found', { 
+            detail: { 
+              category,
+              count: result.count, 
+              duplicates: result.duplicates 
+            } 
+          }))
+        }
+      })
+    }
   }
 
   function setSearchQuery(query) {
@@ -167,6 +232,10 @@ export const useMediaStore = defineStore('media', () => {
     activeFilters.value = []
   }
 
+  function clearError() {
+    error.value = null
+  }
+
   async function addMediaItem(itemData) {
     try {
       const token = localStorage.getItem('authToken')
@@ -181,6 +250,14 @@ export const useMediaStore = defineStore('media', () => {
           return newItem
         } catch (apiError) {
           console.error('API save failed for logged in user:', apiError)
+          
+          // Handle duplicate error specifically
+          if (apiError.response?.status === 409) {
+            const errorMessage = apiError.response?.data?.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
+            error.value = errorMessage
+            throw new Error(errorMessage)
+          }
+          
           throw apiError
         }
       } else {
@@ -197,7 +274,10 @@ export const useMediaStore = defineStore('media', () => {
         return newItem
       }
     } catch (err) {
-      error.value = err.message || 'Failed to add media item'
+      // Only set error if it's not already set (from duplicate handling above)
+      if (!error.value) {
+        error.value = err.message || 'Failed to add media item'
+      }
       throw err
     }
   }
@@ -216,6 +296,14 @@ export const useMediaStore = defineStore('media', () => {
           return updatedItem
         } catch (apiError) {
           console.error('API update failed for logged in user:', apiError)
+          
+          // Handle duplicate error specifically
+          if (apiError.response?.status === 409) {
+            const errorMessage = apiError.response?.data?.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
+            error.value = errorMessage
+            throw new Error(errorMessage)
+          }
+          
           throw apiError
         }
       } else {
@@ -229,7 +317,10 @@ export const useMediaStore = defineStore('media', () => {
         throw new Error('Media item not found')
       }
     } catch (err) {
-      error.value = err.message || 'Failed to update media item'
+      // Only set error if it's not already set (from duplicate handling above)
+      if (!error.value) {
+        error.value = err.message || 'Failed to update media item'
+      }
       throw err
     }
   }
@@ -280,6 +371,19 @@ export const useMediaStore = defineStore('media', () => {
           return result
         } catch (apiError) {
           console.error('API batch add failed for logged in user:', apiError)
+          
+          // Handle duplicate errors in batch add
+          if (apiError.response?.status === 400 && apiError.response?.data?.errors) {
+            const duplicateErrors = apiError.response.data.errors.filter(err => 
+              err.error && err.error.includes('existiert bereits')
+            )
+            if (duplicateErrors.length > 0) {
+              const errorMessage = `${duplicateErrors.length} Einträge konnten nicht hinzugefügt werden, da sie bereits existieren.`
+              error.value = errorMessage
+              throw new Error(errorMessage)
+            }
+          }
+          
           throw apiError
         }
       } else {
@@ -303,7 +407,10 @@ export const useMediaStore = defineStore('media', () => {
         }
       }
     } catch (err) {
-      error.value = err.message || 'Failed to add media items'
+      // Only set error if it's not already set (from duplicate handling above)
+      if (!error.value) {
+        error.value = err.message || 'Failed to add media items'
+      }
       throw err
     }
   }
@@ -439,6 +546,8 @@ export const useMediaStore = defineStore('media', () => {
     saveMedia,
     clearError,
     initializeRealtimeUpdates,
-    cleanupRealtimeUpdates
+    cleanupRealtimeUpdates,
+    checkForDuplicates,
+    checkCategoryDuplicates
   }
 })

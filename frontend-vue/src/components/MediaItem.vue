@@ -37,8 +37,14 @@
       </div>
       
       <div v-if="item.isAiring" class="media-airing">
-        <span class="airing-badge">Airing</span>
-        <span v-if="item.nextSeason">S{{ item.nextSeason }}</span>
+        <span class="airing-badge">
+          <span class="airing-dot"></span>
+          Airing
+        </span>
+        <span v-if="item.nextSeason" class="next-season">S{{ item.nextSeason }}</span>
+        <span v-if="item.nextSeasonRelease" class="countdown">
+          {{ getNextSeasonCountdown() }}
+        </span>
       </div>
       
       <!-- Watchlist Type Tag -->
@@ -210,6 +216,34 @@ export default {
     getTypeTagClass() {
       const type = this.getTypeTagText().toLowerCase()
       return `type-${type}`
+    },
+    
+    getNextSeasonCountdown() {
+      if (!this.item.nextSeasonRelease) return ''
+      
+      const releaseDate = new Date(this.item.nextSeasonRelease)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      releaseDate.setHours(0, 0, 0, 0)
+      
+      const timeDiff = releaseDate.getTime() - today.getTime()
+      const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+      
+      if (daysDiff > 0) {
+        if (daysDiff === 1) {
+          return 'Tomorrow!'
+        } else if (daysDiff <= 7) {
+          return `${daysDiff} days`
+        } else if (daysDiff <= 30) {
+          return `${daysDiff} days`
+        } else {
+          return `${Math.ceil(daysDiff / 30)} months`
+        }
+      } else if (daysDiff === 0) {
+        return 'Today!'
+      } else {
+        return 'Released'
+      }
     }
   }
 }
@@ -462,7 +496,42 @@ export default {
 }
 
 .airing-badge {
-  background: #e74c3c;
+  background: #27ae60;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.airing-dot {
+  width: 6px;
+  height: 6px;
+  background: #2ecc71;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.next-season {
+  background: #3498db;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.countdown {
+  background: #e67e22;
   color: white;
   padding: 2px 6px;
   border-radius: 4px;

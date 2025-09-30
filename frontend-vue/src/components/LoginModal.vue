@@ -68,7 +68,7 @@ export default {
         const result = await authStore.login(form.email, form.password)
         
         if (result.success) {
-          emit('success')
+          emit('success', result)
         } else {
           error.value = result.error
         }

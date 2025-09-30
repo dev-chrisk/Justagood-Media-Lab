@@ -144,6 +144,48 @@ class MediaItem extends Model
     }
 
     /**
+     * Check for duplicate entries based on title and category
+     */
+    public static function findDuplicates($title, $category, $userId, $excludeId = null)
+    {
+        $query = static::where('title', $title)
+            ->where('category', $category)
+            ->where('user_id', $userId);
+            
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+        
+        return $query->get();
+    }
+
+    /**
+     * Check if a duplicate exists
+     */
+    public static function isDuplicate($title, $category, $userId, $excludeId = null)
+    {
+        return static::findDuplicates($title, $category, $userId, $excludeId)->count() > 0;
+    }
+
+    /**
+     * Get all duplicates for a user
+     */
+    public static function getAllDuplicatesForUser($userId)
+    {
+        return static::select('title', 'category', 'user_id')
+            ->where('user_id', $userId)
+            ->groupBy('title', 'category', 'user_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->get()
+            ->map(function ($group) use ($userId) {
+                return static::where('title', $group->title)
+                    ->where('category', $group->category)
+                    ->where('user_id', $userId)
+                    ->get();
+            });
+    }
+
+    /**
      * Boot method to handle category assignment
      */
     protected static function boot()

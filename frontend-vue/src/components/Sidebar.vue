@@ -79,6 +79,32 @@
               </label>
             </div>
           </div>
+          <div class="filter-group">
+            <h4>Series Status</h4>
+            <div class="filter-checkboxes">
+              <label class="filter-option">
+                <input 
+                  type="checkbox" 
+                  value="airing"
+                  @change="$emit('toggleAiringFilter', 'airing', $event.target.checked)"
+                >
+                <span class="checkmark"></span>
+                <span class="option-text">
+                  <span class="airing-indicator">●</span>
+                  Airing
+                </span>
+              </label>
+              <label class="filter-option">
+                <input 
+                  type="checkbox" 
+                  value="finished"
+                  @change="$emit('toggleAiringFilter', 'finished', $event.target.checked)"
+                >
+                <span class="checkmark"></span>
+                <span class="option-text">Finished</span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -169,6 +195,7 @@ export default {
     'navigateToProfile',
     'togglePlatformFilter',
     'toggleGenreFilter',
+    'toggleAiringFilter',
     'showLogin',
     'showRegister',
     'logout'
@@ -468,6 +495,21 @@ export default {
 
 .option-text {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.airing-indicator {
+  color: #27ae60;
+  font-size: 12px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 /* Account Section */

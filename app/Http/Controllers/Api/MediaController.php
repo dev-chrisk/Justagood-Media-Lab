@@ -102,7 +102,7 @@ class MediaController extends Controller
             'path' => 'nullable|string',
             'discovered' => 'nullable|date',
             'spielzeit' => 'nullable|integer|min:0',
-            'is_airing' => 'required|boolean',
+            'is_airing' => 'nullable|boolean',
             'next_season' => 'nullable|integer|min:1',
             'next_season_release' => 'nullable|date',
             'external_id' => 'nullable|string',
@@ -116,6 +116,15 @@ class MediaController extends Controller
         // Add user_id if user is authenticated
         if ($request->user()) {
             $data['user_id'] = $request->user()->id;
+            
+            // Check for duplicates
+            if (MediaItem::isDuplicate($data['title'], $data['category'], $data['user_id'])) {
+                return response()->json([
+                    'success' => false, 
+                    'error' => 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.',
+                    'duplicate' => true
+                ], 409);
+            }
         }
 
         $mediaItem = MediaItem::create($data);
@@ -188,7 +197,23 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
-        $mediaItem->update($request->all());
+        $data = $request->all();
+        
+        // Check for duplicates if title or category is being updated
+        if ($request->user() && ($request->has('title') || $request->has('category'))) {
+            $title = $data['title'] ?? $mediaItem->title;
+            $category = $data['category'] ?? $mediaItem->category;
+            
+            if (MediaItem::isDuplicate($title, $category, $mediaItem->user_id, $mediaItem->id)) {
+                return response()->json([
+                    'success' => false, 
+                    'error' => 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.',
+                    'duplicate' => true
+                ], 409);
+            }
+        }
+
+        $mediaItem->update($data);
 
         // Dispatch event for real-time updates
         event(new MediaUpdated($mediaItem, 'updated', $request->user()?->id));
@@ -331,7 +356,7 @@ class MediaController extends Controller
             'items.*.path' => 'nullable|string',
             'items.*.discovered' => 'nullable|date',
             'items.*.spielzeit' => 'required|integer|min:0',
-            'items.*.is_airing' => 'required|boolean',
+            'items.*.is_airing' => 'nullable|boolean',
             'items.*.next_season' => 'nullable|integer|min:1',
             'items.*.next_season_release' => 'nullable|date',
             'items.*.external_id' => 'nullable|string',
@@ -361,6 +386,17 @@ class MediaController extends Controller
         foreach ($items as $index => $itemData) {
             try {
                 $itemData['user_id'] = $userId;
+                
+                // Check for duplicates before creating
+                if (MediaItem::isDuplicate($itemData['title'], $itemData['category'], $userId)) {
+                    $stats['failed']++;
+                    $stats['errors'][] = [
+                        'index' => $index,
+                        'title' => $itemData['title'] ?? 'Unknown',
+                        'error' => 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
+                    ];
+                    continue;
+                }
                 
                 // Ensure required fields are set (validation should catch missing ones)
                 $itemData['count'] = (int) ($itemData['count'] ?? 0);
@@ -796,5 +832,55 @@ class MediaController extends Controller
         ]);
 
         return $response;
+    }
+
+    /**
+     * Check for duplicates for a user
+     */
+    public function checkDuplicates(Request $request): JsonResponse
+    {
+        if (!$request->user()) {
+            return response()->json(['success' => false, 'error' => 'Authentication required'], 401);
+        }
+
+        $userId = $request->user()->id;
+        $duplicates = MediaItem::getAllDuplicatesForUser($userId);
+
+        return response()->json([
+            'success' => true,
+            'duplicates' => $duplicates,
+            'count' => $duplicates->count()
+        ]);
+    }
+
+    /**
+     * Get duplicates for a specific category
+     */
+    public function checkCategoryDuplicates(Request $request, string $category): JsonResponse
+    {
+        if (!$request->user()) {
+            return response()->json(['success' => false, 'error' => 'Authentication required'], 401);
+        }
+
+        $userId = $request->user()->id;
+        $duplicates = MediaItem::select('title', 'category', 'user_id')
+            ->where('user_id', $userId)
+            ->where('category', $category)
+            ->groupBy('title', 'category', 'user_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->get()
+            ->map(function ($group) use ($userId, $category) {
+                return MediaItem::where('title', $group->title)
+                    ->where('category', $category)
+                    ->where('user_id', $userId)
+                    ->get();
+            });
+
+        return response()->json([
+            'success' => true,
+            'duplicates' => $duplicates,
+            'count' => $duplicates->count(),
+            'category' => $category
+        ]);
     }
 }
