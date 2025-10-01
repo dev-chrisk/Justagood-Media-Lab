@@ -98,7 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function initializeAuth() {
-    // Load user from localStorage
+    // Load user from localStorage first
     const savedUser = localStorage.getItem('currentUser')
     
     if (savedUser) {
@@ -111,10 +111,22 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
     
-    // Validate token with server
+    // Validate token with server if token exists
     if (token.value) {
-      await validateToken()
+      const isValid = await validateToken()
+      if (!isValid) {
+        // Token is invalid, clear everything
+        await logout()
+      }
+    } else if (savedUser) {
+      // If we have user data but no token, clear user data
+      await logout()
     }
+    
+    // Listen for auth logout events from API interceptor
+    window.addEventListener('auth:logout', async () => {
+      await logout()
+    })
   }
 
   function clearError() {

@@ -22,10 +22,15 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired, clear auth data
-      localStorage.removeItem('authToken')
-      localStorage.removeItem('currentUser')
-      // Don't reload the page, just clear the auth state
+      // Only clear auth data if it's an actual auth error, not a validation error
+      // Check if the error is from the /api/user endpoint (token validation)
+      if (error.config?.url?.includes('/api/user')) {
+        // Token validation failed, clear auth data
+        localStorage.removeItem('authToken')
+        localStorage.removeItem('currentUser')
+        // Trigger logout in auth store
+        window.dispatchEvent(new CustomEvent('auth:logout'))
+      }
     }
     return Promise.reject(error)
   }

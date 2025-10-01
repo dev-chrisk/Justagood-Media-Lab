@@ -50,10 +50,17 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, from, next) => {
-  // For now, allow all navigation
-  // Auth guard can be added later
-  next()
+router.beforeEach(async (to, from, next) => {
+  const { useAuthStore } = await import('@/stores/auth')
+  const authStore = useAuthStore()
+  
+  // If route requires auth and user is not logged in
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+    // Redirect to home page (which shows login form)
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router
