@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
@@ -6,6 +7,7 @@ import { useConfirmStore } from '@/stores/confirm'
 import { useInputStore } from '@/stores/input'
 
 export function useMediaLibrary() {
+  const router = useRouter()
   const authStore = useAuthStore()
   const mediaStore = useMediaStore()
   const messageStore = useMessageStore()
@@ -23,9 +25,26 @@ export function useMediaLibrary() {
   const showTxtImportModal = ref(false)
   const showTxtImportResults = ref(false)
   const editingItem = ref(null)
-  const gridColumns = ref(8)
+  // Responsive default grid columns: 8 for desktop, 3 for mobile
+  const getDefaultGridColumns = () => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 768 ? 8 : 3
+    }
+    return 8 // Default to desktop value for SSR
+  }
+  const gridColumns = ref(getDefaultGridColumns())
   const sortBy = ref('order_asc')
   const txtImportResults = ref(null)
+
+  // Update grid columns on window resize
+  const updateGridColumns = () => {
+    gridColumns.value = getDefaultGridColumns()
+  }
+
+  // Add resize listener when component mounts
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateGridColumns)
+  }
 
   // Categories
   const categories = [
@@ -36,46 +55,106 @@ export function useMediaLibrary() {
   ]
 
   // Computed
-  const isLoggedIn = computed(() => authStore.isLoggedIn)
-  const userName = computed(() => authStore.userName)
-  const currentCategory = computed(() => mediaStore.currentCategory)
-  const searchQuery = computed({
-    get: () => mediaStore.searchQuery,
-    set: (value) => mediaStore.setSearchQuery(value)
+  const isLoggedIn = computed(() => {
+    try {
+      return authStore.isLoggedIn
+    } catch (error) {
+      console.error('Error accessing authStore.isLoggedIn:', error)
+      return false
+    }
   })
-  const categoryCounts = computed(() => mediaStore.categoryCounts)
-  const loading = computed(() => mediaStore.loading)
-  const error = computed(() => mediaStore.error)
+  const userName = computed(() => {
+    try {
+      return authStore.userName
+    } catch (error) {
+      console.error('Error accessing authStore.userName:', error)
+      return ''
+    }
+  })
+  const currentCategory = computed(() => {
+    try {
+      return mediaStore.currentCategory
+    } catch (error) {
+      console.error('Error accessing mediaStore.currentCategory:', error)
+      return 'game'
+    }
+  })
+  const searchQuery = computed({
+    get: () => {
+      try {
+        return mediaStore.searchQuery
+      } catch (error) {
+        console.error('Error accessing mediaStore.searchQuery:', error)
+        return ''
+      }
+    },
+    set: (value) => {
+      try {
+        mediaStore.setSearchQuery(value)
+      } catch (error) {
+        console.error('Error setting mediaStore.searchQuery:', error)
+      }
+    }
+  })
+  const categoryCounts = computed(() => {
+    try {
+      return mediaStore.categoryCounts
+    } catch (error) {
+      console.error('Error accessing mediaStore.categoryCounts:', error)
+      return {}
+    }
+  })
+  const loading = computed(() => {
+    try {
+      return mediaStore.loading
+    } catch (error) {
+      console.error('Error accessing mediaStore.loading:', error)
+      return false
+    }
+  })
+  const error = computed(() => {
+    try {
+      return mediaStore.error
+    } catch (error) {
+      console.error('Error accessing mediaStore.error:', error)
+      return null
+    }
+  })
 
   // Filtered and sorted media
   const sortedMedia = computed(() => {
-    const media = [...mediaStore.filteredMedia]
-    const [field, order] = sortBy.value.split('_')
-    
-    return media.sort((a, b) => {
-      let aVal = a[field]
-      let bVal = b[field]
+    try {
+      const media = [...(mediaStore.filteredMedia || [])]
+      const [field, order] = sortBy.value.split('_')
       
-      if (field === 'order') {
-        aVal = a.__order || 0
-        bVal = b.__order || 0
-      } else if (field === 'airing') {
-        // Sort by airing status (airing first, then finished)
-        aVal = a.isAiring ? 1 : 0
-        bVal = b.isAiring ? 1 : 0
-      }
-      
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase()
-        bVal = bVal.toLowerCase()
-      }
-      
-      if (order === 'asc') {
-        return aVal > bVal ? 1 : -1
-      } else {
-        return aVal < bVal ? 1 : -1
-      }
-    })
+      return media.sort((a, b) => {
+        let aVal = a[field]
+        let bVal = b[field]
+        
+        if (field === 'order') {
+          aVal = a.__order || 0
+          bVal = b.__order || 0
+        } else if (field === 'airing') {
+          // Sort by airing status (airing first, then finished)
+          aVal = a.isAiring ? 1 : 0
+          bVal = b.isAiring ? 1 : 0
+        }
+        
+        if (typeof aVal === 'string') {
+          aVal = aVal.toLowerCase()
+          bVal = bVal.toLowerCase()
+        }
+        
+        if (order === 'asc') {
+          return aVal > bVal ? 1 : -1
+        } else {
+          return aVal < bVal ? 1 : -1
+        }
+      })
+    } catch (error) {
+      console.error('Error in sortedMedia computed:', error)
+      return []
+    }
   })
 
   const paginatedMedia = computed(() => {
@@ -84,25 +163,35 @@ export function useMediaLibrary() {
 
   // Extract unique platforms and genres for filters
   const platforms = computed(() => {
-    if (!mediaStore || !mediaStore.mediaData) return []
-    const platformSet = new Set()
-    mediaStore.mediaData.forEach(item => {
-      if (item.platforms) {
-        item.platforms.split(',').forEach(p => platformSet.add(p.trim()))
-      }
-    })
-    return Array.from(platformSet).sort()
+    try {
+      if (!mediaStore || !mediaStore.mediaData) return []
+      const platformSet = new Set()
+      mediaStore.mediaData.forEach(item => {
+        if (item.platforms) {
+          item.platforms.split(',').forEach(p => platformSet.add(p.trim()))
+        }
+      })
+      return Array.from(platformSet).sort()
+    } catch (error) {
+      console.error('Error in platforms computed:', error)
+      return []
+    }
   })
 
   const genres = computed(() => {
-    if (!mediaStore || !mediaStore.mediaData) return []
-    const genreSet = new Set()
-    mediaStore.mediaData.forEach(item => {
-      if (item.genre) {
-        item.genre.split(',').forEach(g => genreSet.add(g.trim()))
-      }
-    })
-    return Array.from(genreSet).sort()
+    try {
+      if (!mediaStore || !mediaStore.mediaData) return []
+      const genreSet = new Set()
+      mediaStore.mediaData.forEach(item => {
+        if (item.genre) {
+          item.genre.split(',').forEach(g => genreSet.add(g.trim()))
+        }
+      })
+      return Array.from(genreSet).sort()
+    } catch (error) {
+      console.error('Error in genres computed:', error)
+      return []
+    }
   })
 
   // Methods
@@ -205,7 +294,11 @@ export function useMediaLibrary() {
   }
 
   const loadMedia = async () => {
-    await mediaStore.loadMedia()
+    try {
+      await mediaStore.loadMedia()
+    } catch (error) {
+      console.error('Error loading media:', error)
+    }
   }
 
   // Floating Action Button methods
@@ -438,6 +531,30 @@ export function useMediaLibrary() {
     URL.revokeObjectURL(url)
   }
 
+  // Navigation functions
+  const navigateToStatistics = () => {
+    router.push('/statistics')
+  }
+
+  const navigateToCalendar = () => {
+    router.push('/calendar')
+  }
+
+  const navigateToFeatures = () => {
+    router.push('/features')
+  }
+
+  const navigateToProfile = () => {
+    router.push('/profile')
+  }
+
+  // Cleanup function to remove event listener
+  const cleanup = () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', updateGridColumns)
+    }
+  }
+
   return {
     // State
     sidebarCollapsed,
@@ -496,7 +613,12 @@ export function useMediaLibrary() {
     downloadFile,
     deleteAllInCategory,
     getCategoryDisplayName,
+    navigateToStatistics,
+    navigateToCalendar,
+    navigateToFeatures,
+    navigateToProfile,
     processTxtContent,
-    closeTxtImportResults
+    closeTxtImportResults,
+    cleanup
   }
 }

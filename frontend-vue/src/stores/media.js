@@ -122,8 +122,6 @@ export const useMediaStore = defineStore('media', () => {
           const data = await mediaApi.getMedia()
           mediaData.value = data || []
           
-          // Check for duplicates after loading
-          await checkForDuplicates()
         } catch (apiError) {
           console.warn('API load failed for logged in user:', apiError)
           // Clear data for logged in users if API fails
@@ -149,64 +147,10 @@ export const useMediaStore = defineStore('media', () => {
     }
   }
 
-  // Check for duplicates
-  async function checkForDuplicates() {
-    try {
-      const token = localStorage.getItem('authToken')
-      const user = localStorage.getItem('currentUser')
-      
-      if (!token || !user) return
-      
-      const response = await mediaApi.checkDuplicates()
-      if (response.success && response.count > 0) {
-        console.warn(`Found ${response.count} duplicate groups in media items`)
-        // You could emit an event or show a notification here
-        window.dispatchEvent(new CustomEvent('duplicates-found', { 
-          detail: { 
-            count: response.count, 
-            duplicates: response.duplicates 
-          } 
-        }))
-      }
-    } catch (error) {
-      console.error('Failed to check for duplicates:', error)
-    }
-  }
 
-  // Check for duplicates in specific category
-  async function checkCategoryDuplicates(category) {
-    try {
-      const token = localStorage.getItem('authToken')
-      const user = localStorage.getItem('currentUser')
-      
-      if (!token || !user) return null
-      
-      const response = await mediaApi.checkCategoryDuplicates(category)
-      return response
-    } catch (error) {
-      console.error('Failed to check category duplicates:', error)
-      return null
-    }
-  }
 
   function setCategory(category) {
     currentCategory.value = category
-    
-    // Check for duplicates when switching categories
-    if (currentCategory.value !== 'all') {
-      checkCategoryDuplicates(category).then(result => {
-        if (result && result.success && result.count > 0) {
-          console.warn(`Found ${result.count} duplicate groups in ${category} category`)
-          window.dispatchEvent(new CustomEvent('category-duplicates-found', { 
-            detail: { 
-              category,
-              count: result.count, 
-              duplicates: result.duplicates 
-            } 
-          }))
-        }
-      })
-    }
   }
 
   function setSearchQuery(query) {
@@ -506,11 +450,24 @@ export const useMediaStore = defineStore('media', () => {
   }
 
   function initializeRealtimeUpdates() {
-    // Add listener for real-time updates
-    realtimeService.addListener('media-store', handleRealtimeUpdate)
+    // Only initialize for authenticated users
+    const token = localStorage.getItem('authToken')
+    const user = localStorage.getItem('currentUser')
     
-    // Connect to real-time service
-    realtimeService.connect()
+    if (!token || !user) {
+      console.log('Skipping realtime initialization - user not authenticated')
+      return
+    }
+    
+    try {
+      // Add listener for real-time updates
+      realtimeService.addListener('media-store', handleRealtimeUpdate)
+      
+      // Connect to real-time service
+      realtimeService.connect()
+    } catch (error) {
+      console.error('Failed to initialize realtime updates:', error)
+    }
   }
 
   function cleanupRealtimeUpdates() {
@@ -546,8 +503,6 @@ export const useMediaStore = defineStore('media', () => {
     saveMedia,
     clearError,
     initializeRealtimeUpdates,
-    cleanupRealtimeUpdates,
-    checkForDuplicates,
-    checkCategoryDuplicates
+    cleanupRealtimeUpdates
   }
 })

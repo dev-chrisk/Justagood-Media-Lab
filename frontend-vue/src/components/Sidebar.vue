@@ -44,6 +44,10 @@
             <span class="nav-icon">📅</span>
             <span class="nav-text">Calendar</span>
           </button>
+          <button class="nav-btn" @click="$emit('navigateToFeatures')">
+            <span class="nav-icon">⚡</span>
+            <span class="nav-text">Features</span>
+          </button>
         </nav>
       </div>
 
@@ -192,6 +196,7 @@ export default {
     'addItem',
     'navigateToStatistics',
     'navigateToCalendar',
+    'navigateToFeatures',
     'navigateToProfile',
     'togglePlatformFilter',
     'toggleGenreFilter',

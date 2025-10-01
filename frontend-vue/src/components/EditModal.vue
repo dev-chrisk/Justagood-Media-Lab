@@ -251,6 +251,14 @@
               </button>
               <div v-if="uploadedImagePath" class="upload-success">
                 ✅ Image uploaded: {{ uploadedImagePath }}
+                <button 
+                  type="button" 
+                  @click="removeUploadedImage"
+                  class="remove-uploaded-btn"
+                  title="Remove uploaded image to enable API search"
+                >
+                  ✕ Remove
+                </button>
               </div>
             </div>
           </div>
@@ -374,6 +382,9 @@ export default {
         Object.keys(form).forEach(key => {
           if (key === 'category') {
             form[key] = props.currentCategory || 'watchlist'
+          } else if (key === 'release') {
+            // Set default release date to today for new items
+            form[key] = new Date().toISOString().split('T')[0]
           } else {
             form[key] = ''
           }
@@ -421,9 +432,13 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
-        // Process image URL - use original URL directly
-        if (itemData.imageUrl && itemData.imageUrl.trim()) {
-          // Use the same URL for both imageUrl and path
+        // Process image URL - prioritize uploaded image over URL
+        if (uploadedImagePath.value) {
+          // Use uploaded image path
+          itemData.path = uploadedImagePath.value
+          itemData.imageUrl = uploadedImagePath.value
+        } else if (itemData.imageUrl && itemData.imageUrl.trim()) {
+          // Use image URL if no uploaded image
           itemData.path = itemData.imageUrl
         } else {
           // Clear empty image fields
@@ -493,6 +508,12 @@ export default {
     
     const searchApi = async () => {
       // API-Suche ist jetzt auch für Watchlist verfügbar
+      
+      // Disable API search if an image has been uploaded
+      if (uploadedImagePath.value) {
+        apiResults.value = []
+        return
+      }
       
       if (searchTimeout.value) {
         clearTimeout(searchTimeout.value)
@@ -671,7 +692,11 @@ export default {
         return `/storage/${uploadedImagePath.value}`
       }
       if (form.imageUrl) {
-        return form.imageUrl
+        // Handle both URLs and relative paths
+        if (form.imageUrl.startsWith('http')) {
+          return form.imageUrl
+        }
+        return `/storage/${form.imageUrl}`
       }
       return ''
     }
@@ -685,6 +710,21 @@ export default {
       form.imageUrl = ''
       form.path = ''
       uploadedImagePath.value = ''
+      if (imageUploadRef.value) {
+        imageUploadRef.value.value = ''
+      }
+    }
+    
+    const removeUploadedImage = () => {
+      uploadedImagePath.value = ''
+      // Keep form.imageUrl and form.path as they might contain URL images
+      // Only clear them if they match the uploaded image path
+      if (form.imageUrl === uploadedImagePath.value) {
+        form.imageUrl = ''
+      }
+      if (form.path === uploadedImagePath.value) {
+        form.path = ''
+      }
       if (imageUploadRef.value) {
         imageUploadRef.value.value = ''
       }
@@ -712,7 +752,8 @@ export default {
       handleImageUpload,
       getImagePreviewUrl,
       handleImageError,
-      clearImage
+      clearImage,
+      removeUploadedImage
     }
   }
 }
@@ -1060,6 +1101,26 @@ export default {
   font-size: 12px;
   color: #90ee90;
   word-break: break-all;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.remove-uploaded-btn {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.remove-uploaded-btn:hover {
+  background: #c0392b;
 }
 
 .image-preview-group {

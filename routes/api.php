@@ -80,7 +80,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('import-data', [ExportImportController::class, 'importData']);
     Route::post('import-data-stream', [ExportImportController::class, 'importDataStream']);
     Route::post('download-api-images', [ExportImportController::class, 'downloadApiImages']);
-    
+});
+
+// Public TMDb API routes (no authentication required)
+Route::prefix('tmdb')->group(function () {
+    Route::get('movie/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getMovie']);
+    Route::get('collection/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getCollection']);
+});
+
+// Additional routes
+Route::group([], function () {
     // Chunked upload routes for large files
     Route::post('upload-chunk', [ExportImportController::class, 'uploadChunk']);
     Route::post('finalize-chunked-upload', [ExportImportController::class, 'finalizeChunkedUpload']);

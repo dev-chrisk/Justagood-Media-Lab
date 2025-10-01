@@ -74,22 +74,26 @@ export default {
       }
     }
     
+    let statusInterval = null
+    
     onMounted(() => {
       // Add listener for real-time updates
       realtimeService.addListener('test-component', handleRealtimeUpdate)
       
-      // Check connection status
-      isConnected.value = realtimeService.isConnected.value
+      // Check connection status periodically
+      const updateStatus = () => {
+        isConnected.value = realtimeService.isConnected.value
+      }
       
-      // Watch for connection changes
-      const unwatch = realtimeService.isConnected.subscribe((connected) => {
-        isConnected.value = connected
-      })
-      
-      onUnmounted(() => {
-        realtimeService.removeListener('test-component')
-        unwatch()
-      })
+      updateStatus()
+      statusInterval = setInterval(updateStatus, 1000)
+    })
+    
+    onUnmounted(() => {
+      realtimeService.removeListener('test-component')
+      if (statusInterval) {
+        clearInterval(statusInterval)
+      }
     })
     
     return {
@@ -165,3 +169,5 @@ export default {
   background: #3a8eef;
 }
 </style>
+
+

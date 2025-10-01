@@ -1,0 +1,69 @@
+---
+alwaysApply: true
+
+---
+
+# Projekt-Übersicht
+- **Backend**: Laravel (PHP) mit SQLite/MySQL Datenbank
+- **Frontend**: Vue.js 3 mit Vite
+- **Zweck**: Media Library Management System
+
+## Wichtige Dateien die IMMER gelesen werden sollten:
+
+### Backend (Laravel)
+1. **Models** - Verstehen der Datenstruktur:
+   - `app/Models/MediaItem.php`
+   - `app/Models/Collection.php` 
+   - `app/Models/Category.php`
+   - `app/Models/User.php`
+
+2. **Controllers** - API Endpoints:
+   - `app/Http/Controllers/` (alle Controller)
+
+3. **Routes** - API Definition:
+   - `routes/api.php`
+
+4. **Migrations** - Datenbankschema:
+   - `database/migrations/` (alle Migrationen)
+
+### Frontend (Vue.js)
+1. **Hauptkomponenten**:
+   - `frontend-vue/src/App.vue`
+   - `frontend-vue/src/views/MediaLibrary.vue` (Hauptansicht)
+
+2. **Services** - API Kommunikation:
+   - `frontend-vue/src/services/`
+
+3. **Stores** - State Management:
+   - `frontend-vue/src/stores/`
+
+4. **Router** - Navigation:
+   - `frontend-vue/src/router/`
+
+## Konfiguration die benötigt wird:
+- **Environment**: `.env` (nicht lesbar, aber über Terminal: `type .env`)
+- **Package Dependencies**: `composer.json`, `frontend-vue/package.json`
+- **Vite Config**: `frontend-vue/vite.config.js`
+
+## Entwicklungsworkflow:
+1. **Backend Änderungen**: Laravel Artisan Commands, Controller, Models
+2. **Frontend Änderungen**: Vue Components, Services, Stores
+3. **API Integration**: Immer beide Seiten (Laravel + Vue) prüfen
+4. **Datenbank**: Migrations für Schema-Änderungen
+
+## Wichtige Konventionen:
+- **API Routes**: `/api/` Prefix
+- **Frontend**: Vue 3 Composition API
+- **State**: Pinia Stores
+- **Styling**: CSS (kein Framework erkennbar)
+
+## Was IMMER gemacht werden sollte:
+1. Vor Änderungen: Aktuelle Dateien lesen
+2. Bei API-Änderungen: Sowohl Controller als auch Frontend Service prüfen
+3. Bei Datenbank-Änderungen: Migration + Model + Frontend anpassen
+4. Nach Änderungen: Linter prüfen (`read_lints`)
+
+## Was NICHT gemacht werden sollte:
+- `.env` Dateien erstellen (sind in .gitignore)
+- Sensible Daten in Code committen
+- Ohne Verständnis der bestehenden Struktur Änderungen machen

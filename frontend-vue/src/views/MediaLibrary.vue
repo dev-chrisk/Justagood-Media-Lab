@@ -18,6 +18,7 @@
       @set-category="setCategory"
       @navigate-to-statistics="navigateToStatistics"
       @navigate-to-calendar="navigateToCalendar"
+      @navigate-to-features="navigateToFeatures"
       @navigate-to-profile="navigateToProfile"
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
@@ -49,9 +50,6 @@
         </div>
         
         <div v-else>
-          <!-- Real-time Test Component -->
-          <RealtimeTest />
-          
           <div class="grid" :style="{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }">
             <MediaItem 
               v-for="item in paginatedMedia" 
@@ -158,7 +156,6 @@
 
 <script>
 import { onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
@@ -178,7 +175,6 @@ import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import MessageBox from '@/components/MessageBox.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import InputDialog from '@/components/InputDialog.vue'
-import RealtimeTest from '@/components/RealtimeTest.vue'
 
 export default {
   name: 'MediaLibrary',
@@ -197,10 +193,8 @@ export default {
     MessageBox,
     ConfirmDialog,
     InputDialog,
-    RealtimeTest
   },
   setup() {
-    const router = useRouter()
     const mediaStore = useMediaStore()
     const messageStore = useMessageStore()
     const confirmStore = useConfirmStore()
@@ -263,25 +257,14 @@ export default {
       downloadFile,
       deleteAllInCategory,
       getCategoryDisplayName,
+      navigateToStatistics,
+      navigateToCalendar,
+      navigateToFeatures,
+      navigateToProfile,
       processTxtContent,
-      closeTxtImportResults
+      closeTxtImportResults,
+      cleanup
     } = useMediaLibrary()
-
-    // Navigation methods
-    const navigateToStatistics = () => {
-      router.push('/statistics')
-      mobileSidebarOpen.value = false
-    }
-
-    const navigateToCalendar = () => {
-      router.push('/calendar')
-      mobileSidebarOpen.value = false
-    }
-
-    const navigateToProfile = () => {
-      router.push('/profile')
-      mobileSidebarOpen.value = false
-    }
 
     const addItemFromSidebar = (category) => {
       // Set the category and open the edit modal for adding a new item
@@ -298,24 +281,6 @@ export default {
     const handleLoginSuccess = (loginData) => {
       showLoginModal.value = false
       
-      // Check for duplicate information in login response
-      if (loginData && loginData.duplicate_check) {
-        const { categories, media_items } = loginData.duplicate_check
-        
-        if (categories.found > 0) {
-          messageStore.showInfo(
-            `${categories.found} Kategorie-Duplikate wurden beim Login automatisch bereinigt.`,
-            'Duplikate bereinigt'
-          )
-        }
-        
-        if (media_items.found > 0) {
-          messageStore.showWarning(
-            `Es wurden ${media_items.found} Duplikat-Gruppen in Ihren Medien gefunden. Bitte überprüfen Sie die Einträge.`,
-            'Duplikate gefunden'
-          )
-        }
-      }
       
       loadMedia()
     }
@@ -325,48 +290,39 @@ export default {
       loadMedia()
     }
 
-    // Duplicate event handlers
-    const handleDuplicatesFound = (event) => {
-      const { count, duplicates } = event.detail
-      messageStore.showWarning(
-        `Es wurden ${count} Duplikat-Gruppen in Ihren Medien gefunden. Bitte überprüfen Sie die Einträge.`,
-        'Duplikate gefunden',
-        { duplicates }
-      )
-    }
-
-    const handleCategoryDuplicatesFound = (event) => {
-      const { category, count, duplicates } = event.detail
-      const categoryName = categories.find(c => c.key === category)?.name || category
-      messageStore.showWarning(
-        `Es wurden ${count} Duplikat-Gruppen in der Kategorie "${categoryName}" gefunden.`,
-        'Duplikate in Kategorie',
-        { category, duplicates }
-      )
-    }
 
     // Lifecycle
     onMounted(async () => {
       try {
         await loadMedia()
-        // Initialize real-time updates
-        mediaStore.initializeRealtimeUpdates()
         
-        // Listen for duplicate events
-        window.addEventListener('duplicates-found', handleDuplicatesFound)
-        window.addEventListener('category-duplicates-found', handleCategoryDuplicatesFound)
+        // Initialize real-time updates only for authenticated users
+        if (isLoggedIn.value) {
+          try {
+            mediaStore.initializeRealtimeUpdates()
+          } catch (realtimeError) {
+            console.error('Error initializing realtime updates:', realtimeError)
+          }
+        }
+        
       } catch (error) {
         console.error('Error during initialization:', error)
       }
     })
 
     onUnmounted(() => {
-      // Cleanup real-time updates
-      mediaStore.cleanupRealtimeUpdates()
+      // Cleanup real-time updates only if they were initialized
+      if (isLoggedIn.value) {
+        try {
+          mediaStore.cleanupRealtimeUpdates()
+        } catch (error) {
+          console.error('Error cleaning up realtime updates:', error)
+        }
+      }
       
-      // Remove event listeners
-      window.removeEventListener('duplicates-found', handleDuplicatesFound)
-      window.removeEventListener('category-duplicates-found', handleCategoryDuplicatesFound)
+      
+      // Cleanup grid columns resize listener
+      cleanup()
     })
 
     return {
@@ -406,10 +362,12 @@ export default {
       clearSearch,
       navigateToStatistics,
       navigateToCalendar,
+      navigateToFeatures,
       navigateToProfile,
       addItemFromSidebar,
       togglePlatformFilter,
       toggleGenreFilter,
+      toggleAiringFilter,
       editItem,
       switchToRegister,
       handleLoginSuccess,

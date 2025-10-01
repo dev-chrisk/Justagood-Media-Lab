@@ -3,7 +3,7 @@ import { mediaApi } from '@/services/api'
 
 class RealtimeService {
   constructor() {
-    this.isConnected = ref(false)
+    this.isConnected = { value: false }
     this.listeners = new Map()
     this.pollingInterval = null
     this.lastUpdate = null
@@ -12,6 +12,14 @@ class RealtimeService {
 
   connect() {
     if (this.pollingInterval) {
+      return
+    }
+
+    const token = localStorage.getItem('authToken')
+    const user = localStorage.getItem('currentUser')
+    
+    if (!token || !user) {
+      console.log('Skipping realtime connection - user not authenticated')
       return
     }
 
@@ -34,8 +42,8 @@ class RealtimeService {
         return // Only poll for logged in users
       }
 
-      // Get recent media items
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8050'}/api/media?since=${this.lastUpdate.toISOString()}`, {
+      // Get recent media items - use a simpler approach without since parameter
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/media`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -43,6 +51,11 @@ class RealtimeService {
       })
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, disconnect
+          this.disconnect()
+          return
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
@@ -69,6 +82,8 @@ class RealtimeService {
       this.lastUpdate = new Date()
     } catch (error) {
       console.error('Polling error:', error)
+      // If there's a network error, don't disconnect immediately
+      // The service will retry on the next interval
     }
   }
 

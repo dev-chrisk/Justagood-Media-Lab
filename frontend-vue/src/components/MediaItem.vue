@@ -86,15 +86,20 @@ export default {
   methods: {
     getImageUrl(path) {
       // Handle different image path formats
+      if (!path) return ''
+      
+      // If it's already a full URL, return as is
       if (path.startsWith('http')) {
         return path
       }
+      
+      // If it starts with /, it's already a relative path
       if (path.startsWith('/')) {
         return path
       }
-      if (path.startsWith('images_downloads/')) {
-        return `/storage/${path}`
-      }
+      
+      // For uploaded images, they should be accessible via /storage/
+      // The path from the database is relative to storage/app/public
       return `/storage/${path}`
     },
     
