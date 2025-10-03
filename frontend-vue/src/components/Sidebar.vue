@@ -112,6 +112,17 @@
         </div>
       </div>
 
+      <!-- Admin Section -->
+      <div v-if="isLoggedIn && isAdmin" class="sidebar-section admin-section">
+        <h3>Administration</h3>
+        <nav class="sidebar-nav">
+          <button class="nav-btn admin-btn" @click="$emit('navigateToAdmin')">
+            <span class="nav-icon">👑</span>
+            <span class="nav-text">Admin Panel</span>
+          </button>
+        </nav>
+      </div>
+
       <!-- Account Section -->
       <div class="sidebar-section">
         <h3>Account</h3>
@@ -126,6 +137,7 @@
             </div>
             <div class="profile-details">
               <span class="user-name">{{ userName }}</span>
+              <span v-if="isAdmin" class="admin-badge">ADMIN</span>
             </div>
             <button class="account-btn" @click="$emit('navigateToProfile')">⚙️</button>
           </div>
@@ -160,6 +172,10 @@ export default {
       type: Boolean,
       default: false
     },
+    isAdmin: {
+      type: Boolean,
+      default: false
+    },
     userName: {
       type: String,
       default: ''
@@ -186,6 +202,7 @@ export default {
         { key: 'game', name: 'Games', icon: '🎮' },
         { key: 'series', name: 'Series', icon: '📺' },
         { key: 'movie', name: 'Movies', icon: '🎬' },
+        { key: 'buecher', name: 'Bücher', icon: '📚' },
         { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
       ]
     }
@@ -600,6 +617,39 @@ export default {
 .account-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+}
+
+/* Admin Section Styles */
+.admin-section {
+  border-left: 3px solid #ffd700;
+}
+
+.admin-section h3 {
+  color: #ffd700;
+}
+
+.admin-btn {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.admin-btn:hover {
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
+}
+
+.admin-badge {
+  background: #ffd700;
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Mobile Styles */

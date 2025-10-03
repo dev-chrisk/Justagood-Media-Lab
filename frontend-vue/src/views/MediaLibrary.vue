@@ -8,6 +8,7 @@
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileSidebarOpen"
       :is-logged-in="isLoggedIn"
+      :is-admin="isAdmin"
       :user-name="userName"
       :current-category="currentCategory"
       :category-counts="categoryCounts"
@@ -20,6 +21,7 @@
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-features="navigateToFeatures"
       @navigate-to-profile="navigateToProfile"
+      @navigate-to-admin="navigateToAdmin"
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
       @toggle-airing-filter="toggleAiringFilter"
@@ -261,6 +263,7 @@ export default {
       navigateToCalendar,
       navigateToFeatures,
       navigateToProfile,
+      navigateToAdmin,
       processTxtContent,
       closeTxtImportResults,
       cleanup

@@ -13,6 +13,7 @@
               <option value="game">Game</option>
               <option value="series">Series</option>
               <option value="movie">Movie</option>
+              <option value="buecher">Bücher</option>
             </select>
           </div>
           
@@ -142,6 +143,7 @@
               <option value="game">Game</option>
               <option value="series">Series</option>
               <option value="movie">Movie</option>
+              <option value="buecher">Bücher</option>
             </select>
             <div v-if="form.category === 'watchlist' && !form.watchlistType" class="field-error">
               Please select a type for watchlist items
@@ -421,14 +423,6 @@ export default {
       error.value = ''
       
       try {
-        // Check for duplicates before saving
-        const duplicateCheck = await checkForDuplicate(form.title, form.category)
-        if (duplicateCheck && duplicateCheck.isDuplicate) {
-          error.value = `Ein Eintrag mit dem Titel "${form.title}" und der Kategorie "${form.category}" existiert bereits.`
-          loading.value = false
-          return
-        }
-        
         // Clean up form data
         const itemData = { ...form }
         
@@ -478,33 +472,6 @@ export default {
       closeModal()
     }
     
-    const checkForDuplicate = async (title, category) => {
-      try {
-        const token = localStorage.getItem('authToken')
-        const user = localStorage.getItem('currentUser')
-        
-        if (!token || !user) return { isDuplicate: false }
-        
-        // Check if we're editing an existing item (exclude current item from duplicate check)
-        const excludeId = props.item ? props.item.id : null
-        
-        // For now, we'll use a simple approach - check if the title+category combination exists
-        // In a real implementation, you might want to call a specific API endpoint
-        const response = await mediaApi.checkCategoryDuplicates(category)
-        if (response.success && response.duplicates) {
-          const duplicates = response.duplicates.flat()
-          const isDuplicate = duplicates.some(duplicate => 
-            duplicate.title === title && duplicate.id !== excludeId
-          )
-          return { isDuplicate, duplicates }
-        }
-        
-        return { isDuplicate: false }
-      } catch (error) {
-        console.error('Duplicate check failed:', error)
-        return { isDuplicate: false }
-      }
-    }
     
     const searchApi = async () => {
       // API-Suche ist jetzt auch für Watchlist verfügbar

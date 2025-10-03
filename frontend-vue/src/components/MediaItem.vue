@@ -150,6 +150,8 @@ export default {
           return 'Unplayed yet'
         } else if (type === 'series' || type === 'movie') {
           return 'Unwatched yet'
+        } else if (type === 'buecher') {
+          return 'Unread yet'
         } else {
           return 'Unconsumed yet'
         }
@@ -198,6 +200,9 @@ export default {
         if (genre.includes('movie') || genre.includes('film') || genre.includes('cinema')) {
           return 'Movie'
         }
+        if (genre.includes('book') || genre.includes('literature') || genre.includes('novel') || genre.includes('author')) {
+          return 'Bücher'
+        }
       }
       
       // Fallback based on platforms
@@ -211,6 +216,9 @@ export default {
         }
         if (platforms.includes('cinema') || platforms.includes('theater')) {
           return 'Movie'
+        }
+        if (platforms.includes('book') || platforms.includes('kindle') || platforms.includes('audible') || platforms.includes('author')) {
+          return 'Bücher'
         }
       }
       
@@ -606,6 +614,11 @@ export default {
 
 .type-movie {
   background: #FF9800;
+  color: white;
+}
+
+.type-buecher {
+  background: #8B4513;
   color: white;
 }
 

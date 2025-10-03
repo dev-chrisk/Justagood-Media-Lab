@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const userName = computed(() => user.value?.name || '')
   const userEmail = computed(() => user.value?.email || '')
+  const isAdmin = computed(() => user.value?.is_admin || false)
 
   // Actions
   async function login(email, password) {
@@ -32,8 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
       return { 
         success: true, 
         user: response.user, 
-        token: response.token,
-        duplicate_check: response.duplicate_check 
+        token: response.token
       }
     } catch (err) {
       error.value = err.response?.data?.message || err.message || 'Login failed'
@@ -144,6 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     userName,
     userEmail,
+    isAdmin,
     
     // Actions
     login,

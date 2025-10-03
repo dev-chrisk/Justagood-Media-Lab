@@ -19,5 +19,13 @@ class DatabaseSeeder extends Seeder
             'email' => 'test@example.com',
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
         ]);
+
+        // Füge die Bücher-Kategorie hinzu
+        $this->call(BooksCategorySeeder::class);
+        
+        // Create admin user (only in production)
+        if (app()->environment('production')) {
+            $this->call(AdminUserSeeder::class);
+        }
     }
 }

@@ -194,14 +194,6 @@ export const useMediaStore = defineStore('media', () => {
           return newItem
         } catch (apiError) {
           console.error('API save failed for logged in user:', apiError)
-          
-          // Handle duplicate error specifically
-          if (apiError.response?.status === 409) {
-            const errorMessage = apiError.response?.data?.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
-            error.value = errorMessage
-            throw new Error(errorMessage)
-          }
-          
           throw apiError
         }
       } else {
@@ -218,10 +210,7 @@ export const useMediaStore = defineStore('media', () => {
         return newItem
       }
     } catch (err) {
-      // Only set error if it's not already set (from duplicate handling above)
-      if (!error.value) {
-        error.value = err.message || 'Failed to add media item'
-      }
+      error.value = err.message || 'Failed to add media item'
       throw err
     }
   }
@@ -240,14 +229,6 @@ export const useMediaStore = defineStore('media', () => {
           return updatedItem
         } catch (apiError) {
           console.error('API update failed for logged in user:', apiError)
-          
-          // Handle duplicate error specifically
-          if (apiError.response?.status === 409) {
-            const errorMessage = apiError.response?.data?.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
-            error.value = errorMessage
-            throw new Error(errorMessage)
-          }
-          
           throw apiError
         }
       } else {
@@ -261,10 +242,7 @@ export const useMediaStore = defineStore('media', () => {
         throw new Error('Media item not found')
       }
     } catch (err) {
-      // Only set error if it's not already set (from duplicate handling above)
-      if (!error.value) {
-        error.value = err.message || 'Failed to update media item'
-      }
+      error.value = err.message || 'Failed to update media item'
       throw err
     }
   }
@@ -315,19 +293,6 @@ export const useMediaStore = defineStore('media', () => {
           return result
         } catch (apiError) {
           console.error('API batch add failed for logged in user:', apiError)
-          
-          // Handle duplicate errors in batch add
-          if (apiError.response?.status === 400 && apiError.response?.data?.errors) {
-            const duplicateErrors = apiError.response.data.errors.filter(err => 
-              err.error && err.error.includes('existiert bereits')
-            )
-            if (duplicateErrors.length > 0) {
-              const errorMessage = `${duplicateErrors.length} Einträge konnten nicht hinzugefügt werden, da sie bereits existieren.`
-              error.value = errorMessage
-              throw new Error(errorMessage)
-            }
-          }
-          
           throw apiError
         }
       } else {
@@ -351,10 +316,7 @@ export const useMediaStore = defineStore('media', () => {
         }
       }
     } catch (err) {
-      // Only set error if it's not already set (from duplicate handling above)
-      if (!error.value) {
-        error.value = err.message || 'Failed to add media items'
-      }
+      error.value = err.message || 'Failed to add media items'
       throw err
     }
   }

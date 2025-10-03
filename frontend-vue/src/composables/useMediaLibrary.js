@@ -51,6 +51,7 @@ export function useMediaLibrary() {
     { key: 'game', name: 'Games', icon: '🎮' },
     { key: 'series', name: 'Series', icon: '📺' },
     { key: 'movie', name: 'Movies', icon: '🎬' },
+    { key: 'buecher', name: 'Bücher', icon: '📚' },
     { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
   ]
 
@@ -548,6 +549,10 @@ export function useMediaLibrary() {
     router.push('/profile')
   }
 
+  const navigateToAdmin = () => {
+    router.push('/admin')
+  }
+
   // Cleanup function to remove event listener
   const cleanup = () => {
     if (typeof window !== 'undefined') {
@@ -617,6 +622,7 @@ export function useMediaLibrary() {
     navigateToCalendar,
     navigateToFeatures,
     navigateToProfile,
+    navigateToAdmin,
     processTxtContent,
     closeTxtImportResults,
     cleanup

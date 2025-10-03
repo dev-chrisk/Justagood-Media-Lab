@@ -91,8 +91,8 @@ class MediaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
-            'category' => 'required|string|in:game,series,movie,watchlist',
-            'watchlist_type' => 'nullable|string|in:game,series,movie',
+            'category' => 'required|string|in:game,series,movie,watchlist,buecher',
+            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'required|integer|min:0',
@@ -176,8 +176,8 @@ class MediaController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
-            'category' => 'sometimes|string|in:game,series,movie,watchlist',
-            'watchlist_type' => 'nullable|string|in:game,series,movie',
+            'category' => 'sometimes|string|in:game,series,movie,watchlist,buecher',
+            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'sometimes|integer|min:0',
@@ -270,7 +270,7 @@ class MediaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             '*.title' => 'required|string|max:255',
-            '*.category' => 'required|string|in:game,series,movie,watchlist',
+            '*.category' => 'required|string|in:game,series,movie,watchlist,buecher',
         ]);
 
         if ($validator->fails()) {
@@ -347,7 +347,7 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
             'items.*.title' => 'required|string|max:255',
-            'items.*.category' => 'required|string|in:game,series,movie,watchlist',
+            'items.*.category' => 'required|string|in:game,series,movie,watchlist,buecher',
             'items.*.rating' => 'nullable|integer|min:0|max:10',
             'items.*.count' => 'required|integer|min:0',
             'items.*.platforms' => 'nullable|string',
@@ -494,6 +494,37 @@ class MediaController extends Controller
 
         $results = [];
 
+        // Search Google Books for books (only if category is not specified or is buecher)
+        if (empty($category) || $category === 'buecher') {
+            try {
+                $googleBooksApiKey = config('services.google_books.api_key');
+                $bookLimit = empty($category) ? $limit / 4 : $limit;
+                $bookUrl = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($query) . "&key={$googleBooksApiKey}&maxResults=" . $bookLimit;
+                $bookResponse = json_decode(file_get_contents($bookUrl), true);
+                
+                foreach (array_slice($bookResponse['items'] ?? [], 0, $bookLimit) as $item) {
+                    $volumeInfo = $item['volumeInfo'] ?? [];
+                    $results[] = [
+                        'id' => "google_books_{$item['id']}",
+                        'title' => $volumeInfo['title'] ?? 'Unknown Title',
+                        'release' => $volumeInfo['publishedDate'] ?? '',
+                        'image' => $volumeInfo['imageLinks']['thumbnail'] ?? $volumeInfo['imageLinks']['smallThumbnail'] ?? '',
+                        'category' => 'buecher',
+                        'overview' => $volumeInfo['description'] ?? '',
+                        'rating' => round(($volumeInfo['averageRating'] ?? 0) * 2, 1), // Convert 5-star to 10-point scale
+                        'api_source' => 'google_books',
+                        'authors' => $volumeInfo['authors'] ?? [],
+                        'publisher' => $volumeInfo['publisher'] ?? '',
+                        'page_count' => $volumeInfo['pageCount'] ?? null,
+                        'language' => $volumeInfo['language'] ?? '',
+                        'isbn' => $volumeInfo['industryIdentifiers'][0]['identifier'] ?? ''
+                    ];
+                }
+            } catch (\Exception $e) {
+                \Log::error("Google Books search error: " . $e->getMessage());
+            }
+        }
+
         // Search TMDB for movies and TV shows (only if category is not specified or is movie/series)
         if (empty($category) || in_array($category, ['movie', 'series'])) {
             try {
@@ -580,7 +611,7 @@ class MediaController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string',
-            'category' => 'required|string|in:game,series,movie',
+            'category' => 'required|string|in:game,series,movie,buecher',
         ]);
 
         if ($validator->fails()) {
@@ -591,7 +622,50 @@ class MediaController extends Controller
         $category = $request->category;
 
         try {
-            if ($category === 'game') {
+            if ($category === 'buecher') {
+                // Google Books API
+                $googleBooksApiKey = config('services.google_books.api_key');
+                $url = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($titleOrId) . "&key={$googleBooksApiKey}&maxResults=1";
+                $response = json_decode(file_get_contents($url), true);
+                
+                if (empty($response['items'])) {
+                    return response()->json(['success' => false, 'error' => 'No book found'], 404);
+                }
+
+                $book = $response['items'][0];
+                $volumeInfo = $book['volumeInfo'] ?? [];
+                $safeName = $this->sanitizeFilename($volumeInfo['title'] ?? 'Unknown Book');
+                $relBase = "images_downloads/books/{$safeName}";
+                
+                $result = [
+                    'title' => $volumeInfo['title'] ?? 'Unknown Title',
+                    'release' => $volumeInfo['publishedDate'] ?? null,
+                    'platforms' => implode(', ', $volumeInfo['authors'] ?? []),
+                    'genre' => implode(', ', $volumeInfo['categories'] ?? []),
+                    'link' => $book['selfLink'] ?? '',
+                    'path' => $relBase
+                ];
+
+                if (!empty($volumeInfo['imageLinks']['thumbnail'])) {
+                    try {
+                        $result['path'] = $this->saveImageFromUrl($volumeInfo['imageLinks']['thumbnail'], $relBase);
+                    } catch (\Exception $e) {
+                        \Log::error("Google Books image download error: " . $e->getMessage());
+                    }
+                }
+
+                $debug = [
+                    'source' => 'google_books',
+                    'raw' => $book,
+                    'extra' => [
+                        'page_count' => $volumeInfo['pageCount'] ?? null,
+                        'language' => $volumeInfo['language'] ?? null,
+                        'publisher' => $volumeInfo['publisher'] ?? null,
+                        'isbn' => $volumeInfo['industryIdentifiers'][0]['identifier'] ?? null,
+                    ]
+                ];
+
+            } else if ($category === 'game') {
                 // RAWG API
                 $rawgApiKey = config('services.rawg.api_key');
                 $url = "https://api.rawg.io/api/games?key={$rawgApiKey}&search=" . urlencode($titleOrId);

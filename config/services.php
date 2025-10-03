@@ -39,4 +39,8 @@ return [
         'api_key' => env('RAWG_API_KEY'),
     ],
 
+    'google_books' => [
+        'api_key' => env('GOOGLE_BOOKS_API_KEY'),
+    ],
+
 ];

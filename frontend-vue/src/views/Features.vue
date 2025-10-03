@@ -206,6 +206,7 @@ export default {
       { key: 'game', name: 'Games', icon: '🎮' },
       { key: 'series', name: 'Series', icon: '📺' },
       { key: 'movie', name: 'Movies', icon: '🎬' },
+      { key: 'buecher', name: 'Bücher', icon: '📚' },
       { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
     ])
 

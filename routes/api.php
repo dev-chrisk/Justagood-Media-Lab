@@ -82,6 +82,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('download-api-images', [ExportImportController::class, 'downloadApiImages']);
 });
 
+// Admin routes (require admin access)
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/users', [App\Http\Controllers\AdminController::class, 'users']);
+    Route::get('/users/{id}', [App\Http\Controllers\AdminController::class, 'userDetails']);
+    Route::put('/users/{id}', [App\Http\Controllers\AdminController::class, 'updateUser']);
+    Route::delete('/users/{id}', [App\Http\Controllers\AdminController::class, 'deleteUser']);
+    Route::get('/statistics', [App\Http\Controllers\AdminController::class, 'statistics']);
+    Route::get('/user-activity/{id}', [App\Http\Controllers\AdminController::class, 'userActivity']);
+    Route::get('/media-items', [App\Http\Controllers\AdminController::class, 'allMediaItems']);
+    Route::get('/collections', [App\Http\Controllers\AdminController::class, 'allCollections']);
+});
+
 // Public TMDb API routes (no authentication required)
 Route::prefix('tmdb')->group(function () {
     Route::get('movie/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getMovie']);

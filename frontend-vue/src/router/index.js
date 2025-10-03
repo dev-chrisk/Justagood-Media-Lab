@@ -6,6 +6,7 @@ const Profile = () => import('@/views/Profile.vue')
 const Statistics = () => import('@/views/Statistics.vue')
 const Calendar = () => import('@/views/Calendar.vue')
 const Features = () => import('@/views/Features.vue')
+const AdminDashboard = () => import('@/views/AdminDashboard.vue')
 
 const routes = [
   {
@@ -39,6 +40,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: AdminDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
@@ -58,7 +65,13 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     // Redirect to home page (which shows login form)
     next('/')
-  } else {
+  } 
+  // If route requires admin and user is not admin
+  else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    // Redirect to home page
+    next('/')
+  } 
+  else {
     next()
   }
 })
