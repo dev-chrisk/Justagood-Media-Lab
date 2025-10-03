@@ -1,8 +1,9 @@
 import axios from 'axios'
+import { API_CONFIG } from '@/config/api'
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'https://teabubble.attrebi.ch',
+  baseURL: API_CONFIG.BASE_URL,
   headers: {
     'Content-Type': 'application/json'
   }

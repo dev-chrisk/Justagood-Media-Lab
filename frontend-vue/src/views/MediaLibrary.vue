@@ -21,7 +21,7 @@
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-features="navigateToFeatures"
       @navigate-to-profile="navigateToProfile"
-      @navigate-to-admin="navigateToAdmin"
+      @navigate-to-admin="debugNavigateToAdmin"
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
       @toggle-airing-filter="toggleAiringFilter"
@@ -243,6 +243,7 @@ export default {
       
       // Computed
       isLoggedIn,
+      isAdmin,
       userName,
       currentCategory,
       searchQuery,
@@ -289,7 +290,8 @@ export default {
       navigateToAdmin,
       processTxtContent,
       closeTxtImportResults,
-      cleanup
+      cleanup,
+      router
     } = useMediaLibrary()
 
     // Computed property for category display name to ensure it's always available
@@ -382,6 +384,18 @@ export default {
       }
     }
 
+    // DEBUG: Direct admin navigation function
+    const debugNavigateToAdmin = () => {
+      console.log('🔥 DEBUG: Direct admin navigation called!')
+      console.log('🔥 DEBUG: Router object:', router)
+      try {
+        router.push('/admin')
+        console.log('🔥 DEBUG: Successfully navigated to /admin!')
+      } catch (error) {
+        console.error('🔥 DEBUG: Error navigating to admin:', error)
+      }
+    }
+
 
     // Lifecycle
     onMounted(async () => {
@@ -470,6 +484,7 @@ export default {
       handleLoginSuccess,
       handleRegisterSuccess,
       handleAdminSetup,
+      debugNavigateToAdmin,
       closeEditModal,
       closeBulkAddModal,
       handleBulkAddItems,

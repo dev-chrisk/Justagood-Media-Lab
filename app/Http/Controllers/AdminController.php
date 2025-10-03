@@ -2,172 +2,241 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Models\User;
 use App\Models\MediaItem;
 use App\Models\Collection;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
     /**
-     * Get all users with statistics
+     * Get all users with their statistics
      */
     public function users(): JsonResponse
     {
-        $users = User::withCount(['mediaItems', 'collections'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            $users = User::withCount(['mediaItems', 'collections'])
+                ->select('id', 'name', 'email', 'is_admin', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        return response()->json($users);
+            return response()->json($users);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch users'], 500);
+        }
     }
 
     /**
-     * Get user details with all data
+     * Get detailed information about a specific user
      */
     public function userDetails($id): JsonResponse
     {
-        $user = User::with(['mediaItems', 'collections'])
-            ->withCount(['mediaItems', 'collections'])
-            ->findOrFail($id);
+        try {
+            $user = User::withCount(['mediaItems', 'collections'])
+                ->with(['mediaItems' => function($query) {
+                    $query->select('id', 'user_id', 'title', 'category', 'created_at')
+                          ->orderBy('created_at', 'desc')
+                          ->limit(10);
+                }])
+                ->with(['collections' => function($query) {
+                    $query->select('id', 'user_id', 'name', 'description', 'created_at')
+                          ->orderBy('created_at', 'desc')
+                          ->limit(5);
+                }])
+                ->findOrFail($id);
 
-        return response()->json($user);
+            return response()->json($user);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
     }
 
     /**
-     * Update user admin status
+     * Update user information
      */
     public function updateUser(Request $request, $id): JsonResponse
     {
-        $request->validate([
-            'is_admin' => 'boolean',
-        ]);
+        try {
+            $user = User::findOrFail($id);
+            
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'email' => ['sometimes', 'email', 'max:255', Rule::unique('users')->ignore($id)],
+                'is_admin' => 'sometimes|boolean',
+                'password' => 'sometimes|string|min:8|confirmed'
+            ]);
 
-        $user = User::findOrFail($id);
-        $user->update($request->only(['is_admin']));
+            // Update user data
+            if (isset($validated['password'])) {
+                $validated['password'] = Hash::make($validated['password']);
+            }
 
-        return response()->json([
-            'success' => true,
-            'user' => $user->fresh()
-        ]);
+            $user->update($validated);
+
+            return response()->json([
+                'message' => 'User updated successfully',
+                'user' => $user->fresh(['mediaItems', 'collections'])
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['errors' => $e->errors()], 422);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to update user'], 500);
+        }
     }
 
     /**
-     * Delete user and all their data
+     * Delete a user
      */
     public function deleteUser($id): JsonResponse
     {
-        $user = User::findOrFail($id);
-        
-        // Delete user's media items and collections (cascade should handle this)
-        $user->delete();
+        try {
+            $user = User::findOrFail($id);
+            
+            // Prevent deleting the last admin
+            if ($user->is_admin) {
+                $adminCount = User::where('is_admin', true)->count();
+                if ($adminCount <= 1) {
+                    return response()->json(['error' => 'Cannot delete the last admin user'], 400);
+                }
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User and all associated data deleted successfully'
-        ]);
+            // Delete user and related data
+            DB::transaction(function() use ($user) {
+                $user->mediaItems()->delete();
+                $user->collections()->delete();
+                $user->delete();
+            });
+
+            return response()->json(['message' => 'User deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to delete user'], 500);
+        }
     }
 
     /**
-     * Get system statistics
+     * Get admin statistics
      */
     public function statistics(): JsonResponse
     {
-        $stats = [
-            'total_users' => User::count(),
-            'admin_users' => User::where('is_admin', true)->count(),
-            'regular_users' => User::where('is_admin', false)->count(),
-            'total_media_items' => MediaItem::count(),
-            'total_collections' => Collection::count(),
-            'users_with_media' => User::has('mediaItems')->count(),
-            'users_with_collections' => User::has('collections')->count(),
-            'recent_registrations' => User::where('created_at', '>=', now()->subDays(30))->count(),
-        ];
+        try {
+            $stats = [
+                'total_users' => User::count(),
+                'admin_users' => User::where('is_admin', true)->count(),
+                'total_media_items' => MediaItem::count(),
+                'total_collections' => Collection::count(),
+                'recent_registrations' => User::where('created_at', '>=', now()->subDays(30))->count(),
+                'media_by_category' => MediaItem::select('category', DB::raw('count(*) as count'))
+                    ->groupBy('category')
+                    ->get()
+                    ->pluck('count', 'category'),
+                'users_by_month' => User::select(DB::raw('DATE_FORMAT(created_at, "%Y-%m") as month'), DB::raw('count(*) as count'))
+                    ->where('created_at', '>=', now()->subMonths(12))
+                    ->groupBy('month')
+                    ->orderBy('month')
+                    ->get()
+            ];
 
-        // Get category distribution
-        $categoryStats = MediaItem::select('category', DB::raw('count(*) as count'))
-            ->groupBy('category')
-            ->orderBy('count', 'desc')
-            ->get();
-
-        $stats['category_distribution'] = $categoryStats;
-
-        // Get recent activity
-        $recentActivity = MediaItem::with('user')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get(['id', 'title', 'category', 'user_id', 'created_at']);
-
-        $stats['recent_activity'] = $recentActivity;
-
-        return response()->json($stats);
+            return response()->json($stats);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch statistics'], 500);
+        }
     }
 
     /**
-     * Get user activity for specific user
+     * Get user activity (recent media items and collections)
      */
     public function userActivity($id): JsonResponse
     {
-        $user = User::findOrFail($id);
-        
-        $activity = [
-            'user' => $user->only(['id', 'name', 'email', 'created_at']),
-            'media_items_count' => $user->mediaItems()->count(),
-            'collections_count' => $user->collections()->count(),
-            'recent_media_items' => $user->mediaItems()
-                ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get(['id', 'title', 'category', 'created_at']),
-            'recent_collections' => $user->collections()
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get(['id', 'name', 'created_at']),
-            'total_playtime' => $user->mediaItems()->sum('spielzeit') ?? 0,
-            'average_rating' => $user->mediaItems()->whereNotNull('rating')->avg('rating') ?? 0,
-        ];
+        try {
+            $user = User::findOrFail($id);
+            
+            $activity = [
+                'recent_media_items' => $user->mediaItems()
+                    ->select('id', 'title', 'category', 'created_at')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(20)
+                    ->get(),
+                'recent_collections' => $user->collections()
+                    ->select('id', 'name', 'description', 'created_at')
+                    ->orderBy('created_at', 'desc')
+                    ->limit(10)
+                    ->get(),
+                'media_by_category' => $user->mediaItems()
+                    ->select('category', DB::raw('count(*) as count'))
+                    ->groupBy('category')
+                    ->get()
+                    ->pluck('count', 'category')
+            ];
 
-        return response()->json($activity);
+            return response()->json($activity);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch user activity'], 500);
+        }
     }
 
     /**
-     * Get all media items (admin view - no user filtering)
+     * Get all media items across all users
      */
     public function allMediaItems(Request $request): JsonResponse
     {
-        $query = MediaItem::with('user');
+        try {
+            $query = MediaItem::with('user:id,name,email')
+                ->select('id', 'user_id', 'title', 'category', 'created_at', 'updated_at');
 
-        // Filter by category
-        if ($request->has('category')) {
-            $query->where('category', $request->category);
+            // Add search functionality
+            if ($request->has('search')) {
+                $query->where('title', 'like', '%' . $request->search . '%');
+            }
+
+            // Add category filter
+            if ($request->has('category')) {
+                $query->where('category', $request->category);
+            }
+
+            // Add user filter
+            if ($request->has('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+
+            $mediaItems = $query->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json($mediaItems);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch media items'], 500);
         }
-
-        // Search by title
-        if ($request->has('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
-        }
-
-        // Filter by user
-        if ($request->has('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        $mediaItems = $query->orderBy('created_at', 'desc')
-            ->paginate(20);
-
-        return response()->json($mediaItems);
     }
 
     /**
-     * Get all collections (admin view - no user filtering)
+     * Get all collections across all users
      */
-    public function allCollections(): JsonResponse
+    public function allCollections(Request $request): JsonResponse
     {
-        $collections = Collection::with('user')
-            ->withCount('mediaItems')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            $query = Collection::with('user:id,name,email')
+                ->withCount('mediaItems')
+                ->select('id', 'user_id', 'name', 'description', 'created_at', 'updated_at');
 
-        return response()->json($collections);
+            // Add search functionality
+            if ($request->has('search')) {
+                $query->where('name', 'like', '%' . $request->search . '%');
+            }
+
+            // Add user filter
+            if ($request->has('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+
+            $collections = $query->orderBy('created_at', 'desc')
+                ->paginate($request->get('per_page', 20));
+
+            return response()->json($collections);
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Failed to fetch collections'], 500);
+        }
     }
 }

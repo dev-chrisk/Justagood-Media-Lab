@@ -231,16 +231,28 @@ export default {
       mediaStore.setSearchQuery('')
     }
 
-    const togglePlatformFilter = (platform) => {
-      mediaStore.togglePlatformFilter(platform)
+    const togglePlatformFilter = (platform, checked) => {
+      if (checked) {
+        mediaStore.addFilter({ type: 'platform', value: platform })
+      } else {
+        mediaStore.removeFilter({ type: 'platform', value: platform })
+      }
     }
 
-    const toggleGenreFilter = (genre) => {
-      mediaStore.toggleGenreFilter(genre)
+    const toggleGenreFilter = (genre, checked) => {
+      if (checked) {
+        mediaStore.addFilter({ type: 'genre', value: genre })
+      } else {
+        mediaStore.removeFilter({ type: 'genre', value: genre })
+      }
     }
 
-    const toggleAiringFilter = () => {
-      mediaStore.toggleAiringFilter()
+    const toggleAiringFilter = (status, checked) => {
+      if (checked) {
+        mediaStore.addFilter({ type: 'airing', value: status })
+      } else {
+        mediaStore.removeFilter({ type: 'airing', value: status })
+      }
     }
 
     const addItemFromSidebar = (category) => {

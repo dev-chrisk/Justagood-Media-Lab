@@ -559,7 +559,15 @@ export function useMediaLibrary() {
   }
 
   const navigateToAdmin = () => {
-    router.push('/admin')
+    console.log('🔥 navigateToAdmin function called!')
+    console.log('🔥 Router object:', router)
+    console.log('🔥 Pushing to /admin...')
+    try {
+      router.push('/admin')
+      console.log('🔥 Successfully navigated to /admin!')
+    } catch (error) {
+      console.error('🔥 Error navigating to admin:', error)
+    }
   }
 
   // Cleanup function to remove event listener
@@ -635,6 +643,7 @@ export function useMediaLibrary() {
     navigateToAdmin,
     processTxtContent,
     closeTxtImportResults,
-    cleanup
+    cleanup,
+    router
   }
 }

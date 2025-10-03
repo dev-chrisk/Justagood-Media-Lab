@@ -13,7 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const userName = computed(() => user.value?.name || '')
   const userEmail = computed(() => user.value?.email || '')
-  const isAdmin = computed(() => user.value?.is_admin || false)
+  const isAdmin = computed(() => {
+    try {
+      return user.value?.is_admin || false
+    } catch (error) {
+      console.error('Error accessing user.is_admin:', error)
+      return false
+    }
+  })
 
   // Actions
   async function login(email, password) {

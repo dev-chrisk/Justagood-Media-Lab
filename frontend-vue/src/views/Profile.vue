@@ -1,34 +1,31 @@
 <template>
   <div class="vue-app">
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" :class="{ show: mobileSidebarOpen }" @click="closeMobileSidebar"></div>
+    
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-header" @click="toggleSidebar">
-        <h2>Media Library</h2>
-        <button class="sidebar-toggle">☰</button>
-      </div>
-      <div class="sidebar-content">
-        <div class="sidebar-section">
-          <h3>Navigation</h3>
-          <nav class="sidebar-nav">
-            <button class="nav-btn" @click="navigateToLibrary">
-              <span class="nav-icon">📚</span>
-              <span class="nav-text">Library</span>
-            </button>
-            <button class="nav-btn" @click="navigateToStatistics">
-              <span class="nav-icon">📊</span>
-              <span class="nav-text">Statistics</span>
-            </button>
-            <button class="nav-btn active">
-              <span class="nav-icon">👤</span>
-              <span class="nav-text">Profile</span>
-            </button>
-          </nav>
-        </div>
-      </div>
-    </aside>
+    <Sidebar
+      :collapsed="sidebarCollapsed"
+      :mobile-open="mobileSidebarOpen"
+      :is-logged-in="isLoggedIn"
+      :is-admin="isAdmin"
+      :user-name="userName"
+      :current-category="'profile'"
+      :category-counts="{}"
+      :platforms="[]"
+      :genres="[]"
+      :categories="[]"
+      @toggle="toggleSidebar"
+      @navigate-to-library="navigateToLibrary"
+      @navigate-to-statistics="navigateToStatistics"
+      @navigate-to-calendar="navigateToCalendar"
+      @navigate-to-features="navigateToFeatures"
+      @logout="logout"
+    />
 
     <!-- Main Content -->
     <div class="main-content">
+      <!-- Header -->
       <header class="main-header">
         <div class="header-left">
           <button class="mobile-sidebar-toggle" @click="toggleMobileSidebar">☰</button>
@@ -256,9 +253,13 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMediaStore } from '@/stores/media'
+import Sidebar from '@/components/Sidebar.vue'
 
 export default {
   name: 'Profile',
+  components: {
+    Sidebar
+  },
   setup() {
     const router = useRouter()
     const authStore = useAuthStore()
@@ -280,12 +281,25 @@ export default {
     
     const totalItems = computed(() => mediaStore.totalItems)
     
+    // Sidebar state
+    const sidebarCollapsed = ref(false)
+    const mobileSidebarOpen = ref(false)
+    
+    // Computed properties
+    const isLoggedIn = computed(() => authStore.isLoggedIn)
+    const isAdmin = computed(() => authStore.isAdmin)
+    const userName = computed(() => authStore.userName)
+    
     const toggleSidebar = () => {
-      // Sidebar toggle logic
+      sidebarCollapsed.value = !sidebarCollapsed.value
     }
     
     const toggleMobileSidebar = () => {
-      // Mobile sidebar toggle logic - can be implemented if needed
+      mobileSidebarOpen.value = !mobileSidebarOpen.value
+    }
+    
+    const closeMobileSidebar = () => {
+      mobileSidebarOpen.value = false
     }
     
     const navigateToLibrary = () => {
@@ -294,6 +308,19 @@ export default {
     
     const navigateToStatistics = () => {
       router.push('/statistics')
+    }
+    
+    const navigateToCalendar = () => {
+      router.push('/calendar')
+    }
+    
+    const navigateToFeatures = () => {
+      router.push('/features')
+    }
+    
+    const logout = async () => {
+      await authStore.logout()
+      router.push('/')
     }
     
     const refreshStats = () => {
@@ -457,10 +484,19 @@ export default {
       avatarInput,
       profileData,
       totalItems,
+      sidebarCollapsed,
+      mobileSidebarOpen,
+      isLoggedIn,
+      isAdmin,
+      userName,
       toggleSidebar,
       toggleMobileSidebar,
+      closeMobileSidebar,
       navigateToLibrary,
       navigateToStatistics,
+      navigateToCalendar,
+      navigateToFeatures,
+      logout,
       refreshStats,
       getInitials,
       changeAvatar,
@@ -478,6 +514,120 @@ export default {
 </script>
 
 <style scoped>
+/* Profile Layout */
+.vue-app {
+  display: flex;
+  height: 100vh;
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+/* Mobile Overlay */
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.mobile-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Main Content Styles */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: margin-left 0.3s ease;
+}
+
+.main-header {
+  background: #2d2d2d;
+  border-bottom: 1px solid #404040;
+  padding: 20px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.mobile-sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.mobile-sidebar-toggle:hover {
+  background: #404040;
+  color: #e0e0e0;
+}
+
+.page-title {
+  margin: 0;
+  color: #e0e0e0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.refresh-stats-btn {
+  background: #4a9eff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-stats-btn:hover {
+  background: #3a8eef;
+  transform: translateY(-1px);
+}
+
+.refresh-icon {
+  font-size: 16px;
+}
+
+.content-area {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  background: #1a1a1a;
+}
+
 .profile-container {
   padding: 20px;
   max-width: 800px;
@@ -735,7 +885,30 @@ export default {
   background: #229954;
 }
 
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .content-area {
+    padding: 20px;
+  }
+}
+
 @media (max-width: 768px) {
+  .mobile-sidebar-toggle {
+    display: block;
+  }
+  
+  .content-area {
+    padding: 15px;
+  }
+  
+  .main-header {
+    padding: 15px 20px;
+  }
+  
+  .page-title {
+    font-size: 20px;
+  }
+  
   .form-row {
     grid-template-columns: 1fr;
   }
