@@ -37,7 +37,7 @@
                   @click="selectApiResult(result)"
                 >
                   <div class="result-thumbnail">
-                    <img v-if="result.imageUrl" :src="result.imageUrl" :alt="result.title" />
+                    <img v-if="result.imageUrl" :src="ensureHttpsUrl(result.imageUrl)" :alt="result.title" />
                     <div v-else class="no-image">
                       <span>{{ result.title.charAt(0).toUpperCase() }}</span>
                     </div>
@@ -327,6 +327,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
+import googleBooksApi from '@/services/googleBooksApi'
 
 export default {
   name: 'EditModal',
@@ -493,6 +494,12 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
+          console.log('🔍 EditModal API Search:', {
+            title: form.title,
+            category: form.category,
+            watchlistType: form.watchlistType
+          })
+
           // For watchlist, use the watchlistType as category for API search
           const searchCategory = form.category === 'watchlist' ? form.watchlistType : form.category
           
@@ -501,23 +508,66 @@ export default {
             apiResults.value = []
             return
           }
-          
-          const results = await mediaApi.searchApi(form.title, searchCategory, 10)
-          
-          if (results && results.length > 0) {
-            // Transform API results to match expected format
-            apiResults.value = results.map(result => ({
-              title: result.title,
-              release: result.release,
-              genre: result.overview || '',
-              platforms: result.platforms || '',
-              link: result.link || '',
-              imageUrl: result.image || '',
-              rating: result.rating || '',
-              apiSource: result.api_source || '',
-              id: result.id || ''
-            }))
+
+          let results = []
+          let searchResults = []
+
+          // Check if this is a books search
+          if (searchCategory === 'buecher') {
+            console.log('📚 Searching Google Books API for:', form.title)
+            
+            const googleBooksResult = await googleBooksApi.searchBooks(form.title, 10)
+            
+            if (googleBooksResult.success && googleBooksResult.data) {
+              console.log('📚 Google Books API Success:', googleBooksResult.data.length, 'results')
+              
+              searchResults = googleBooksResult.data.map(book => ({
+                title: book.title,
+                release: book.publishedDate ? formatDateForInput(book.publishedDate) : '',
+                genre: book.categories ? book.categories.join(', ') : '',
+                platforms: '', // Books don't have platforms
+                link: book.infoLink || book.previewLink || '',
+                imageUrl: book.imageUrl || '',
+                rating: '', // Google Books doesn't provide ratings
+                apiSource: 'google_books',
+                id: book.id,
+                author: book.author,
+                description: book.description,
+                publisher: book.publisher,
+                isbn10: book.isbn10,
+                isbn13: book.isbn13
+              }))
+              
+              console.log('📚 Formatted Google Books results:', searchResults)
+            } else {
+              console.warn('📚 Google Books API failed:', googleBooksResult.error)
+            }
           } else {
+            // Use existing media API for other categories
+            console.log('🎬 Searching Media API for:', form.title, 'category:', searchCategory)
+            
+            results = await mediaApi.searchApi(form.title, searchCategory, 10)
+            
+            if (results && results.length > 0) {
+              searchResults = results.map(result => ({
+                title: result.title,
+                release: result.release,
+                genre: result.overview || '',
+                platforms: result.platforms || '',
+                link: result.link || '',
+                imageUrl: result.image || '',
+                rating: result.rating || '',
+                apiSource: result.api_source || '',
+                id: result.id || ''
+              }))
+            }
+          }
+          
+          if (searchResults.length > 0) {
+            console.log('✅ API Search Results:', searchResults.length, 'items found')
+            apiResults.value = searchResults
+          } else {
+            console.log('❌ No API results found')
             // Show a message that API is not available
             apiResults.value = [{
               title: `"${form.title}" - Keine Ergebnisse gefunden`,
@@ -527,7 +577,7 @@ export default {
             }]
           }
         } catch (err) {
-          console.error('API search failed:', err)
+          console.error('❌ API search failed:', err)
           // Show a message that API is not available
           apiResults.value = [{
             title: `"${form.title}" - API nicht verfügbar`,
@@ -546,12 +596,46 @@ export default {
         return
       }
       
+      console.log('📚 Selecting API result:', {
+        title: result.title,
+        apiSource: result.apiSource,
+        author: result.author
+      })
+      
       form.title = result.title
       if (result.release) form.release = result.release
       if (result.platforms) form.platforms = result.platforms
       if (result.genre) form.genre = result.genre
       if (result.link) form.link = result.link
       if (result.rating) form.rating = result.rating
+      
+      // Handle Google Books specific fields
+      if (result.apiSource === 'google_books') {
+        console.log('📚 Filling Google Books data:', {
+          author: result.author,
+          description: result.description,
+          publisher: result.publisher,
+          isbn10: result.isbn10,
+          isbn13: result.isbn13
+        })
+        
+        // For books, we can use the author field in the genre or platforms field
+        if (result.author) {
+          form.platforms = result.author // Use platforms field for author
+        }
+        
+        // Add description to genre if available
+        if (result.description) {
+          const currentGenre = form.genre || ''
+          form.genre = currentGenre ? `${currentGenre} | ${result.description.substring(0, 100)}...` : result.description.substring(0, 200)
+        }
+        
+        // Add publisher info to link if available
+        if (result.publisher) {
+          const currentLink = form.link || ''
+          form.link = currentLink || `Publisher: ${result.publisher}`
+        }
+      }
       
       // Handle image URL - use original URL directly
       if (result.imageUrl) {
@@ -570,6 +654,43 @@ export default {
       if (!dateString) return ''
       const date = new Date(dateString)
       return date.toLocaleDateString()
+    }
+    
+    const formatDateForInput = (dateString) => {
+      if (!dateString) return ''
+      
+      // Handle different date formats from Google Books
+      let date
+      if (typeof dateString === 'string') {
+        // If it's just a year (4 digits)
+        if (/^\d{4}$/.test(dateString)) {
+          return `${dateString}-01-01`
+        }
+        // If it's year-month format
+        if (/^\d{4}-\d{2}$/.test(dateString)) {
+          return `${dateString}-01`
+        }
+        // If it's already a full date
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+          return dateString
+        }
+        // Try to parse as date
+        date = new Date(dateString)
+      } else {
+        date = new Date(dateString)
+      }
+      
+      if (isNaN(date.getTime())) {
+        console.warn('📚 Invalid date format:', dateString)
+        return ''
+      }
+      
+      return date.toISOString().split('T')[0]
+    }
+    
+    const ensureHttpsUrl = (url) => {
+      if (!url) return url
+      return url.startsWith('http://') ? url.replace('http://', 'https://') : url
     }
     
     const getReleasePreview = () => {
@@ -714,6 +835,8 @@ export default {
       searchApi,
       selectApiResult,
       formatDate,
+      formatDateForInput,
+      ensureHttpsUrl,
       getReleasePreview,
       triggerImageUpload,
       handleImageUpload,

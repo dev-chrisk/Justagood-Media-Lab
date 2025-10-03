@@ -117,10 +117,34 @@ class Category extends Model
             return $category;
         }
 
-        // Erstelle neue Kategorie
-        return static::create(array_merge([
-            'name' => $normalizedName,
-        ], $attributes));
+        // Prüfe ob Kategorie mit diesem Slug bereits existiert
+        $slug = \Str::slug($normalizedName);
+        $existingSlug = static::where('slug', $slug)->first();
+        
+        if ($existingSlug) {
+            return $existingSlug;
+        }
+
+        // Erstelle neue Kategorie mit try-catch
+        try {
+            return static::create(array_merge([
+                'name' => $normalizedName,
+            ], $attributes));
+        } catch (\Exception $e) {
+            // Falls es einen Duplicate-Key-Fehler gibt, versuche die existierende zu finden
+            if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $category = static::where('name', $normalizedName)->first();
+                if ($category) {
+                    return $category;
+                }
+                // Fallback: finde nach Slug
+                $category = static::where('slug', $slug)->first();
+                if ($category) {
+                    return $category;
+                }
+            }
+            throw $e;
+        }
     }
 
     /**

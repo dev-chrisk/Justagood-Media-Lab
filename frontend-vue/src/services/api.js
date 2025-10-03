@@ -9,9 +9,26 @@ const api = axios.create({
   }
 })
 
+// MAXIMUM DEBUGGING
+console.log('🚀 API Instance Created:', {
+  baseURL: api.defaults.baseURL,
+  API_CONFIG: API_CONFIG,
+  headers: api.defaults.headers
+})
+
 // Request interceptor to add auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
+  console.log('🔍 API Request:', {
+    url: config.url,
+    baseURL: config.baseURL,
+    fullURL: `${config.baseURL}${config.url}`,
+    method: config.method,
+    headers: config.headers,
+    data: config.data,
+    token: token ? `${token.substring(0, 20)}...` : 'none'
+  })
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -20,8 +37,25 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('✅ API Response Success:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    })
+    return response
+  },
   (error) => {
+    console.log('❌ API Response Error:', {
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      message: error.message
+    })
+    
     if (error.response?.status === 401) {
       // Only clear auth data if it's an actual auth error, not a validation error
       // Check if the error is from the /api/user endpoint (token validation)
@@ -142,7 +176,14 @@ export const mediaApi = {
   async fetchApiData(title, category) {
     try {
       const response = await api.post('/api/fetch-api', { title, category })
-      return response.data
+      const data = response.data
+      
+      // Ensure image URLs use HTTPS
+      if (data.success && data.data && data.data.path) {
+        data.data.path = data.data.path.startsWith('http://') ? data.data.path.replace('http://', 'https://') : data.data.path
+      }
+      
+      return data
     } catch (error) {
       console.error('API fetch failed:', error)
       return { success: false, error: error.message }
@@ -158,7 +199,11 @@ export const mediaApi = {
           limit: limit 
         } 
       })
-      return response.data
+      // Ensure all image URLs use HTTPS
+      return response.data.map(item => ({
+        ...item,
+        image: item.image ? (item.image.startsWith('http://') ? item.image.replace('http://', 'https://') : item.image) : item.image
+      }))
     } catch (error) {
       console.error('API search failed:', error)
       return []
@@ -198,25 +243,55 @@ export const mediaApi = {
 
   async addMediaItem(itemData) {
     try {
-      // Transform data to match backend expectations
+      // Simple data transformation - just send what we have
       const transformedData = {
         title: itemData.title,
         category: itemData.category,
-        watchlist_type: itemData.watchlistType, // Add watchlist type support
-        release: itemData.release,
-        rating: itemData.rating ? Math.round(itemData.rating) : null, // Convert to integer
-        count: itemData.count || 0, // Default to 0 if not provided
-        platforms: itemData.platforms,
-        genre: itemData.genre,
-        link: itemData.link,
-        path: itemData.path,
-        discovered: itemData.discovered,
-        spielzeit: itemData.spielzeit || 0, // Default to 0 if not provided
-        is_airing: itemData.isAiring || false, // Default to false if not provided
-        next_season: itemData.nextSeason,
-        next_season_release: itemData.nextSeasonRelease,
-        external_id: itemData.externalId
+        count: itemData.count || 0
       }
+      
+      // Only add optional fields if they exist and are not empty
+      if (itemData.release) {
+        transformedData.release = this.formatDateForBackend(itemData.release)
+      }
+      if (itemData.rating) {
+        transformedData.rating = Math.round(itemData.rating)
+      }
+      if (itemData.platforms) {
+        transformedData.platforms = itemData.platforms
+      }
+      if (itemData.genre) {
+        transformedData.genre = itemData.genre
+      }
+      if (itemData.link) {
+        transformedData.link = itemData.link
+      }
+      if (itemData.path) {
+        transformedData.path = itemData.path
+      }
+      if (itemData.discovered) {
+        transformedData.discovered = this.formatDateForBackend(itemData.discovered)
+      }
+      if (itemData.spielzeit) {
+        transformedData.spielzeit = parseInt(itemData.spielzeit)
+      }
+      if (itemData.isAiring !== undefined) {
+        transformedData.is_airing = itemData.isAiring
+      }
+      if (itemData.nextSeason) {
+        transformedData.next_season = parseInt(itemData.nextSeason)
+      }
+      if (itemData.nextSeasonRelease) {
+        transformedData.next_season_release = this.formatDateForBackend(itemData.nextSeasonRelease)
+      }
+      if (itemData.externalId) {
+        transformedData.external_id = itemData.externalId
+      }
+      if (itemData.watchlistType) {
+        transformedData.watchlist_type = itemData.watchlistType
+      }
+      
+      console.log('Sending data to API:', transformedData)
       
       const response = await api.post('/api/media', transformedData)
       return response.data
@@ -228,25 +303,60 @@ export const mediaApi = {
 
   async updateMediaItem(id, itemData) {
     try {
-      // Transform data to match backend expectations
-      const transformedData = {
-        title: itemData.title,
-        category: itemData.category,
-        watchlist_type: itemData.watchlistType, // Add watchlist type support
-        release: itemData.release,
-        rating: itemData.rating ? Math.round(itemData.rating) : null, // Convert to integer
-        count: itemData.count || 0, // Default to 0 if not provided
-        platforms: itemData.platforms,
-        genre: itemData.genre,
-        link: itemData.link,
-        path: itemData.path,
-        discovered: itemData.discovered,
-        spielzeit: itemData.spielzeit || 0, // Default to 0 if not provided
-        is_airing: itemData.isAiring || false, // Default to false if not provided
-        next_season: itemData.nextSeason,
-        next_season_release: itemData.nextSeasonRelease,
-        external_id: itemData.externalId
+      // Simple data transformation - just send what we have
+      const transformedData = {}
+      
+      // Only add fields that are being updated
+      if (itemData.title !== undefined) {
+        transformedData.title = itemData.title
       }
+      if (itemData.category !== undefined) {
+        transformedData.category = itemData.category
+      }
+      if (itemData.count !== undefined) {
+        transformedData.count = itemData.count
+      }
+      if (itemData.release !== undefined) {
+        transformedData.release = itemData.release
+      }
+      if (itemData.rating !== undefined) {
+        transformedData.rating = itemData.rating ? Math.round(itemData.rating) : null
+      }
+      if (itemData.platforms !== undefined) {
+        transformedData.platforms = itemData.platforms
+      }
+      if (itemData.genre !== undefined) {
+        transformedData.genre = itemData.genre
+      }
+      if (itemData.link !== undefined) {
+        transformedData.link = itemData.link
+      }
+      if (itemData.path !== undefined) {
+        transformedData.path = itemData.path
+      }
+      if (itemData.discovered !== undefined) {
+        transformedData.discovered = itemData.discovered
+      }
+      if (itemData.spielzeit !== undefined) {
+        transformedData.spielzeit = itemData.spielzeit ? parseInt(itemData.spielzeit) : 0
+      }
+      if (itemData.isAiring !== undefined) {
+        transformedData.is_airing = itemData.isAiring
+      }
+      if (itemData.nextSeason !== undefined) {
+        transformedData.next_season = itemData.nextSeason ? parseInt(itemData.nextSeason) : null
+      }
+      if (itemData.nextSeasonRelease !== undefined) {
+        transformedData.next_season_release = itemData.nextSeasonRelease
+      }
+      if (itemData.externalId !== undefined) {
+        transformedData.external_id = itemData.externalId
+      }
+      if (itemData.watchlistType !== undefined) {
+        transformedData.watchlist_type = itemData.watchlistType
+      }
+      
+      console.log('Updating data to API:', transformedData)
       
       const response = await api.put(`/api/media/${id}`, transformedData)
       return response.data
@@ -286,6 +396,38 @@ export const mediaApi = {
       console.error('Image download failed:', error)
       throw error
     }
+  },
+
+  // Helper function to format dates for backend
+  formatDateForBackend(dateValue) {
+    if (!dateValue) return null
+    
+    // If it's already a valid date string in YYYY-MM-DD format, return as is
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue
+    }
+    
+    // If it's just a year (4 digits), convert to YYYY-01-01
+    if (typeof dateValue === 'string' && /^\d{4}$/.test(dateValue)) {
+      return `${dateValue}-01-01`
+    }
+    
+    // If it's a number (year), convert to YYYY-01-01
+    if (typeof dateValue === 'number' && dateValue >= 1900 && dateValue <= 2100) {
+      return `${dateValue}-01-01`
+    }
+    
+    // Try to parse as date and format
+    try {
+      const date = new Date(dateValue)
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0]
+      }
+    } catch (e) {
+      console.warn('Could not parse date:', dateValue)
+    }
+    
+    return null
   }
 }
 

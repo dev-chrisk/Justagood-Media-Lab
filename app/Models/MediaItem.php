@@ -195,8 +195,21 @@ class MediaItem extends Model
         static::saving(function ($mediaItem) {
             // Wenn category gesetzt ist aber nicht category_id, finde oder erstelle die Kategorie
             if ($mediaItem->category && !$mediaItem->category_id) {
-                $category = Category::findOrCreateByName($mediaItem->category);
-                $mediaItem->category_id = $category->id;
+                try {
+                    $category = Category::findOrCreateByName($mediaItem->category);
+                    $mediaItem->category_id = $category->id;
+                } catch (\Exception $e) {
+                    // If category creation fails, try to find existing one
+                    $existingCategory = Category::where('name', $mediaItem->category)->first();
+                    if ($existingCategory) {
+                        $mediaItem->category_id = $existingCategory->id;
+                    } else {
+                        // Log error but don't fail the save
+                        \Log::warning('Failed to create/find category: ' . $mediaItem->category, [
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
             }
         });
     }

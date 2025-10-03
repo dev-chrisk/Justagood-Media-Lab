@@ -113,6 +113,13 @@ class MediaController extends Controller
         }
 
         $data = $request->all();
+        
+        // Normalize date fields - convert years to full dates
+        $data = $this->normalizeDateFields($data);
+        
+        // Set default values for required fields
+        $data['is_airing'] = $data['is_airing'] ?? false;
+        
         // Add user_id if user is authenticated
         if ($request->user()) {
             $data['user_id'] = $request->user()->id;
@@ -198,6 +205,14 @@ class MediaController extends Controller
         }
 
         $data = $request->all();
+        
+        // Normalize date fields - convert years to full dates
+        $data = $this->normalizeDateFields($data);
+        
+        // Set default values for required fields
+        if (isset($data['is_airing'])) {
+            $data['is_airing'] = $data['is_airing'] ?? false;
+        }
         
         // Check for duplicates if title or category is being updated
         if ($request->user() && ($request->has('title') || $request->has('category'))) {
@@ -498,27 +513,50 @@ class MediaController extends Controller
         if (empty($category) || $category === 'buecher') {
             try {
                 $googleBooksApiKey = config('services.google_books.api_key');
-                $bookLimit = empty($category) ? $limit / 4 : $limit;
-                $bookUrl = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($query) . "&key={$googleBooksApiKey}&maxResults=" . $bookLimit;
-                $bookResponse = json_decode(file_get_contents($bookUrl), true);
                 
-                foreach (array_slice($bookResponse['items'] ?? [], 0, $bookLimit) as $item) {
-                    $volumeInfo = $item['volumeInfo'] ?? [];
-                    $results[] = [
-                        'id' => "google_books_{$item['id']}",
-                        'title' => $volumeInfo['title'] ?? 'Unknown Title',
-                        'release' => $volumeInfo['publishedDate'] ?? '',
-                        'image' => $volumeInfo['imageLinks']['thumbnail'] ?? $volumeInfo['imageLinks']['smallThumbnail'] ?? '',
-                        'category' => 'buecher',
-                        'overview' => $volumeInfo['description'] ?? '',
-                        'rating' => round(($volumeInfo['averageRating'] ?? 0) * 2, 1), // Convert 5-star to 10-point scale
-                        'api_source' => 'google_books',
-                        'authors' => $volumeInfo['authors'] ?? [],
-                        'publisher' => $volumeInfo['publisher'] ?? '',
-                        'page_count' => $volumeInfo['pageCount'] ?? null,
-                        'language' => $volumeInfo['language'] ?? '',
-                        'isbn' => $volumeInfo['industryIdentifiers'][0]['identifier'] ?? ''
-                    ];
+                // Skip if no API key is configured
+                if (empty($googleBooksApiKey)) {
+                    \Log::info('Google Books API key not configured, skipping search');
+                } else {
+                    $bookLimit = empty($category) ? $limit / 4 : $limit;
+                    $bookUrl = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($query) . "&key=" . $googleBooksApiKey . "&maxResults=" . $bookLimit;
+                    \Log::info('Google Books URL: ' . $bookUrl);
+                    
+                    // Use cURL instead of file_get_contents
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $bookUrl);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                    $response = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    
+                    if ($response === false || $httpCode !== 200) {
+                        \Log::error('Google Books cURL error: HTTP ' . $httpCode . ', Response: ' . $response);
+                        throw new \Exception('Failed to fetch from Google Books API');
+                    }
+                    
+                    $bookResponse = json_decode($response, true);
+                    
+                    foreach (array_slice($bookResponse['items'] ?? [], 0, $bookLimit) as $item) {
+                        $volumeInfo = $item['volumeInfo'] ?? [];
+                        $results[] = [
+                            'id' => "google_books_{$item['id']}",
+                            'title' => $volumeInfo['title'] ?? 'Unknown Title',
+                            'release' => $volumeInfo['publishedDate'] ?? '',
+                            'image' => $this->ensureHttpsUrl($volumeInfo['imageLinks']['thumbnail'] ?? $volumeInfo['imageLinks']['smallThumbnail'] ?? ''),
+                            'category' => 'buecher',
+                            'overview' => $volumeInfo['description'] ?? '',
+                            'rating' => round(($volumeInfo['averageRating'] ?? 0) * 2, 1), // Convert 5-star to 10-point scale
+                            'api_source' => 'google_books',
+                            'authors' => $volumeInfo['authors'] ?? [],
+                            'publisher' => $volumeInfo['publisher'] ?? '',
+                            'page_count' => $volumeInfo['pageCount'] ?? null,
+                            'language' => $volumeInfo['language'] ?? '',
+                            'isbn' => $volumeInfo['industryIdentifiers'][0]['identifier'] ?? ''
+                        ];
+                    }
                 }
             } catch (\Exception $e) {
                 \Log::error("Google Books search error: " . $e->getMessage());
@@ -625,7 +663,7 @@ class MediaController extends Controller
             if ($category === 'buecher') {
                 // Google Books API
                 $googleBooksApiKey = config('services.google_books.api_key');
-                $url = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($titleOrId) . "&key={$googleBooksApiKey}&maxResults=1";
+                $url = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($titleOrId) . "&key=" . $googleBooksApiKey . "&maxResults=1";
                 $response = json_decode(file_get_contents($url), true);
                 
                 if (empty($response['items'])) {
@@ -648,7 +686,8 @@ class MediaController extends Controller
 
                 if (!empty($volumeInfo['imageLinks']['thumbnail'])) {
                     try {
-                        $result['path'] = $this->saveImageFromUrl($volumeInfo['imageLinks']['thumbnail'], $relBase);
+                        $httpsImageUrl = $this->ensureHttpsUrl($volumeInfo['imageLinks']['thumbnail']);
+                        $result['path'] = $this->saveImageFromUrl($httpsImageUrl, $relBase);
                     } catch (\Exception $e) {
                         \Log::error("Google Books image download error: " . $e->getMessage());
                     }
@@ -776,6 +815,23 @@ class MediaController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Ensure URL uses HTTPS to prevent mixed content warnings
+     */
+    private function ensureHttpsUrl($url)
+    {
+        if (empty($url)) {
+            return $url;
+        }
+        
+        // If URL starts with http://, replace with https://
+        if (strpos($url, 'http://') === 0) {
+            return str_replace('http://', 'https://', $url);
+        }
+        
+        return $url;
     }
 
     /**
@@ -956,5 +1012,30 @@ class MediaController extends Controller
             'count' => $duplicates->count(),
             'category' => $category
         ]);
+    }
+
+    /**
+     * Normalize date fields - convert years to full dates
+     */
+    private function normalizeDateFields($data)
+    {
+        $dateFields = ['release', 'discovered', 'next_season_release'];
+        
+        foreach ($dateFields as $field) {
+            if (isset($data[$field]) && !empty($data[$field])) {
+                $value = $data[$field];
+                
+                // If it's just a year (4 digits), convert to YYYY-01-01
+                if (is_numeric($value) && strlen($value) === 4 && $value >= 1900 && $value <= 2100) {
+                    $data[$field] = $value . '-01-01';
+                }
+                // If it's a string that's just a year
+                elseif (is_string($value) && preg_match('/^\d{4}$/', $value) && $value >= 1900 && $value <= 2100) {
+                    $data[$field] = $value . '-01-01';
+                }
+            }
+        }
+        
+        return $data;
     }
 }

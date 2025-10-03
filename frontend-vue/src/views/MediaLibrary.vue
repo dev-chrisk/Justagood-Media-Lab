@@ -17,6 +17,7 @@
       :categories="categories"
       @toggle="toggleSidebar"
       @set-category="setCategory"
+      @navigate-to-books="navigateToBooks"
       @navigate-to-statistics="navigateToStatistics"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-features="navigateToFeatures"
@@ -191,6 +192,7 @@ import EditModal from '@/components/EditModal.vue'
 import BulkAddModal from '@/components/BulkAddModal.vue'
 import TxtImportModal from '@/components/TxtImportModal.vue'
 import TxtImportResultsModal from '@/components/TxtImportResultsModal.vue'
+import SimpleAddItem from '@/components/SimpleAddItem.vue'
 import LoadingSpinner from '@/components/LoadingSpinner.vue'
 import MessageBox from '@/components/MessageBox.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
@@ -209,6 +211,7 @@ export default {
     BulkAddModal,
     TxtImportModal,
     TxtImportResultsModal,
+    SimpleAddItem,
     LoadingSpinner,
     MessageBox,
     ConfirmDialog,
@@ -283,6 +286,7 @@ export default {
       downloadFile,
       deleteAllInCategory,
       getCategoryDisplayName,
+      navigateToBooks,
       navigateToStatistics,
       navigateToCalendar,
       navigateToFeatures,
@@ -470,6 +474,7 @@ export default {
       closeMobileSidebar,
       setCategory,
       clearSearch,
+      navigateToBooks,
       navigateToStatistics,
       navigateToCalendar,
       navigateToFeatures,

@@ -542,6 +542,11 @@ export function useMediaLibrary() {
   }
 
   // Navigation functions
+  const navigateToBooks = () => {
+    console.log('📚 Navigating to books...')
+    router.push('/books')
+  }
+
   const navigateToStatistics = () => {
     router.push('/statistics')
   }
@@ -636,6 +641,7 @@ export function useMediaLibrary() {
     downloadFile,
     deleteAllInCategory,
     getCategoryDisplayName,
+    navigateToBooks,
     navigateToStatistics,
     navigateToCalendar,
     navigateToFeatures,

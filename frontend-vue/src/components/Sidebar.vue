@@ -36,6 +36,10 @@
               <span class="add-icon">+</span>
             </button>
           </div>
+          <button class="nav-btn" @click="$emit('navigateToBooks')">
+            <span class="nav-icon">📚</span>
+            <span class="nav-text">Books</span>
+          </button>
           <button class="nav-btn" @click="$emit('navigateToStatistics')">
             <span class="nav-icon">📊</span>
             <span class="nav-text">Statistics</span>

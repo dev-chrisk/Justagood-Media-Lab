@@ -2,35 +2,21 @@
 // Automatically detects environment and sets appropriate API base URL
 
 function getApiBaseUrl() {
-  // Check for custom API URL from environment variable first
-  if (import.meta.env.VITE_API_URL) {
-    return `${import.meta.env.VITE_API_URL}/api`
-  }
+  // FORCE localhost for debugging
+  console.log('🔧 API Config Debug:', {
+    VITE_API_URL: import.meta.env.VITE_API_URL,
+    DEV: import.meta.env.DEV,
+    MODE: import.meta.env.MODE,
+    NODE_ENV: import.meta.env.NODE_ENV
+  })
   
-  // Check if we're in development mode
-  if (import.meta.env.DEV) {
-    // Development mode - use localhost
-    return 'http://localhost:8000/api'
-  } else {
-    // Production mode - use the production domain
-    return 'https://teabubble.attrebi.ch/api'
-  }
+  // FORCE localhost - ignore everything else
+  return 'http://127.0.0.1:8000/api'
 }
 
 function getBaseUrl() {
-  // Check for custom API URL from environment variable first
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL
-  }
-  
-  // Check if we're in development mode
-  if (import.meta.env.DEV) {
-    // Development mode - use localhost
-    return 'http://localhost:8000'
-  } else {
-    // Production mode - use the production domain
-    return 'https://teabubble.attrebi.ch'
-  }
+  // FORCE localhost for debugging
+  return 'http://127.0.0.1:8000'
 }
 
 export const API_CONFIG = {

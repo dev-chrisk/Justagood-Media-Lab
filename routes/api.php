@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\StatisticsController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DebugController;
+use App\Http\Controllers\Api\BooksController;
+use App\Http\Controllers\Api\GoogleBooksController;
 use App\Http\Controllers\ExportImportController;
 
 /*
@@ -46,11 +48,25 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 // Admin setup route (no authentication required)
 Route::post('/admin-setup', [AuthController::class, 'adminSetup']);
 
+// Google Books API configuration (no authentication required)
+Route::get('/google-books-config', function () {
+    return response()->json([
+        'api_key' => config('services.google_books.api_key'),
+        'base_url' => 'https://www.googleapis.com/books/v1'
+    ]);
+});
+
+// Google Books API search (no authentication required)
+Route::get('/google-books/search', [GoogleBooksController::class, 'search']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+    
+    // Books API - Simple and clean
+    Route::apiResource('books', BooksController::class);
     
     // Media items with user filtering
     Route::apiResource('media', MediaController::class);

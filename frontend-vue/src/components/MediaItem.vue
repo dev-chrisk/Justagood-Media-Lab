@@ -1,5 +1,5 @@
 <template>
-  <div class="media-item" @click="editItem">
+  <div class="media-item" :class="getCategoryClass()" :style="getCategoryStyle()" @click="editItem">
     <div class="media-image">
       <img 
         v-if="item.path" 
@@ -8,7 +8,7 @@
         @error="handleImageError"
       />
       <div v-else class="no-image">
-        <span class="no-image-icon">📁</span>
+        <span class="no-image-icon">{{ getCategoryIcon() }}</span>
       </div>
     </div>
     
@@ -88,9 +88,9 @@ export default {
       // Handle different image path formats
       if (!path) return ''
       
-      // If it's already a full URL, return as is
+      // If it's already a full URL, ensure it uses HTTPS
       if (path.startsWith('http')) {
-        return path
+        return path.startsWith('http://') ? path.replace('http://', 'https://') : path
       }
       
       // If it starts with /, it's already a relative path
@@ -256,6 +256,92 @@ export default {
         return 'Today!'
       } else {
         return 'Released'
+      }
+    },
+    
+    getCategoryClass() {
+      const category = this.item.category?.toLowerCase()
+      if (category === 'movies' || category === 'movie') return 'category-movies'
+      if (category === 'books' || category === 'buecher') return 'category-books'
+      if (category === 'series' || category === 'tv') return 'category-series'
+      if (category === 'games' || category === 'game') return 'category-games'
+      return 'category-default'
+    },
+    
+    getCategoryIcon() {
+      const category = this.item.category?.toLowerCase()
+      if (category === 'movies' || category === 'movie') return '🎬'
+      if (category === 'books' || category === 'buecher') return '📚'
+      if (category === 'series' || category === 'tv') return '📺'
+      if (category === 'games' || category === 'game') return '🎮'
+      return '📁'
+    },
+    
+    getCategoryStyle() {
+      const category = this.item.category?.toLowerCase()
+      if (category === 'games' || category === 'game') {
+        const rating = this.item.rating || 0
+        return this.getGameStyleByRating(rating)
+      }
+      return {}
+    },
+    
+    getGameStyleByRating(rating) {
+      // Rating-basierte Styles für Games
+      if (rating >= 4.5) {
+        // Legendary Games - Gold/Platinum Effekte
+        return {
+          '--game-primary': '#ffd700',
+          '--game-secondary': '#ffed4e',
+          '--game-accent': '#ff6b35',
+          '--game-glow': '0 0 20px rgba(255, 215, 0, 0.6)',
+          '--game-border': '3px solid #ffd700'
+        }
+      } else if (rating >= 4.0) {
+        // Excellent Games - Cyan/Blue Effekte
+        return {
+          '--game-primary': '#00d4ff',
+          '--game-secondary': '#4a9eff',
+          '--game-accent': '#00ff88',
+          '--game-glow': '0 0 15px rgba(0, 212, 255, 0.5)',
+          '--game-border': '3px solid #00d4ff'
+        }
+      } else if (rating >= 3.5) {
+        // Good Games - Green Effekte
+        return {
+          '--game-primary': '#00ff88',
+          '--game-secondary': '#4caf50',
+          '--game-accent': '#8bc34a',
+          '--game-glow': '0 0 12px rgba(0, 255, 136, 0.4)',
+          '--game-border': '3px solid #00ff88'
+        }
+      } else if (rating >= 3.0) {
+        // Average Games - Orange Effekte
+        return {
+          '--game-primary': '#ff9800',
+          '--game-secondary': '#ffc107',
+          '--game-accent': '#ff5722',
+          '--game-glow': '0 0 10px rgba(255, 152, 0, 0.3)',
+          '--game-border': '3px solid #ff9800'
+        }
+      } else if (rating >= 2.0) {
+        // Poor Games - Red Effekte
+        return {
+          '--game-primary': '#ff5722',
+          '--game-secondary': '#f44336',
+          '--game-accent': '#d32f2f',
+          '--game-glow': '0 0 8px rgba(255, 87, 34, 0.3)',
+          '--game-border': '3px solid #ff5722'
+        }
+      } else {
+        // Unrated/Bad Games - Gray Effekte
+        return {
+          '--game-primary': '#9e9e9e',
+          '--game-secondary': '#757575',
+          '--game-accent': '#616161',
+          '--game-glow': '0 0 5px rgba(158, 158, 158, 0.2)',
+          '--game-border': '3px solid #9e9e9e'
+        }
       }
     }
   }
@@ -625,6 +711,379 @@ export default {
 .type-media {
   background: #9C27B0;
   color: white;
+}
+
+/* ===========================================
+   CATEGORY-SPECIFIC CARD DESIGNS
+   =========================================== */
+
+/* Movies - DVD Hülle Design */
+.category-movies {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  border: 2px solid #444;
+  border-radius: 12px;
+  position: relative;
+  overflow: visible;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* DVD Plastikrahmen */
+.category-movies::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 50%, #b8b8b8 100%);
+  border-radius: 16px;
+  z-index: -2;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* DVD Innenrahmen mit buntem Gradient */
+.category-movies::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+  border-radius: 14px;
+  z-index: -1;
+  opacity: 0.4;
+}
+
+.category-movies .media-image {
+  border-radius: 8px 8px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+
+.category-movies .media-info {
+  background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
+  border-radius: 0 0 8px 8px;
+  position: relative;
+}
+
+.category-movies .media-title {
+  color: #f0f0f0;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.category-movies:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
+}
+
+/* DVD Hülle Details */
+.category-movies .media-image {
+  position: relative;
+}
+
+/* DVD Center Ring Simulation */
+.category-movies .media-image::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 20px, rgba(0, 0, 0, 0.1) 21px, rgba(0, 0, 0, 0.1) 30px, transparent 31px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* DVD Hülle Glanz-Effekt */
+.category-movies .media-image::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.1) 0%, 
+    transparent 30%, 
+    transparent 70%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  pointer-events: none;
+}
+
+/* Books - Buch Cover Design */
+.category-books {
+  background: #f8f6f0;
+  border: 3px solid #8B4513;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 6px 20px rgba(139, 69, 19, 0.3);
+  transform-style: preserve-3d;
+}
+
+.category-books::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, 
+    rgba(139, 69, 19, 0.1) 0%, 
+    transparent 2%, 
+    transparent 98%, 
+    rgba(139, 69, 19, 0.1) 100%);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.category-books .media-image {
+  border-radius: 4px 4px 0 0;
+  border-bottom: 2px solid #8B4513;
+  position: relative;
+}
+
+.category-books .media-image::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    rgba(255,255,255,0.1) 0%, 
+    transparent 50%, 
+    rgba(0,0,0,0.1) 100%);
+  pointer-events: none;
+}
+
+.category-books .media-info {
+  background: #f8f6f0;
+  border-radius: 0 0 4px 4px;
+  color: #2c1810;
+}
+
+.category-books .media-title {
+  color: #2c1810;
+  font-family: 'Georgia', serif;
+  font-weight: 700;
+}
+
+.category-books .media-meta,
+.category-books .media-platforms,
+.category-books .media-genre {
+  color: #5d4037;
+}
+
+.category-books:hover {
+  transform: translateY(-4px) rotateY(5deg);
+  box-shadow: 0 10px 30px rgba(139, 69, 19, 0.4);
+}
+
+/* Series - TV Design */
+.category-series {
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  border: 2px solid #4a9eff;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 25px rgba(74, 158, 255, 0.2);
+}
+
+.category-series::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4a9eff, #00d4ff, #4a9eff);
+  animation: tvScan 3s linear infinite;
+}
+
+@keyframes tvScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.category-series .media-image {
+  border-radius: 12px 12px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.category-series .media-image::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, 
+    rgba(74, 158, 255, 0.1) 0%, 
+    transparent 50%, 
+    rgba(0, 212, 255, 0.1) 100%);
+  pointer-events: none;
+}
+
+.category-series .media-info {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
+  border-radius: 0 0 12px 12px;
+  position: relative;
+}
+
+.category-series .media-title {
+  color: #e0f2ff;
+  text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
+}
+
+.category-series .media-meta {
+  color: #4a9eff;
+}
+
+.category-series:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(74, 158, 255, 0.3);
+  border-color: #00d4ff;
+}
+
+/* Games - PC Frame Design mit Rating-basierten Effekten */
+.category-games {
+  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 50%, #1a1a1a 100%);
+  border: var(--game-border, 3px solid #00ff88);
+  border-radius: 8px;
+  position: relative;
+  box-shadow: var(--game-glow, 0 6px 25px rgba(0, 255, 136, 0.2));
+  overflow: hidden; /* Fixed: Verhindert Overflow */
+}
+
+.category-games::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, 
+    var(--game-primary, #00ff88), 
+    var(--game-secondary, #00d4ff), 
+    var(--game-accent, #ff6b6b));
+  border-radius: 5px;
+  z-index: -1;
+  opacity: 0.1;
+  animation: gameGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes gameGlow {
+  0% { opacity: 0.05; }
+  100% { opacity: 0.15; }
+}
+
+.category-games .media-image {
+  border-radius: 4px 4px 0 0;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 2px solid var(--game-primary, #00ff88);
+}
+
+.category-games .media-image::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    var(--game-primary, #00ff88) 0%, 
+    transparent 30%, 
+    transparent 70%, 
+    var(--game-secondary, #00d4ff) 100%);
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.category-games .media-info {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  border-radius: 0 0 4px 4px;
+  position: relative;
+  overflow: hidden; /* Fixed: Verhindert Overflow */
+}
+
+.category-games .media-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    var(--game-primary, #00ff88), 
+    var(--game-secondary, #00d4ff), 
+    var(--game-accent, #ff6b6b));
+  animation: gameScan 4s linear infinite;
+  opacity: 0.8;
+}
+
+@keyframes gameScan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.category-games .media-title {
+  color: var(--game-primary, #00ff88);
+  text-shadow: 0 0 8px var(--game-primary, #00ff88);
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+
+.category-games .media-meta {
+  color: var(--game-secondary, #00d4ff);
+}
+
+.category-games .media-platforms,
+.category-games .media-genre {
+  color: var(--game-accent, #ff6b6b);
+}
+
+.category-games:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--game-glow, 0 12px 35px rgba(0, 255, 136, 0.4));
+}
+
+/* Rating-spezifische Zusatz-Effekte */
+.category-games[style*="--game-primary: #ffd700"] {
+  /* Legendary Games - Extra Glow */
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), var(--game-glow);
+}
+
+.category-games[style*="--game-primary: #00d4ff"] {
+  /* Excellent Games - Cyan Pulse */
+  animation: cyanPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes cyanPulse {
+  0% { box-shadow: var(--game-glow); }
+  100% { box-shadow: var(--game-glow), 0 0 25px rgba(0, 212, 255, 0.4); }
+}
+
+.category-games[style*="--game-primary: #9e9e9e"] {
+  /* Unrated Games - Subtle Effect */
+  opacity: 0.8;
+  filter: grayscale(20%);
+}
+
+/* Default Category */
+.category-default {
+  background: #2d2d2d;
+  border: 1px solid #404040;
+  border-radius: 8px;
 }
 </style>
 

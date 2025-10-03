@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 // Lazy load components
 const MediaLibrary = () => import('@/views/MediaLibrary.vue')
+const Books = () => import('@/views/Books.vue')
 const Profile = () => import('@/views/Profile.vue')
 const Statistics = () => import('@/views/Statistics.vue')
 const Calendar = () => import('@/views/Calendar.vue')
@@ -14,6 +15,12 @@ const routes = [
     name: 'MediaLibrary',
     component: MediaLibrary,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/books',
+    name: 'Books',
+    component: Books,
+    meta: { requiresAuth: true }
   },
   {
     path: '/profile',
