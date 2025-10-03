@@ -88,7 +88,7 @@
           </div>
 
           <!-- Users Table -->
-          <div v-if="showUsers" class="admin-section">
+          <div class="admin-section">
             <div class="section-header">
               <h2>User Management</h2>
               <div class="section-actions">
@@ -99,7 +99,6 @@
                   class="search-input"
                   @input="searchUsers"
                 >
-                <button class="close-btn" @click="showUsers = false">×</button>
               </div>
             </div>
             <div class="table-container">
@@ -165,10 +164,9 @@
           </div>
 
           <!-- All Media Items -->
-          <div v-if="showMedia" class="admin-section">
+          <div class="admin-section">
             <div class="section-header">
               <h2>All Media Items</h2>
-              <button class="close-btn" @click="showMedia = false">×</button>
             </div>
             <div class="media-grid">
               <div v-for="item in allMediaItems" :key="item.id" class="media-item-card">
@@ -183,10 +181,9 @@
           </div>
 
           <!-- All Collections -->
-          <div v-if="showCollections" class="admin-section">
+          <div class="admin-section">
             <div class="section-header">
               <h2>All Collections</h2>
-              <button class="close-btn" @click="showCollections = false">×</button>
             </div>
             <div class="collections-grid">
               <div v-for="collection in allCollections" :key="collection.id" class="collection-card">
@@ -283,9 +280,6 @@ export default {
     const currentUserId = ref(authStore.user?.id)
     
     // UI state
-    const showUsers = ref(false)
-    const showMedia = ref(false)
-    const showCollections = ref(false)
     const userSearchQuery = ref('')
     const selectedUser = ref(null)
     const showUserModal = ref(false)
@@ -310,14 +304,18 @@ export default {
         console.log('🔧 Is admin:', authStore.isAdmin)
         console.log('🔧 Auth token:', authStore.token ? 'Present' : 'Missing')
         
-        const [statsData, usersData] = await Promise.all([
+        const [statsData, usersData, mediaData, collectionsData] = await Promise.all([
           adminApi.getStatistics(),
-          adminApi.getUsers()
+          adminApi.getUsers(),
+          adminApi.getAllMediaItems(),
+          adminApi.getAllCollections()
         ])
         
-        console.log('✅ Admin data loaded successfully:', { statsData, usersData })
+        console.log('✅ Admin data loaded successfully:', { statsData, usersData, mediaData, collectionsData })
         statistics.value = statsData
         users.value = usersData
+        allMediaItems.value = mediaData.data || mediaData
+        allCollections.value = collectionsData.data || collectionsData
       } catch (err) {
         console.error('❌ Admin data load error:', err)
         console.error('❌ Error response:', err.response)
@@ -352,29 +350,6 @@ export default {
     }
     
     
-    const loadAllMediaItems = async () => {
-      try {
-        console.log('🔧 Loading all media items...')
-        const mediaData = await adminApi.getAllMediaItems()
-        console.log('✅ Media items loaded:', mediaData)
-        allMediaItems.value = mediaData.data || mediaData
-      } catch (err) {
-        console.error('❌ Failed to load media items:', err)
-        console.error('❌ Error response:', err.response)
-      }
-    }
-    
-    const loadAllCollections = async () => {
-      try {
-        console.log('🔧 Loading all collections...')
-        const collectionsData = await adminApi.getAllCollections()
-        console.log('✅ Collections loaded:', collectionsData)
-        allCollections.value = collectionsData.data || collectionsData
-      } catch (err) {
-        console.error('❌ Failed to load collections:', err)
-        console.error('❌ Error response:', err.response)
-      }
-    }
     
     const navigateToLibrary = () => {
       router.push('/')
@@ -474,18 +449,6 @@ export default {
     }
     
     
-    // Watchers
-    watch(showMedia, (newValue) => {
-      if (newValue && allMediaItems.value.length === 0) {
-        loadAllMediaItems()
-      }
-    })
-    
-    watch(showCollections, (newValue) => {
-      if (newValue && allCollections.value.length === 0) {
-        loadAllCollections()
-      }
-    })
 
     onMounted(() => {
       // Check if user is admin before loading data
@@ -511,9 +474,6 @@ export default {
       allCollections,
       updatingUsers,
       currentUserId,
-      showUsers,
-      showMedia,
-      showCollections,
       userSearchQuery,
       selectedUser,
       showUserModal,
@@ -758,26 +718,6 @@ export default {
   gap: 15px;
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  color: #a0a0a0;
-  font-size: 24px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.close-btn:hover {
-  background: #404040;
-  color: #e0e0e0;
-}
 
 /* Search Input */
 .search-input {
