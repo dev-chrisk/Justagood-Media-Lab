@@ -129,7 +129,7 @@
     <FloatingActionButton
       :show-menu="showFloatingMenu"
       :show-delete-all="isLoggedIn && currentCategory !== 'all' && categoryCounts[currentCategory] > 0"
-      :category-name="getCategoryDisplayName(currentCategory)"
+      :category-name="currentCategoryDisplayName"
       :item-count="categoryCounts[currentCategory] || 0"
       @toggle-menu="toggleFloatingMenu"
       @add-new-item="addNewItem"
@@ -174,7 +174,7 @@
 </template>
 
 <script>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
@@ -291,6 +291,16 @@ export default {
       closeTxtImportResults,
       cleanup
     } = useMediaLibrary()
+
+    // Computed property for category display name to ensure it's always available
+    const currentCategoryDisplayName = computed(() => {
+      try {
+        return getCategoryDisplayName ? getCategoryDisplayName(currentCategory.value) : currentCategory.value
+      } catch (error) {
+        console.error('Error getting category display name:', error)
+        return currentCategory.value || 'Unknown'
+      }
+    })
 
     const addItemFromSidebar = (category) => {
       // Set the category and open the edit modal for adding a new item
@@ -431,6 +441,7 @@ export default {
       isAdmin,
       userName,
       currentCategory,
+      currentCategoryDisplayName,
       searchQuery,
       categoryCounts,
       loading,

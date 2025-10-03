@@ -363,6 +363,7 @@ export function useMediaLibrary() {
 
   // Category Management Functions
   const getCategoryDisplayName = (categoryKey) => {
+    if (!categoryKey) return 'Unknown'
     const category = categories.find(cat => cat.key === categoryKey)
     return category ? category.name : categoryKey
   }
