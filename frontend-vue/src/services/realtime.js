@@ -43,7 +43,7 @@ class RealtimeService {
       }
 
       // Get recent media items - use a simpler approach without since parameter
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'}/api/media`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'}/api/media`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

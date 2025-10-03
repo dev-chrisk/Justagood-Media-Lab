@@ -10,7 +10,8 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
 export default defineConfig({
   plugins: [vue()],
   define: {
-    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version)
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version),
+    'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://teabubble.attrebi.ch')
   },
   resolve: {
     alias: {
