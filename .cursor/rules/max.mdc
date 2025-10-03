@@ -3,8 +3,10 @@ alwaysApply: true
 
 ---
 
+never install SQLite
+
 # Projekt-Übersicht
-- **Backend**: Laravel (PHP) mit SQLite/MySQL Datenbank
+- **Backend**: Laravel (PHP) mit MySQL Datenbank
 - **Frontend**: Vue.js 3 mit Vite
 - **Zweck**: Media Library Management System
 
