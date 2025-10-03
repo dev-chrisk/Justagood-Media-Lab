@@ -67,6 +67,86 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully']);
     }
 
+    public function adminSetup(Request $request)
+    {
+        try {
+            \Log::info('Admin setup requested', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'timestamp' => now()
+            ]);
+
+            // Check if any admin users exist
+            $adminCount = User::where('is_admin', true)->count();
+            \Log::info('Current admin count', ['count' => $adminCount]);
+
+            if ($adminCount > 0) {
+                \Log::info('Admin users already exist, skipping setup');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Admin users already exist',
+                    'admin_count' => $adminCount,
+                    'debug' => [
+                        'timestamp' => now()->toISOString(),
+                        'admin_exists' => true
+                    ]
+                ], 200);
+            }
+
+            // Create admin user
+            $adminUser = User::create([
+                'name' => 'System Administrator',
+                'email' => 'admin@teabubble.attrebi.ch',
+                'password' => Hash::make('admin123'),
+                'is_admin' => true,
+            ]);
+
+            \Log::info('Admin user created successfully', [
+                'user_id' => $adminUser->id,
+                'email' => $adminUser->email
+            ]);
+
+            // Generate token for immediate login
+            $token = $adminUser->createToken('admin-setup-token')->plainTextToken;
+
+            \Log::info('Admin setup completed successfully', [
+                'user_id' => $adminUser->id,
+                'token_generated' => true
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin user created and logged in successfully',
+                'user' => $adminUser,
+                'token' => $token,
+                'debug' => [
+                    'timestamp' => now()->toISOString(),
+                    'admin_created' => true,
+                    'user_id' => $adminUser->id,
+                    'is_admin' => $adminUser->is_admin
+                ]
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Log::error('Admin setup failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'ip' => $request->ip()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin setup failed: ' . $e->getMessage(),
+                'debug' => [
+                    'timestamp' => now()->toISOString(),
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ], 500);
+        }
+    }
+
     /**
      * Check and cleanup duplicate categories and media items
      */

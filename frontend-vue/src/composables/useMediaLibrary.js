@@ -72,6 +72,14 @@ export function useMediaLibrary() {
       return ''
     }
   })
+  const isAdmin = computed(() => {
+    try {
+      return authStore.isAdmin
+    } catch (error) {
+      console.error('Error accessing authStore.isAdmin:', error)
+      return false
+    }
+  })
   const currentCategory = computed(() => {
     try {
       return mediaStore.currentCategory
@@ -579,6 +587,7 @@ export function useMediaLibrary() {
     
     // Computed
     isLoggedIn,
+    isAdmin,
     userName,
     currentCategory,
     searchQuery,

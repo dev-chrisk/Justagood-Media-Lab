@@ -63,6 +63,11 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` }
     })
     return response.data
+  },
+
+  async adminSetup() {
+    const response = await api.post('/api/admin-setup')
+    return response.data
   }
 }
 

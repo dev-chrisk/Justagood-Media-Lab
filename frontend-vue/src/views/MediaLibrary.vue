@@ -65,6 +65,22 @@
       </main>
     </div>
 
+    <!-- Admin Setup Button (only show when not logged in) -->
+    <div v-if="!isLoggedIn" class="admin-setup-container">
+      <button 
+        @click="handleAdminSetup" 
+        :disabled="adminSetupLoading"
+        class="admin-setup-btn"
+        title="Setup Admin Account (Creates admin@teabubble.attrebi.ch / admin123)"
+      >
+        <span v-if="adminSetupLoading">🔧 Setting up...</span>
+        <span v-else>🔧 Admin Setup</span>
+      </button>
+      <div v-if="adminSetupMessage" class="admin-setup-message" :class="adminSetupMessage.type">
+        {{ adminSetupMessage.text }}
+      </div>
+    </div>
+
     <!-- Modals -->
     <LoginModal 
       v-if="showLoginModal" 
@@ -158,12 +174,13 @@
 </template>
 
 <script>
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
 import { useConfirmStore } from '@/stores/confirm'
 import { useInputStore } from '@/stores/input'
+import { useAuthStore } from '@/stores/auth'
 import MediaItem from '@/components/MediaItem.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import MainHeader from '@/components/MainHeader.vue'
@@ -202,6 +219,11 @@ export default {
     const messageStore = useMessageStore()
     const confirmStore = useConfirmStore()
     const inputStore = useInputStore()
+    const authStore = useAuthStore()
+    
+    // Admin setup state
+    const adminSetupLoading = ref(false)
+    const adminSetupMessage = ref(null)
     const {
       // State
       sidebarCollapsed,
@@ -300,6 +322,56 @@ export default {
       loadMedia()
     }
 
+    const handleAdminSetup = async () => {
+      adminSetupLoading.value = true
+      adminSetupMessage.value = null
+      
+      try {
+        console.log('🔧 Starting admin setup...')
+        const result = await authStore.adminSetup()
+        
+        if (result.success) {
+          console.log('✅ Admin setup successful:', result)
+          adminSetupMessage.value = {
+            type: 'success',
+            text: `✅ Admin created and logged in! User: ${result.user.name} (${result.user.email})`
+          }
+          
+          // Reload media data
+          await loadMedia()
+          
+          // Clear message after 5 seconds
+          setTimeout(() => {
+            adminSetupMessage.value = null
+          }, 5000)
+        } else {
+          console.log('ℹ️ Admin already exists:', result)
+          adminSetupMessage.value = {
+            type: 'info',
+            text: `ℹ️ ${result.message} (${result.admin_count} admin(s) exist)`
+          }
+          
+          // Clear message after 3 seconds
+          setTimeout(() => {
+            adminSetupMessage.value = null
+          }, 3000)
+        }
+      } catch (error) {
+        console.error('❌ Admin setup failed:', error)
+        adminSetupMessage.value = {
+          type: 'error',
+          text: `❌ Admin setup failed: ${error.message || 'Unknown error'}`
+        }
+        
+        // Clear message after 5 seconds
+        setTimeout(() => {
+          adminSetupMessage.value = null
+        }, 5000)
+      } finally {
+        adminSetupLoading.value = false
+      }
+    }
+
 
     // Lifecycle
     onMounted(async () => {
@@ -351,9 +423,12 @@ export default {
       sortBy,
       categories,
       txtImportResults,
+      adminSetupLoading,
+      adminSetupMessage,
       
       // Computed
       isLoggedIn,
+      isAdmin,
       userName,
       currentCategory,
       searchQuery,
@@ -383,6 +458,7 @@ export default {
       showAdminLogin,
       handleLoginSuccess,
       handleRegisterSuccess,
+      handleAdminSetup,
       closeEditModal,
       closeBulkAddModal,
       handleBulkAddItems,
@@ -419,6 +495,85 @@ export default {
 </script>
 
 <style scoped>
+/* Admin Setup Button */
+.admin-setup-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.admin-setup-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-setup-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.admin-setup-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.admin-setup-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 300px;
+  word-wrap: break-word;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease;
+}
+
+.admin-setup-message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.admin-setup-message.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.admin-setup-message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Vue App Layout */
 .vue-app {
   display: flex;

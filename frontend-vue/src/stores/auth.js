@@ -97,6 +97,51 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function adminSetup() {
+    loading.value = true
+    error.value = null
+    
+    try {
+      console.log('🔧 Starting admin setup...')
+      const response = await authApi.adminSetup()
+      
+      if (response.success) {
+        console.log('✅ Admin setup successful:', response)
+        token.value = response.token
+        user.value = response.user
+        
+        // Save to localStorage
+        localStorage.setItem('authToken', token.value)
+        localStorage.setItem('currentUser', JSON.stringify(user.value))
+        
+        return { 
+          success: true, 
+          user: response.user, 
+          token: response.token,
+          debug: response.debug
+        }
+      } else {
+        console.log('ℹ️ Admin already exists:', response)
+        return { 
+          success: false, 
+          message: response.message,
+          admin_count: response.admin_count,
+          debug: response.debug
+        }
+      }
+    } catch (err) {
+      console.error('❌ Admin setup failed:', err)
+      error.value = err.response?.data?.message || err.message || 'Admin setup failed'
+      return { 
+        success: false, 
+        error: error.value,
+        debug: err.response?.data?.debug || null
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function initializeAuth() {
     // Load user from localStorage first
     const savedUser = localStorage.getItem('currentUser')
@@ -151,6 +196,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     validateToken,
+    adminSetup,
     initializeAuth,
     clearError
   }

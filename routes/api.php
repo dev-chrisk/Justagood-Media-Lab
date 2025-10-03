@@ -43,6 +43,9 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
+// Admin setup route (no authentication required)
+Route::post('/admin-setup', [AuthController::class, 'adminSetup']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
