@@ -129,6 +129,10 @@
         <div v-if="!isLoggedIn" class="auth-buttons">
           <button class="auth-btn" @click="$emit('showLogin')">Login</button>
           <button class="auth-btn" @click="$emit('showRegister')">Register</button>
+          <button class="auth-btn admin-login-btn" @click="$emit('showAdminLogin')">
+            <span class="admin-icon">👑</span>
+            Admin Login
+          </button>
         </div>
         <div v-else class="user-info">
           <div class="user-profile">
@@ -557,6 +561,27 @@ export default {
 .auth-btn:hover {
   background: #4a9eff;
   color: white;
+}
+
+.admin-login-btn {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #1a1a1a;
+  border: 1px solid #ffd700;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-login-btn:hover {
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+  color: #1a1a1a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}
+
+.admin-icon {
+  margin-right: 8px;
+  font-size: 16px;
 }
 
 .user-info {

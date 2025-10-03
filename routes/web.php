@@ -153,3 +153,19 @@ Route::get('/{path}', function ($path) {
     
     return response('File not found', 404);
 })->where('path', '[a-zA-Z0-9_/.-]+\\.(css|js|html|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$');
+
+// Catch-all route for Vue.js SPA (must be last)
+Route::get('/{any}', function () {
+    $vuePath = base_path('frontend-vue/dist/index.html');
+    if (File::exists($vuePath)) {
+        return File::get($vuePath);
+    }
+    
+    // Fallback to old frontend if Vue.js build doesn't exist
+    $frontendPath = base_path('public/frontend/index.html');
+    if (File::exists($frontendPath)) {
+        return File::get($frontendPath);
+    }
+    
+    return response('Frontend not found', 404);
+})->where('any', '.*');

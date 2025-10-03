@@ -28,6 +28,7 @@
       @add-item="addItemFromSidebar"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
+      @show-admin-login="showAdminLogin"
       @logout="logout"
     />
 
@@ -281,6 +282,12 @@ export default {
       showRegisterModal.value = true
     }
 
+    const showAdminLogin = () => {
+      showLoginModal.value = true
+      // Pre-fill admin credentials for easier access
+      // This will be handled by the LoginModal component
+    }
+
     const handleLoginSuccess = (loginData) => {
       showLoginModal.value = false
       
@@ -373,6 +380,7 @@ export default {
       toggleAiringFilter,
       editItem,
       switchToRegister,
+      showAdminLogin,
       handleLoginSuccess,
       handleRegisterSuccess,
       closeEditModal,
