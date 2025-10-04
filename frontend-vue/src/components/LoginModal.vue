@@ -38,17 +38,7 @@
           </button>
         </div>
         
-        <div class="debug-buttons">
-          <button type="button" @click="checkLocalDB" :disabled="loading" class="debug-btn">
-            Check Local DB
-          </button>
-          <button type="button" @click="checkProdDB" :disabled="loading" class="debug-btn">
-            Check Prod DB
-          </button>
-          <button type="button" @click="deleteAllUsers" :disabled="loading" class="debug-btn danger">
-            Delete All Users
-          </button>
-        </div>
+        <!-- Debug buttons removed for production -->
       </form>
     </div>
   </div>
@@ -73,53 +63,20 @@ export default {
     const error = ref('')
     
     const handleLogin = async () => {
-      console.log('🔐 LOGIN DEBUG: Starting login process')
-      console.log('🔐 LOGIN DEBUG: Environment check:', {
-        isDev: import.meta.env.DEV,
-        mode: import.meta.env.MODE,
-        viteApiUrl: import.meta.env.VITE_API_URL,
-        currentUrl: window.location.href,
-        userAgent: navigator.userAgent
-      })
-      
       loading.value = true
       error.value = ''
       
-      console.log('🔐 LOGIN DEBUG: Form data:', {
-        email: form.email,
-        passwordLength: form.password.length,
-        timestamp: new Date().toISOString()
-      })
-      
       try {
-        console.log('🔐 LOGIN DEBUG: Calling authStore.login...')
         const result = await authStore.login(form.email, form.password)
         
-        console.log('🔐 LOGIN DEBUG: Login result:', {
-          success: result.success,
-          hasUser: !!result.user,
-          hasToken: !!result.token,
-          error: result.error
-        })
-        
         if (result.success) {
-          console.log('🔐 LOGIN DEBUG: Login successful, emitting success event')
           emit('success', result)
         } else {
-          console.log('🔐 LOGIN DEBUG: Login failed, setting error:', result.error)
           error.value = result.error
         }
       } catch (err) {
-        console.log('🔐 LOGIN DEBUG: Login exception caught:', {
-          message: err.message,
-          name: err.name,
-          code: err.code,
-          stack: err.stack,
-          response: err.response?.data
-        })
         error.value = err.message || 'Login failed'
       } finally {
-        console.log('🔐 LOGIN DEBUG: Login process completed, setting loading to false')
         loading.value = false
       }
     }
@@ -130,26 +87,20 @@ export default {
     
     const checkLocalDB = async () => {
       try {
-        console.log('🔍 Checking local database...')
         const response = await fetch('http://127.0.0.1:8000/api/check-db')
         const data = await response.json()
-        console.log('🔍 Local DB Check Result:', data)
         alert(`Local DB: ${data.success ? '✅ Connected' : '❌ Error'}\nUsers: ${data.user_count}\nError: ${data.error || 'None'}`)
       } catch (err) {
-        console.error('🔍 Local DB Check Failed:', err)
         alert(`Local DB Check Failed: ${err.message}`)
       }
     }
     
     const checkProdDB = async () => {
       try {
-        console.log('🔍 Checking production database...')
         const response = await fetch('https://teabubble.attrebi.ch/api/check-db')
         const data = await response.json()
-        console.log('🔍 Prod DB Check Result:', data)
         alert(`Prod DB: ${data.success ? '✅ Connected' : '❌ Error'}\nUsers: ${data.user_count}\nError: ${data.error || 'None'}`)
       } catch (err) {
-        console.error('🔍 Prod DB Check Failed:', err)
         alert(`Prod DB Check Failed: ${err.message}`)
       }
     }
@@ -160,16 +111,13 @@ export default {
       }
       
       try {
-        console.log('🗑️ Deleting all users...')
         const response = await fetch('https://teabubble.attrebi.ch/api/delete-all-users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         })
         const data = await response.json()
-        console.log('🗑️ Delete Result:', data)
         alert(`Delete Result: ${data.success ? '✅ Success' : '❌ Error'}\nDeleted: ${data.deleted_count} users\nError: ${data.error || 'None'}`)
       } catch (err) {
-        console.error('🗑️ Delete Failed:', err)
         alert(`Delete Failed: ${err.message}`)
       }
     }

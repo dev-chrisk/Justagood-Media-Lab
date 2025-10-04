@@ -36,7 +36,6 @@ class TmdbController extends Controller
             return response()->json($data);
 
         } catch (\Exception $e) {
-            \Log::error("TMDb movie fetch error: " . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch movie details'], 500);
         }
     }
@@ -69,7 +68,6 @@ class TmdbController extends Controller
             return response()->json($data);
 
         } catch (\Exception $e) {
-            \Log::error("TMDb collection fetch error: " . $e->getMessage());
             return response()->json(['error' => 'Failed to fetch collection details'], 500);
         }
     }

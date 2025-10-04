@@ -73,21 +73,12 @@ class CheckCategoryDuplicates
                 ->get();
 
             if ($duplicates->count() > 0) {
-                Log::info('Category duplicates detected', [
-                    'duplicates' => $duplicates->pluck('name')->toArray(),
-                    'count' => $duplicates->count()
-                ]);
 
                 // Bereinige Duplikate
                 Category::cleanupDuplicates();
                 
-                Log::info('Category duplicates cleaned up');
             }
         } catch (\Exception $e) {
-            Log::error('Failed to check/cleanup category duplicates', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
     }
 }

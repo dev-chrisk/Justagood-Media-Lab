@@ -13,56 +13,21 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const userName = computed(() => user.value?.name || '')
   const userEmail = computed(() => user.value?.email || '')
-  const isAdmin = computed(() => {
-    try {
-      return user.value?.is_admin || false
-    } catch (error) {
-      console.error('Error accessing user.is_admin:', error)
-      return false
-    }
-  })
 
   // Actions
   async function login(email, password) {
-    console.log('🔐 AUTH STORE: Starting login process')
-    console.log('🔐 AUTH STORE: Input parameters:', {
-      email: email,
-      passwordLength: password.length,
-      timestamp: new Date().toISOString()
-    })
-    
     loading.value = true
     error.value = null
     
     try {
-      console.log('🔐 AUTH STORE: Calling authApi.login...')
       const response = await authApi.login(email, password)
-      
-      console.log('🔐 AUTH STORE: API response received:', {
-        hasToken: !!response.token,
-        hasUser: !!response.user,
-        userEmail: response.user?.email,
-        tokenLength: response.token?.length,
-        responseKeys: Object.keys(response)
-      })
       
       token.value = response.token
       user.value = response.user
       
-      console.log('🔐 AUTH STORE: Setting local state:', {
-        tokenSet: !!token.value,
-        userSet: !!user.value,
-        userEmail: user.value?.email
-      })
-      
       // Save to localStorage
       localStorage.setItem('authToken', token.value)
       localStorage.setItem('currentUser', JSON.stringify(user.value))
-      
-      console.log('🔐 AUTH STORE: Saved to localStorage:', {
-        tokenSaved: !!localStorage.getItem('authToken'),
-        userSaved: !!localStorage.getItem('currentUser')
-      })
       
       return { 
         success: true, 
@@ -70,20 +35,9 @@ export const useAuthStore = defineStore('auth', () => {
         token: response.token
       }
     } catch (err) {
-      console.log('🔐 AUTH STORE: Login error caught:', {
-        message: err.message,
-        name: err.name,
-        code: err.code,
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        responseData: err.response?.data,
-        stack: err.stack
-      })
-      
       error.value = err.response?.data?.message || err.message || 'Login failed'
       return { success: false, error: error.value }
     } finally {
-      console.log('🔐 AUTH STORE: Login process completed, setting loading to false')
       loading.value = false
     }
   }
@@ -117,7 +71,6 @@ export const useAuthStore = defineStore('auth', () => {
         await authApi.logout(token.value)
       }
     } catch (err) {
-      console.error('Logout API call failed:', err)
     } finally {
       // Clear local data regardless of API call result
       token.value = null
@@ -136,56 +89,11 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = response
       return true
     } catch (err) {
-      console.error('Token validation failed:', err)
       await logout()
       return false
     }
   }
 
-  async function adminSetup() {
-    loading.value = true
-    error.value = null
-    
-    try {
-      console.log('🔧 Starting admin setup...')
-      const response = await authApi.adminSetup()
-      
-      if (response.success) {
-        console.log('✅ Admin setup successful:', response)
-        token.value = response.token
-        user.value = response.user
-        
-        // Save to localStorage
-        localStorage.setItem('authToken', token.value)
-        localStorage.setItem('currentUser', JSON.stringify(user.value))
-        
-        return { 
-          success: true, 
-          user: response.user, 
-          token: response.token,
-          debug: response.debug
-        }
-      } else {
-        console.log('ℹ️ Admin already exists:', response)
-        return { 
-          success: false, 
-          message: response.message,
-          admin_count: response.admin_count,
-          debug: response.debug
-        }
-      }
-    } catch (err) {
-      console.error('❌ Admin setup failed:', err)
-      error.value = err.response?.data?.message || err.message || 'Admin setup failed'
-      return { 
-        success: false, 
-        error: error.value,
-        debug: err.response?.data?.debug || null
-      }
-    } finally {
-      loading.value = false
-    }
-  }
 
   async function initializeAuth() {
     // Load user from localStorage first
@@ -195,7 +103,6 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         user.value = JSON.parse(savedUser)
       } catch (err) {
-        console.error('Failed to parse saved user data:', err)
         await logout()
         return
       }
@@ -234,14 +141,12 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     userName,
     userEmail,
-    isAdmin,
     
     // Actions
     login,
     register,
     logout,
     validateToken,
-    adminSetup,
     initializeAuth,
     clearError
   }

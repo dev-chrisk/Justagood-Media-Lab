@@ -21,6 +21,7 @@ class MediaItem extends Model
         'count',
         'platforms',
         'genre',
+        'description', // New field for storing descriptions separately from genre
         'link',
         'path',
         'discovered',
@@ -204,10 +205,7 @@ class MediaItem extends Model
                     if ($existingCategory) {
                         $mediaItem->category_id = $existingCategory->id;
                     } else {
-                        // Log error but don't fail the save
-                        \Log::warning('Failed to create/find category: ' . $mediaItem->category, [
-                            'error' => $e->getMessage()
-                        ]);
+                        // Continue without category if creation fails
                     }
                 }
             }

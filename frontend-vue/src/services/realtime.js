@@ -10,6 +10,29 @@ class RealtimeService {
     this.pollingIntervalMs = 20000 // Poll every 20 seconds
   }
 
+  /**
+   * Get API base URL using the same logic as other services
+   */
+  getApiBaseUrl() {
+    // Check if we're running on localhost FIRST (highest priority)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return 'http://127.0.0.1:8000'
+    }
+    
+    // Check if we're in development mode
+    if (import.meta.env.DEV) {
+      return 'http://127.0.0.1:8000'
+    }
+    
+    // Check for custom API URL from environment variable
+    if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+      return import.meta.env.VITE_API_URL
+    }
+    
+    // Default to production
+    return 'https://teabubble.attrebi.ch'
+  }
+
   connect() {
     if (this.pollingInterval) {
       return
@@ -19,7 +42,6 @@ class RealtimeService {
     const user = localStorage.getItem('currentUser')
     
     if (!token || !user) {
-      console.log('Skipping realtime connection - user not authenticated')
       return
     }
 
@@ -43,7 +65,9 @@ class RealtimeService {
       }
 
       // Get recent media items - use a simpler approach without since parameter
-      const response = await fetch(`${import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')}/api/media`, {
+      // Use the same API URL detection logic as other services
+      const apiBaseUrl = this.getApiBaseUrl()
+      const response = await fetch(`${apiBaseUrl}/api/media`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -74,7 +98,6 @@ class RealtimeService {
               timestamp: new Date().toISOString()
             })
           } catch (error) {
-            console.error(`Error in listener ${key}:`, error)
           }
         })
       }

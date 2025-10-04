@@ -293,7 +293,6 @@ export default {
 
     // Methods
     const loadBooks = async () => {
-      console.log('📚 [BooksManager] Loading books...')
       loading.value = true
       error.value = ''
       
@@ -307,12 +306,10 @@ export default {
             item.watchlistType === 'buecher' ||
             (item.category === 'watchlist' && item.watchlistType === 'buecher')
           )
-          console.log('📚 [BooksManager] Books loaded:', books.value.length)
         } else {
           throw new Error(response.error || 'Failed to load books')
         }
       } catch (err) {
-        console.error('📚 [BooksManager] Error loading books:', err)
         error.value = err.message || 'Failed to load books'
       } finally {
         loading.value = false
@@ -365,7 +362,6 @@ export default {
     }
 
     const saveBook = async () => {
-      console.log('📚 [BooksManager] Saving book:', bookForm.title)
       saving.value = true
       
       try {
@@ -392,14 +388,12 @@ export default {
         }
 
         if (response.success) {
-          console.log('📚 [BooksManager] Book saved successfully')
           await loadBooks()
           closeModal()
         } else {
           throw new Error(response.error || 'Failed to save book')
         }
       } catch (err) {
-        console.error('📚 [BooksManager] Error saving book:', err)
         error.value = err.message || 'Failed to save book'
       } finally {
         saving.value = false
@@ -407,7 +401,6 @@ export default {
     }
 
     const editBook = (book) => {
-      console.log('📚 [BooksManager] Editing book:', book.title)
       editingBook.value = book
       
       // Populate form with book data

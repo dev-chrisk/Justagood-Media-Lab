@@ -16,10 +16,6 @@ class BooksController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        Log::info('📚 Books API - Index called', [
-            'user_id' => $request->user()?->id,
-            'timestamp' => now()
-        ]);
 
         try {
             $query = MediaItem::query();
@@ -34,11 +30,6 @@ class BooksController extends Controller
 
             $books = $query->orderBy('created_at', 'desc')->get();
 
-            Log::info('📚 Books API - Success', [
-                'user_id' => $request->user()?->id,
-                'books_count' => $books->count(),
-                'books' => $books->pluck('title')->toArray()
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -47,10 +38,6 @@ class BooksController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('📚 Books API - Error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return response()->json([
                 'success' => false,
@@ -64,11 +51,6 @@ class BooksController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        Log::info('📚 Books API - Store called', [
-            'user_id' => $request->user()?->id,
-            'request_data' => $request->all(),
-            'timestamp' => now()
-        ]);
 
         try {
             // Simple validation
@@ -85,9 +67,6 @@ class BooksController extends Controller
             ]);
 
             if ($validator->fails()) {
-                Log::error('📚 Books API - Validation failed', [
-                    'errors' => $validator->errors()->toArray()
-                ]);
 
                 return response()->json([
                     'success' => false,
@@ -108,17 +87,8 @@ class BooksController extends Controller
                 $data['discovered'] = $data['discovered'] . '-01-01';
             }
 
-            Log::info('📚 Books API - Creating book', [
-                'processed_data' => $data
-            ]);
-
             // Create book
             $book = MediaItem::create($data);
-
-            Log::info('📚 Books API - Book created successfully', [
-                'book_id' => $book->id,
-                'title' => $book->title
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -127,11 +97,6 @@ class BooksController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            Log::error('📚 Books API - Store error', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
-            ]);
 
             return response()->json([
                 'success' => false,
@@ -145,11 +110,6 @@ class BooksController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        Log::info('📚 Books API - Update called', [
-            'book_id' => $id,
-            'user_id' => $request->user()?->id,
-            'request_data' => $request->all()
-        ]);
 
         try {
             $query = MediaItem::query();
@@ -170,10 +130,6 @@ class BooksController extends Controller
             // Update book
             $book->update($request->all());
 
-            Log::info('📚 Books API - Book updated successfully', [
-                'book_id' => $book->id,
-                'title' => $book->title
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -182,11 +138,6 @@ class BooksController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('📚 Books API - Update error', [
-                'book_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return response()->json([
                 'success' => false,
@@ -200,10 +151,6 @@ class BooksController extends Controller
      */
     public function destroy(Request $request, $id): JsonResponse
     {
-        Log::info('📚 Books API - Delete called', [
-            'book_id' => $id,
-            'user_id' => $request->user()?->id
-        ]);
 
         try {
             $query = MediaItem::query();
@@ -223,9 +170,6 @@ class BooksController extends Controller
 
             $book->delete();
 
-            Log::info('📚 Books API - Book deleted successfully', [
-                'book_id' => $id
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -233,11 +177,6 @@ class BooksController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('📚 Books API - Delete error', [
-                'book_id' => $id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return response()->json([
                 'success' => false,

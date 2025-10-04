@@ -73,13 +73,6 @@ class MediaController extends Controller
 
         $mediaItems = $query->get();
 
-        // Debug logging
-        \Log::info('Media API Debug', [
-            'user_id' => $request->user()?->id,
-            'category' => $request->get('category'),
-            'total_items' => $mediaItems->count(),
-            'categories' => $mediaItems->groupBy('category')->map->count()
-        ]);
 
         return response()->json($mediaItems);
     }
@@ -98,6 +91,7 @@ class MediaController extends Controller
             'count' => 'nullable|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
+            'description' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
             'discovered' => 'nullable|date',
@@ -109,11 +103,6 @@ class MediaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Media API Validation Failed', [
-                'request_data' => $request->all(),
-                'validation_errors' => $validator->errors(),
-                'user_id' => $request->user()?->id
-            ]);
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
@@ -196,6 +185,7 @@ class MediaController extends Controller
             'count' => 'nullable|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
+            'description' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
             'discovered' => 'nullable|date',
@@ -384,10 +374,6 @@ class MediaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            \Log::error('Batch add validation failed', [
-                'errors' => $validator->errors(),
-                'request_data' => $request->all()
-            ]);
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
@@ -429,7 +415,6 @@ class MediaController extends Controller
                     try {
                         $itemData['path'] = $this->downloadImageFromUrl($itemData['path'], $itemData['title']);
                     } catch (\Exception $e) {
-                        \Log::warning("Failed to download image for {$itemData['title']}: " . $e->getMessage());
                         $itemData['path'] = null; // Continue without image
                     }
                 }
@@ -448,11 +433,6 @@ class MediaController extends Controller
                     'error' => $e->getMessage()
                 ];
                 
-                \Log::error('Bulk add item error', [
-                    'item' => $itemData,
-                    'error' => $e->getMessage(),
-                    'index' => $index
-                ]);
             }
         }
         
@@ -521,12 +501,9 @@ class MediaController extends Controller
                 $googleBooksApiKey = config('services.google_books.api_key');
                 
                 // Skip if no API key is configured
-                if (empty($googleBooksApiKey)) {
-                    \Log::info('Google Books API key not configured, skipping search');
-                } else {
+                if (!empty($googleBooksApiKey)) {
                     $bookLimit = empty($category) ? $limit / 4 : $limit;
                     $bookUrl = "https://www.googleapis.com/books/v1/volumes?q=" . urlencode($query) . "&key=" . $googleBooksApiKey . "&maxResults=" . $bookLimit;
-                    \Log::info('Google Books URL: ' . $bookUrl);
                     
                     // Use cURL instead of file_get_contents
                     $ch = curl_init();
@@ -539,7 +516,6 @@ class MediaController extends Controller
                     curl_close($ch);
                     
                     if ($response === false || $httpCode !== 200) {
-                        \Log::error('Google Books cURL error: HTTP ' . $httpCode . ', Response: ' . $response);
                         throw new \Exception('Failed to fetch from Google Books API');
                     }
                     
@@ -565,7 +541,7 @@ class MediaController extends Controller
                     }
                 }
             } catch (\Exception $e) {
-                \Log::error("Google Books search error: " . $e->getMessage());
+                // Google Books search failed, continue without books
             }
         }
 
@@ -614,7 +590,7 @@ class MediaController extends Controller
                     }
                 }
             } catch (\Exception $e) {
-                \Log::error("TMDB search error: " . $e->getMessage());
+                // TMDB search failed, continue without movies/series
             }
         }
 
@@ -639,7 +615,7 @@ class MediaController extends Controller
                     ];
                 }
             } catch (\Exception $e) {
-                \Log::error("RAWG search error: " . $e->getMessage());
+                // RAWG search failed, continue without games
             }
         }
 
@@ -695,7 +671,7 @@ class MediaController extends Controller
                         $httpsImageUrl = $this->ensureHttpsUrl($volumeInfo['imageLinks']['thumbnail']);
                         $result['path'] = $this->saveImageFromUrl($httpsImageUrl, $relBase);
                     } catch (\Exception $e) {
-                        \Log::error("Google Books image download error: " . $e->getMessage());
+                        // Image download failed, continue without image
                     }
                 }
 
@@ -737,7 +713,7 @@ class MediaController extends Controller
                     try {
                         $result['path'] = $this->saveImageFromUrl($game['background_image'], $relBase);
                     } catch (\Exception $e) {
-                        \Log::error("RAWG image download error: " . $e->getMessage());
+                        // Image download failed, continue without image
                     }
                 }
 
@@ -801,7 +777,7 @@ class MediaController extends Controller
                     try {
                         $result['path'] = $this->saveImageFromUrl($imgUrl, $relBase);
                     } catch (\Exception $e) {
-                        \Log::error("TMDB image download error: " . $e->getMessage());
+                        // Image download failed, continue without image
                     }
                 }
 

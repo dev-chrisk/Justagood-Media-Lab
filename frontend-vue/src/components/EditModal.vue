@@ -358,6 +358,7 @@ export default {
       count: '',
       platforms: '',
       genre: '',
+      description: '',
       link: '',
       path: '',
       discovered: '',
@@ -494,11 +495,6 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
-          console.log('🔍 EditModal API Search:', {
-            title: form.title,
-            category: form.category,
-            watchlistType: form.watchlistType
-          })
 
           // For watchlist, use the watchlistType as category for API search
           const searchCategory = form.category === 'watchlist' ? form.watchlistType : form.category
@@ -514,12 +510,10 @@ export default {
 
           // Check if this is a books search
           if (searchCategory === 'buecher') {
-            console.log('📚 Searching Google Books API for:', form.title)
             
             const googleBooksResult = await simpleGoogleBooksApi.searchBooks(form.title, 10)
             
             if (googleBooksResult.success && googleBooksResult.data) {
-              console.log('📚 Google Books API Success:', googleBooksResult.data.length, 'results')
               
               searchResults = googleBooksResult.data.map(book => ({
                 title: book.title,
@@ -538,13 +532,10 @@ export default {
                 isbn13: book.isbn13
               }))
               
-              console.log('📚 Formatted Google Books results:', searchResults)
             } else {
-              console.warn('📚 Google Books API failed:', googleBooksResult.error)
             }
           } else {
             // Use existing media API for other categories
-            console.log('🎬 Searching Media API for:', form.title, 'category:', searchCategory)
             
             results = await mediaApi.searchApi(form.title, searchCategory, 10)
             
@@ -564,10 +555,8 @@ export default {
           }
           
           if (searchResults.length > 0) {
-            console.log('✅ API Search Results:', searchResults.length, 'items found')
             apiResults.value = searchResults
           } else {
-            console.log('❌ No API results found')
             // Show a message that API is not available
             apiResults.value = [{
               title: `"${form.title}" - Keine Ergebnisse gefunden`,
@@ -577,7 +566,6 @@ export default {
             }]
           }
         } catch (err) {
-          console.error('❌ API search failed:', err)
           // Show a message that API is not available
           apiResults.value = [{
             title: `"${form.title}" - API nicht verfügbar`,
@@ -596,11 +584,6 @@ export default {
         return
       }
       
-      console.log('📚 Selecting API result:', {
-        title: result.title,
-        apiSource: result.apiSource,
-        author: result.author
-      })
       
       form.title = result.title
       if (result.release) form.release = result.release
@@ -611,23 +594,15 @@ export default {
       
       // Handle Google Books specific fields
       if (result.apiSource === 'google_books') {
-        console.log('📚 Filling Google Books data:', {
-          author: result.author,
-          description: result.description,
-          publisher: result.publisher,
-          isbn10: result.isbn10,
-          isbn13: result.isbn13
-        })
         
         // For books, we can use the author field in the genre or platforms field
         if (result.author) {
           form.platforms = result.author // Use platforms field for author
         }
         
-        // Add description to genre if available
+        // Handle description separately from genre
         if (result.description) {
-          const currentGenre = form.genre || ''
-          form.genre = currentGenre ? `${currentGenre} | ${result.description.substring(0, 100)}...` : result.description.substring(0, 200)
+          form.description = result.description
         }
         
         // Add publisher info to link if available
@@ -681,7 +656,6 @@ export default {
       }
       
       if (isNaN(date.getTime())) {
-        console.warn('📚 Invalid date format:', dateString)
         return ''
       }
       
@@ -790,7 +764,6 @@ export default {
     }
     
     const handleImageError = (event) => {
-      console.warn('Image preview failed:', event.target.src)
       event.target.style.display = 'none'
     }
     

@@ -122,13 +122,11 @@ export default {
 
     // Load books
     const loadBooks = async () => {
-      console.log('📚 Loading books...')
       loading.value = true
       error.value = ''
       
       try {
         const response = await booksApi.getBooks()
-        console.log('📚 Books loaded:', response)
         
         if (response.success) {
           books.value = response.data
@@ -136,7 +134,6 @@ export default {
           error.value = response.error || 'Failed to load books'
         }
       } catch (err) {
-        console.error('📚 Error loading books:', err)
         error.value = err.message || 'Failed to load books'
       } finally {
         loading.value = false
@@ -145,13 +142,11 @@ export default {
 
     // Add book
     const addBook = async () => {
-      console.log('📚 Adding book:', newBook.value)
       loading.value = true
       error.value = ''
       
       try {
         const response = await booksApi.addBook(newBook.value)
-        console.log('📚 Book added:', response)
         
         if (response.success) {
           books.value.unshift(response.data)
@@ -161,7 +156,6 @@ export default {
           error.value = response.error || 'Failed to add book'
         }
       } catch (err) {
-        console.error('📚 Error adding book:', err)
         error.value = err.message || 'Failed to add book'
       } finally {
         loading.value = false
@@ -170,14 +164,12 @@ export default {
 
     // Edit book
     const editBook = (book) => {
-      console.log('📚 Editing book:', book)
       // TODO: Implement edit functionality
       alert('Edit functionality coming soon!')
     }
 
     // Delete book
     const deleteBook = async (bookId) => {
-      console.log('📚 Deleting book:', bookId)
       
       if (!confirm('Are you sure you want to delete this book?')) {
         return

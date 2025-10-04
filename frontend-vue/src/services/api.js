@@ -17,40 +17,22 @@ const api = axios.create({
 // Add a health check function
 export const healthCheck = async () => {
   try {
-    console.log('🏥 Performing health check...')
     const response = await axios.get(`${API_CONFIG.API_BASE_URL}/debug/health`, {
       timeout: 5000,
       headers: {
         'Accept': 'application/json'
       }
     })
-    console.log('✅ Health check successful:', response.data)
     return { success: true, data: response.data }
   } catch (error) {
-    console.log('❌ Health check failed:', error.message)
     return { success: false, error: error.message }
   }
 }
 
-// MAXIMUM DEBUGGING
-console.log('🚀 API Instance Created:', {
-  baseURL: api.defaults.baseURL,
-  API_CONFIG: API_CONFIG,
-  headers: api.defaults.headers
-})
 
 // Request interceptor to add auth token
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
-  console.log('🔍 API Request:', {
-    url: config.url,
-    baseURL: config.baseURL,
-    fullURL: `${config.baseURL}${config.url}`,
-    method: config.method,
-    headers: config.headers,
-    data: config.data,
-    token: token ? `${token.substring(0, 20)}...` : 'none'
-  })
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -60,35 +42,8 @@ api.interceptors.request.use((config) => {
 
 // Response interceptor for error handling
 api.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Response Success:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    })
-    return response
-  },
+  (response) => response,
   (error) => {
-    // Don't log 404 errors for DELETE operations as errors - they're expected
-    const isDelete404 = error.config?.method === 'delete' && error.response?.status === 404
-    
-    if (!isDelete404) {
-      console.log('❌ API Response Error:', {
-        url: error.config?.url,
-        baseURL: error.config?.baseURL,
-        fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      })
-    } else {
-      console.log('ℹ️ Item not found (404) - removing from local data:', {
-        url: error.config?.url,
-        itemId: error.config?.url?.split('/').pop()
-      })
-    }
-    
     if (error.response?.status === 401) {
       // Only clear auth data if it's an actual auth error, not a validation error
       // Check if the error is from the /user endpoint (token validation)
@@ -107,59 +62,12 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   async login(email, password) {
-    console.log('🔐 API SERVICE: Starting login API call')
-    console.log('🔐 API SERVICE: Request details:', {
-      url: '/login',
-      baseURL: api.defaults.baseURL,
-      fullURL: `${api.defaults.baseURL}/login`,
-      method: 'POST',
-      email: email,
-      passwordLength: password.length,
-      timestamp: new Date().toISOString()
-    })
-    
     try {
-      console.log('🔐 API SERVICE: Making POST request to /login...')
       const response = await api.post('/login', { email, password })
-      
-      console.log('🔐 API SERVICE: Response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        hasData: !!response.data,
-        dataKeys: response.data ? Object.keys(response.data) : [],
-        hasToken: !!response.data?.token,
-        hasUser: !!response.data?.user,
-        userEmail: response.data?.user?.email
-      })
-      
       return response.data
     } catch (error) {
-      console.log('🔐 API SERVICE: Login API error:', {
-        message: error.message,
-        name: error.name,
-        code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        responseData: error.response?.data,
-        config: {
-          url: error.config?.url,
-          baseURL: error.config?.baseURL,
-          method: error.config?.method
-        },
-        stack: error.stack
-      })
-      
       // Check if it's a server error (500)
       if (error.response?.status === 500) {
-        console.log('🔐 API SERVICE: 500 Server Error detected')
-        console.log('🔐 API SERVICE: 500 Error details:', {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: error.response.data,
-          headers: error.response.headers
-        })
-        
-        // Try to get more specific error information
         let errorMessage = 'Server-Fehler (500). Bitte versuchen Sie es später erneut.'
         if (error.response.data) {
           if (typeof error.response.data === 'string') {
@@ -170,24 +78,20 @@ export const authApi = {
             errorMessage = `Server-Fehler: ${error.response.data.error}`
           }
         }
-        
         throw new Error(errorMessage)
       }
       
       // Check if it's a network error
       if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
-        console.log('🔐 API SERVICE: Network Error detected')
         throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.')
       }
       
       // Check if it's a timeout
       if (error.code === 'ECONNABORTED') {
-        console.log('🔐 API SERVICE: Timeout Error detected')
         throw new Error('Server antwortet nicht. Bitte versuchen Sie es später erneut.')
       }
       
       // For other errors, re-throw with original message
-      console.log('🔐 API SERVICE: Re-throwing original error')
       throw error
     }
   },
@@ -202,19 +106,8 @@ export const authApi = {
       })
       return response.data
     } catch (error) {
-      console.error('Registration failed:', error)
-      
       // Check if it's a server error (500)
       if (error.response?.status === 500) {
-        console.log('🔐 API SERVICE: 500 Server Error detected in register')
-        console.log('🔐 API SERVICE: 500 Error details:', {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: error.response.data,
-          headers: error.response.headers
-        })
-        
-        // Try to get more specific error information
         let errorMessage = 'Server-Fehler (500). Bitte versuchen Sie es später erneut.'
         if (error.response.data) {
           if (typeof error.response.data === 'string') {
@@ -225,7 +118,6 @@ export const authApi = {
             errorMessage = `Server-Fehler: ${error.response.data.error}`
           }
         }
-        
         throw new Error(errorMessage)
       }
       
@@ -256,10 +148,6 @@ export const authApi = {
     return response.data
   },
 
-  async adminSetup() {
-    const response = await api.post('/admin-setup')
-    return response.data
-  }
 }
 
 // Media API - using the same endpoints as the original application
@@ -318,7 +206,6 @@ export const mediaApi = {
       const response = await api.get('/media')
       return response.data
     } catch (error) {
-      console.error('API Error:', error)
       // Don't fallback to demo data for logged in users - throw the error
       throw error
     }
@@ -341,7 +228,6 @@ export const mediaApi = {
       
       return data
     } catch (error) {
-      console.error('API fetch failed:', error)
       return { success: false, error: error.message }
     }
   },
@@ -361,7 +247,6 @@ export const mediaApi = {
         image: item.image ? (item.image.startsWith('http://') ? item.image.replace('http://', 'https://') : item.image) : item.image
       }))
     } catch (error) {
-      console.error('API search failed:', error)
       return []
     }
   },
@@ -380,7 +265,6 @@ export const mediaApi = {
       }
       
       // Log other errors
-      console.error('API delete failed:', error)
       
       // Provide more specific error messages for other errors
       if (error.response?.status === 403) {
@@ -398,7 +282,6 @@ export const mediaApi = {
       const response = await api.post('/media/batch-add', { items })
       return response.data
     } catch (error) {
-      console.error('API batch add failed:', error)
       throw error
     }
   },
@@ -408,7 +291,6 @@ export const mediaApi = {
       const response = await api.post('/media/batch-delete', { ids })
       return response.data
     } catch (error) {
-      console.error('API batch delete failed:', error)
       throw error
     }
   },
@@ -434,6 +316,9 @@ export const mediaApi = {
       }
       if (itemData.genre) {
         transformedData.genre = itemData.genre
+      }
+      if (itemData.description) {
+        transformedData.description = itemData.description
       }
       if (itemData.link) {
         transformedData.link = itemData.link
@@ -463,14 +348,10 @@ export const mediaApi = {
         transformedData.watchlist_type = itemData.watchlistType
       }
       
-      console.log('Sending data to API:', transformedData)
-      console.log('User authenticated:', !!localStorage.getItem('authToken'))
-      console.log('Current user:', localStorage.getItem('currentUser'))
       
       const response = await api.post('/media', transformedData)
       return response.data
     } catch (error) {
-      console.error('API add media failed:', error)
       throw error
     }
   },
@@ -502,6 +383,9 @@ export const mediaApi = {
       if (itemData.genre !== undefined) {
         transformedData.genre = itemData.genre
       }
+      if (itemData.description !== undefined) {
+        transformedData.description = itemData.description
+      }
       if (itemData.link !== undefined) {
         transformedData.link = itemData.link
       }
@@ -530,12 +414,10 @@ export const mediaApi = {
         transformedData.watchlist_type = itemData.watchlistType
       }
       
-      console.log('Updating data to API:', transformedData)
       
       const response = await api.put(`/media/${id}`, transformedData)
       return response.data
     } catch (error) {
-      console.error('API update media failed:', error)
       throw error
     }
   },
@@ -556,7 +438,6 @@ export const mediaApi = {
       })
       return response.data
     } catch (error) {
-      console.error('Image upload failed:', error)
       throw error
     }
   },
@@ -567,7 +448,6 @@ export const mediaApi = {
       const response = await api.post('/download-image', { url, path })
       return response.data
     } catch (error) {
-      console.error('Image download failed:', error)
       throw error
     }
   },
@@ -598,7 +478,6 @@ export const mediaApi = {
         return date.toISOString().split('T')[0]
       }
     } catch (e) {
-      console.warn('Could not parse date:', dateValue)
     }
     
     return null

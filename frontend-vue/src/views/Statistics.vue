@@ -399,7 +399,6 @@ export default {
     }
     
     const debugNavigateToAdmin = () => {
-      console.log('Admin navigation clicked')
       router.push('/admin')
     }
     

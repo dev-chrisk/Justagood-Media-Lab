@@ -76,12 +76,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-// Admin setup route (no authentication required)
-Route::post('/admin-setup', [AuthController::class, 'adminSetup']);
 
-// Database check routes (no authentication required)
-Route::get('/check-db', [AuthController::class, 'checkDatabase']);
-Route::post('/delete-all-users', [AuthController::class, 'deleteAllUsers']);
 
 // Google Books API configuration (no authentication required)
 Route::get('/google-books-config', function () {
@@ -247,17 +242,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('download-api-images', [ExportImportController::class, 'downloadApiImages']);
 });
 
-// Admin routes (require admin access)
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/users', [App\Http\Controllers\AdminController::class, 'users']);
-    Route::get('/users/{id}', [App\Http\Controllers\AdminController::class, 'userDetails']);
-    Route::put('/users/{id}', [App\Http\Controllers\AdminController::class, 'updateUser']);
-    Route::delete('/users/{id}', [App\Http\Controllers\AdminController::class, 'deleteUser']);
-    Route::get('/statistics', [App\Http\Controllers\AdminController::class, 'statistics']);
-    Route::get('/user-activity/{id}', [App\Http\Controllers\AdminController::class, 'userActivity']);
-    Route::get('/media-items', [App\Http\Controllers\AdminController::class, 'allMediaItems']);
-    Route::get('/collections', [App\Http\Controllers\AdminController::class, 'allCollections']);
-});
 
 // Public TMDb API routes (no authentication required)
 Route::prefix('tmdb')->group(function () {

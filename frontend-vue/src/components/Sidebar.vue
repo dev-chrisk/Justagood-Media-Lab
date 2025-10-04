@@ -116,17 +116,6 @@
         </div>
       </div>
 
-      <!-- Admin Section -->
-      <div v-if="isLoggedIn && isAdmin" class="sidebar-section admin-section">
-        <h3>Administration</h3>
-        <nav class="sidebar-nav">
-          <button class="nav-btn admin-btn admin-mega-btn" @click="handleAdminClick">
-            <span class="nav-icon">👑</span>
-            <span class="nav-text">ADMIN PANEL</span>
-            <span class="admin-arrow">→</span>
-          </button>
-        </nav>
-      </div>
 
       <!-- Account Section -->
       <div class="sidebar-section">
@@ -134,11 +123,6 @@
         <div v-if="!isLoggedIn" class="auth-buttons">
           <button class="auth-btn" @click="$emit('showLogin')">Login</button>
           <button class="auth-btn" @click="$emit('showRegister')">Register</button>
-          <button class="auth-btn admin-login-btn admin-mega-btn" @click="handleAdminLoginClick">
-            <span class="admin-icon">👑</span>
-            <span class="admin-text">ADMIN LOGIN</span>
-            <span class="admin-arrow">→</span>
-          </button>
         </div>
         <div v-else class="user-info">
           <div class="user-profile">
@@ -147,7 +131,6 @@
             </div>
             <div class="profile-details">
               <span class="user-name">{{ userName }}</span>
-              <span v-if="isAdmin" class="admin-badge">ADMIN</span>
             </div>
             <button class="account-btn" @click="$emit('navigateToProfile')">⚙️</button>
           </div>
@@ -179,10 +162,6 @@ export default {
       default: false
     },
     isLoggedIn: {
-      type: Boolean,
-      default: false
-    },
-    isAdmin: {
       type: Boolean,
       default: false
     },
@@ -225,31 +204,14 @@ export default {
     'navigateToCalendar',
     'navigateToFeatures',
     'navigateToProfile',
-    'navigateToAdmin',
     'togglePlatformFilter',
     'toggleGenreFilter',
     'toggleAiringFilter',
     'showLogin',
     'showRegister',
-    'showAdminLogin',
     'logout'
   ],
   methods: {
-    handleAdminClick() {
-      console.log('🔥 ADMIN BUTTON CLICKED!')
-      console.log('🔥 Current user logged in:', this.isLoggedIn)
-      console.log('🔥 Current user is admin:', this.isAdmin)
-      console.log('🔥 Emitting navigateToAdmin event...')
-      this.$emit('navigateToAdmin')
-      console.log('🔥 Event emitted successfully!')
-    },
-    handleAdminLoginClick() {
-      console.log('🔥 ADMIN LOGIN BUTTON CLICKED!')
-      console.log('🔥 Current user logged in:', this.isLoggedIn)
-      console.log('🔥 Emitting showAdminLogin event...')
-      this.$emit('showAdminLogin')
-      console.log('🔥 Event emitted successfully!')
-    }
   }
 }
 </script>
@@ -589,26 +551,6 @@ export default {
   color: white;
 }
 
-.admin-login-btn {
-  background: linear-gradient(135deg, #ffd700, #ffed4e);
-  color: #1a1a1a;
-  border: 1px solid #ffd700;
-  font-weight: 600;
-  position: relative;
-  overflow: hidden;
-}
-
-.admin-login-btn:hover {
-  background: linear-gradient(135deg, #ffed4e, #ffd700);
-  color: #1a1a1a;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
-}
-
-.admin-icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
 
 .user-info {
   padding: 0 20px;
@@ -670,110 +612,7 @@ export default {
   color: white;
 }
 
-/* Admin Section Styles */
-.admin-section {
-  border-left: 3px solid #ff6b6b;
-  background: rgba(255, 107, 107, 0.1);
-  border-radius: 8px;
-  margin: 10px 0;
-  padding: 10px;
-}
 
-.admin-section h3 {
-  color: #ff6b6b;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.admin-btn {
-  background: linear-gradient(135deg, #ffd700, #ffed4e);
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-.admin-btn:hover {
-  background: linear-gradient(135deg, #ffed4e, #ffd700);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(255, 215, 0, 0.3);
-}
-
-/* MEGA ADMIN BUTTON STYLES */
-.admin-mega-btn {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%) !important;
-  border: 3px solid #ff6b6b !important;
-  font-size: 16px !important;
-  font-weight: 900 !important;
-  padding: 15px 20px !important;
-  margin: 10px 0 !important;
-  border-radius: 12px !important;
-  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4) !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  position: relative !important;
-  overflow: hidden !important;
-  animation: adminPulse 2s infinite !important;
-  color: white !important;
-}
-
-.admin-mega-btn:hover {
-  background: linear-gradient(135deg, #ff5252 0%, #ff1744 100%) !important;
-  transform: translateY(-3px) scale(1.05) !important;
-  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6) !important;
-  border-color: #ff1744 !important;
-}
-
-.admin-mega-btn .nav-icon {
-  font-size: 24px !important;
-  margin-right: 10px !important;
-  animation: adminCrown 1.5s ease-in-out infinite alternate !important;
-}
-
-.admin-mega-btn .nav-text {
-  font-size: 18px !important;
-  font-weight: 900 !important;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
-}
-
-.admin-mega-btn .admin-arrow {
-  font-size: 20px !important;
-  margin-left: 10px !important;
-  animation: adminArrow 1s ease-in-out infinite !important;
-}
-
-.admin-mega-btn .admin-text {
-  font-size: 18px !important;
-  font-weight: 900 !important;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* Animations */
-@keyframes adminPulse {
-  0% { box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4); }
-  50% { box-shadow: 0 6px 25px rgba(255, 107, 107, 0.7); }
-  100% { box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4); }
-}
-
-@keyframes adminCrown {
-  0% { transform: rotate(-5deg); }
-  100% { transform: rotate(5deg); }
-}
-
-@keyframes adminArrow {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(5px); }
-}
-
-.admin-badge {
-  background: #ff6b6b;
-  color: white;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-left: 5px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
 
 /* Mobile Styles */
 @media (max-width: 768px) {

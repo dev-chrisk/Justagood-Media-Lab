@@ -18,10 +18,6 @@ class GoogleBooksController extends Controller
         $query = $request->get('q');
         $maxResults = $request->get('maxResults', 10);
         
-        Log::info('📚 Google Books API Search Request', [
-            'query' => $query,
-            'maxResults' => $maxResults
-        ]);
 
         if (!$query || trim($query) === '') {
             return response()->json([
@@ -34,7 +30,6 @@ class GoogleBooksController extends Controller
             $apiKey = config('services.google_books.api_key');
             
             if (!$apiKey) {
-                Log::error('📚 Google Books API key not configured');
                 return response()->json([
                     'success' => false,
                     'error' => 'Google Books API key not configured'
@@ -48,26 +43,12 @@ class GoogleBooksController extends Controller
                 'maxResults' => min($maxResults, 40) // Limit to 40 max
             ];
 
-            Log::info('📚 Google Books API Request', [
-                'url' => $url,
-                'params' => array_merge($params, ['key' => 'HIDDEN'])
-            ]);
 
             $response = Http::timeout(10)->get($url, $params);
 
-            Log::info('📚 Google Books API Response', [
-                'status' => $response->status(),
-                'successful' => $response->successful()
-            ]);
 
             if (!$response->successful()) {
                 $errorBody = $response->body();
-                Log::error('📚 Google Books API Error', [
-                    'status' => $response->status(),
-                    'body' => $errorBody,
-                    'url' => $url,
-                    'params' => $params
-                ]);
 
                 // Try to parse error response
                 $errorData = json_decode($errorBody, true);
@@ -90,10 +71,6 @@ class GoogleBooksController extends Controller
 
             $data = $response->json();
             
-            Log::info('📚 Google Books API Success', [
-                'totalItems' => $data['totalItems'] ?? 0,
-                'itemsCount' => count($data['items'] ?? [])
-            ]);
 
             // Format the data for frontend
             $formattedItems = $this->formatBooksData($data['items'] ?? []);
@@ -105,10 +82,6 @@ class GoogleBooksController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('📚 Google Books API Exception', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
 
             return response()->json([
                 'success' => false,

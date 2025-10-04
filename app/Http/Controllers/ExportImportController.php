@@ -67,7 +67,6 @@ class ExportImportController extends Controller
     public function importData(Request $request): JsonResponse
     {
         try {
-            \Log::info('Import started', ['user_id' => $request->user()?->id]);
             
             $file = $request->file('file');
             
@@ -84,23 +83,16 @@ class ExportImportController extends Controller
                 throw new \Exception('Authentication required for import');
             }
             
-            \Log::info('File validation passed', ['filename' => $file->getClientOriginalName(), 'size' => $file->getSize()]);
             
             // Create temporary directory for import
             $tempDir = storage_path('app/temp/import_' . uniqid());
             File::makeDirectory($tempDir, 0755, true);
-            \Log::info('Created temp directory', ['path' => $tempDir]);
             
             // Extract ZIP file
             $zipPath = $file->storeAs('temp', 'import_' . uniqid() . '.zip');
             $fullZipPath = storage_path('app/' . $zipPath);
-            \Log::info('ZIP file stored', ['path' => $fullZipPath]);
             
-            \Log::info('Starting ZIP extraction...');
-            $extractStartTime = microtime(true);
             $this->extractZipArchive($fullZipPath, $tempDir);
-            $extractTime = microtime(true) - $extractStartTime;
-            \Log::info('ZIP extracted successfully', ['extract_time' => round($extractTime, 2) . 's']);
             
             // Find and load data file
             $dataFile = $tempDir . '/media_data.json';
@@ -108,7 +100,6 @@ class ExportImportController extends Controller
                 throw new \Exception('No media_data.json found in ZIP file');
             }
             
-            \Log::info('Loading data file', ['size' => File::size($dataFile)]);
             $importData = json_decode(File::get($dataFile), true);
             
             if (!$importData || !isset($importData['data'])) {
@@ -116,17 +107,14 @@ class ExportImportController extends Controller
             }
             
             $mediaDataCount = count($importData['data'] ?? []);
-            \Log::info('Data loaded', ['items_count' => $mediaDataCount]);
             
             // Skip image copying for now - images will be downloaded as needed
-            \Log::info('Skipping image copy - images will be downloaded on demand');
             
             // Assign user_id to all imported data
             $userId = $request->user()->id;
             $mediaData = $importData['data'] ?? [];
             $totalItems = count($mediaData);
             
-            \Log::info('Assigning user_id to data', ['user_id' => $userId, 'items_count' => $totalItems]);
             
             // Add user_id to each media item and save to database with progress
             $savedCount = 0;
@@ -148,12 +136,6 @@ class ExportImportController extends Controller
                     // Log progress every 25 items for better tracking
                     if (($index + 1) % 25 === 0) {
                         $percentage = round((($index + 1) / $totalItems) * 100, 1);
-                        \Log::info('Import progress', [
-                            'processed' => $index + 1,
-                            'total' => $totalItems,
-                            'percentage' => $percentage,
-                            'current_item' => $item['title'] ?? 'Unknown'
-                        ]);
                     }
                     
                 } catch (\Exception $e) {
@@ -162,25 +144,13 @@ class ExportImportController extends Controller
                         'error' => $e->getMessage(),
                         'index' => $index
                     ];
-                    \Log::error('Import item error', [
-                        'item' => $item,
-                        'error' => $e->getMessage(),
-                        'index' => $index
-                    ]);
                 }
             }
             
-            \Log::info('User assignment and database save completed', [
-                'saved_count' => $savedCount,
-                'total_items' => $totalItems,
-                'errors_count' => count($errors)
-            ]);
             
             // Cleanup immediately since we're not copying images
-            \Log::info('Starting immediate cleanup');
             File::deleteDirectory($tempDir);
             File::delete($fullZipPath);
-            \Log::info('Cleanup completed');
             
             // Identify items that might need API images
             $apiCandidates = [];
@@ -201,12 +171,6 @@ class ExportImportController extends Controller
                 }
             }
             
-            \Log::info('Import completed successfully', [
-                'items_imported' => $savedCount,
-                'total_items' => $totalItems,
-                'errors_count' => count($errors),
-                'api_candidates' => count($apiCandidates)
-            ]);
             
             return response()->json([
                 'success' => true,
@@ -226,11 +190,6 @@ class ExportImportController extends Controller
             ]);
             
         } catch (\Exception $e) {
-            \Log::error('Import failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => $request->user()?->id
-            ]);
             
             return response()->json([
                 'success' => false,
@@ -272,10 +231,6 @@ class ExportImportController extends Controller
 
             return $response;
         } catch (\Illuminate\Validation\ValidationException $e) {
-            \Log::warning('Import validation failed', [
-                'errors' => $e->errors(),
-                'user_id' => $request->user()?->id
-            ]);
             
             return response()->json([
                 'success' => false,
@@ -283,11 +238,6 @@ class ExportImportController extends Controller
                 'details' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Import stream failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => $request->user()?->id
-            ]);
             
             return response()->json([
                 'success' => false,
@@ -619,11 +569,6 @@ class ExportImportController extends Controller
             ]);
             
         } catch (\Exception $e) {
-            \Log::error('API image download failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => $request->user()?->id
-            ]);
             
             return response()->json([
                 'success' => false,
@@ -671,7 +616,6 @@ class ExportImportController extends Controller
                 }
             }
         } catch (\Exception $e) {
-            \Log::error("API fetch error for {$title}: " . $e->getMessage());
         }
         
         return null;
@@ -708,7 +652,6 @@ class ExportImportController extends Controller
             
             return $imagePath;
         } catch (\Exception $e) {
-            \Log::error("Image download failed: " . $e->getMessage());
             return null;
         }
     }
@@ -736,7 +679,6 @@ class ExportImportController extends Controller
             exec($command);
         }
         
-        \Log::info('Cleanup scheduled for 30 seconds from now');
     }
     
     /**
@@ -744,7 +686,6 @@ class ExportImportController extends Controller
      */
     private function copyImagesFromImport(string $tempDir, array $mediaData = []): void
     {
-        \Log::info('Starting image copy process', ['temp_dir' => $tempDir]);
         
         $imagesSourceDir = $tempDir . '/images';
         $imagesDownloadsSourceDir = $tempDir . '/images_downloads';
@@ -755,44 +696,33 @@ class ExportImportController extends Controller
         // Ensure destination directories exist
         if (!File::exists($imagesDestDir)) {
             File::makeDirectory($imagesDestDir, 0755, true);
-            \Log::info('Created images destination directory', ['path' => $imagesDestDir]);
         }
         if (!File::exists($imagesDownloadsDestDir)) {
             File::makeDirectory($imagesDownloadsDestDir, 0755, true);
-            \Log::info('Created images_downloads destination directory', ['path' => $imagesDownloadsDestDir]);
         }
         
         // Copy main images directory
         if (File::exists($imagesSourceDir)) {
-            \Log::info('Copying main images directory', ['source' => $imagesSourceDir, 'dest' => $imagesDestDir]);
             
             try {
                 $this->copyDirectoryWithProgress($imagesSourceDir, $imagesDestDir);
-                \Log::info('Main images directory copied successfully');
             } catch (\Exception $e) {
-                \Log::error('Failed to copy main images directory', ['error' => $e->getMessage()]);
                 throw $e;
             }
         } else {
-            \Log::info('No main images directory found in import');
         }
         
         // Copy downloaded images directory
         if (File::exists($imagesDownloadsSourceDir)) {
-            \Log::info('Copying downloaded images directory', ['source' => $imagesDownloadsSourceDir, 'dest' => $imagesDownloadsDestDir]);
             
             try {
                 $this->copyDirectoryWithProgress($imagesDownloadsSourceDir, $imagesDownloadsDestDir);
-                \Log::info('Downloaded images directory copied successfully');
             } catch (\Exception $e) {
-                \Log::error('Failed to copy downloaded images directory', ['error' => $e->getMessage()]);
                 throw $e;
             }
         } else {
-            \Log::info('No downloaded images directory found in import');
         }
         
-        \Log::info('Image copy process completed');
     }
     
     /**
@@ -815,7 +745,6 @@ class ExportImportController extends Controller
             }
         }
         
-        \Log::info('Starting to copy files', ['total_files' => $totalFiles]);
         
         // Reset iterator
         $iterator = new \RecursiveIteratorIterator(
@@ -841,24 +770,13 @@ class ExportImportController extends Controller
                         $copiedFiles === (int)($totalFiles * 0.5) || 
                         $copiedFiles === (int)($totalFiles * 0.75)) {
                         $progress = round(($copiedFiles / $totalFiles) * 100, 1);
-                        \Log::info('Image copy progress', [
-                            'copied' => $copiedFiles,
-                            'total' => $totalFiles,
-                            'progress' => $progress . '%'
-                        ]);
                     }
                 } catch (\Exception $e) {
-                    \Log::warning('Failed to copy file', [
-                        'source' => $item->getPathname(),
-                        'target' => $target,
-                        'error' => $e->getMessage()
-                    ]);
                     // Continue with other files
                 }
             }
         }
         
-        \Log::info('File copy completed', ['copied_files' => $copiedFiles, 'total_files' => $totalFiles]);
     }
     
     /**
@@ -895,7 +813,6 @@ class ExportImportController extends Controller
      */
     private function extractZipArchive(string $zipPath, string $extractDir): void
     {
-        \Log::info('Attempting ZIP extraction', ['zip_path' => $zipPath, 'extract_dir' => $extractDir]);
         
         // Try different extraction commands based on OS
         $commands = [];
@@ -918,17 +835,14 @@ class ExportImportController extends Controller
         $lastError = '';
         
         foreach ($commands as $index => $command) {
-            \Log::info('Trying extraction command ' . ($index + 1), ['command' => $command]);
             
             $output = [];
             $returnCode = 0;
             exec($command . ' 2>&1', $output, $returnCode);
             
-            \Log::info('Command result', ['return_code' => $returnCode, 'output' => implode("\n", $output)]);
             
             if ($returnCode === 0) {
                 $success = true;
-                \Log::info('ZIP extraction successful with command ' . ($index + 1));
                 break;
             } else {
                 $lastError = implode("\n", $output);
@@ -936,7 +850,6 @@ class ExportImportController extends Controller
         }
         
         if (!$success) {
-            \Log::error('All extraction commands failed', ['last_error' => $lastError]);
             throw new \Exception('Cannot extract ZIP file. Last error: ' . $lastError);
         }
     }
@@ -971,12 +884,6 @@ class ExportImportController extends Controller
             $chunkPath = $uploadDir . '/chunk_' . $chunkIndex;
             $chunk->move($uploadDir, 'chunk_' . $chunkIndex);
 
-            \Log::info('Chunk uploaded', [
-                'upload_id' => $uploadId,
-                'chunk_index' => $chunkIndex,
-                'total_chunks' => $totalChunks,
-                'file_name' => $fileName
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -985,10 +892,6 @@ class ExportImportController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Chunk upload failed', [
-                'error' => $e->getMessage(),
-                'user_id' => $request->user()?->id
-            ]);
 
             return response()->json([
                 'success' => false,
@@ -1035,11 +938,6 @@ class ExportImportController extends Controller
 
             fclose($finalFile);
 
-            \Log::info('Chunked upload finalized', [
-                'upload_id' => $uploadId,
-                'file_name' => $fileName,
-                'file_size' => File::size($finalFilePath)
-            ]);
 
             // Now process the file as a regular import
             $file = new \Illuminate\Http\UploadedFile(
@@ -1064,10 +962,6 @@ class ExportImportController extends Controller
             return $result;
 
         } catch (\Exception $e) {
-            \Log::error('Chunked upload finalization failed', [
-                'error' => $e->getMessage(),
-                'user_id' => $request->user()?->id
-            ]);
 
             return response()->json([
                 'success' => false,
