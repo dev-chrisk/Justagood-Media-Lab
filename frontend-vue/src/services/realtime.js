@@ -14,9 +14,9 @@ class RealtimeService {
    * Get API base URL using the same logic as other services
    */
   getApiBaseUrl() {
-    // Check if we're running on localhost FIRST (highest priority)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      return 'http://127.0.0.1:8000'
+    // Check for custom API URL from environment variable FIRST (highest priority)
+    if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+      return import.meta.env.VITE_API_URL
     }
     
     // Check if we're in development mode
@@ -24,9 +24,9 @@ class RealtimeService {
       return 'http://127.0.0.1:8000'
     }
     
-    // Check for custom API URL from environment variable
-    if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-      return import.meta.env.VITE_API_URL
+    // Check if we're running on localhost AND in development mode
+    if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV) {
+      return 'http://127.0.0.1:8000'
     }
     
     // Default to production

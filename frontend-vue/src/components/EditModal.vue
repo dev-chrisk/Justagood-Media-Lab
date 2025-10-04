@@ -134,6 +134,18 @@ biem <template>
           </div>
         </div>
         
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label for="description">Description:</label>
+            <textarea 
+              id="description"
+              v-model="form.description" 
+              placeholder="Enter a description..."
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        
         <!-- Watchlist Type Selection -->
         <div v-if="form.category === 'watchlist'" class="form-row">
           <div class="form-group">
@@ -328,6 +340,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
+import { useMediaStore } from '@/stores/media'
 
 export default {
   name: 'EditModal',
@@ -378,8 +391,20 @@ export default {
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
       if (newItem) {
+        console.log('🔍 [EditModal] Loading item into form:', {
+          genre: newItem.genre,
+          description: newItem.description,
+          fullItem: newItem
+        })
         Object.keys(form).forEach(key => {
-          form[key] = newItem[key] || ''
+          // Only update form field if the item has this property and it's not null/undefined
+          if (newItem.hasOwnProperty(key) && newItem[key] !== null && newItem[key] !== undefined) {
+            form[key] = newItem[key]
+          }
+        })
+        console.log('🔍 [EditModal] Form after loading:', {
+          genre: form.genre,
+          description: form.description
         })
       } else {
         // Reset form for new item - use current category from sidebar
@@ -428,18 +453,31 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
+        console.log('🔍 [EditModal] Saving item data:', {
+          genre: itemData.genre,
+          description: itemData.description,
+          fullItemData: itemData
+        })
+        
         // Process image URL - prioritize uploaded image over URL
         if (uploadedImagePath.value) {
           // Use uploaded image path
           itemData.path = uploadedImagePath.value
           itemData.imageUrl = uploadedImagePath.value
         } else if (itemData.imageUrl && itemData.imageUrl.trim()) {
-          // Use image URL if no uploaded image
-          itemData.path = itemData.imageUrl
+          // Use image URL if no uploaded image - keep both fields
+          // Don't overwrite path if it already has a value
+          if (!itemData.path) {
+            itemData.path = itemData.imageUrl
+          }
         } else {
-          // Clear empty image fields
-          itemData.imageUrl = null
-          itemData.path = null
+          // Only clear image fields if they are truly empty
+          if (!itemData.imageUrl || itemData.imageUrl.trim() === '') {
+            itemData.imageUrl = null
+          }
+          if (!itemData.path || itemData.path.trim() === '') {
+            itemData.path = null
+          }
         }
         
         // Convert empty strings to null for optional fields (except watchlistType)
@@ -455,9 +493,15 @@ export default {
         if (itemData.spielzeit) itemData.spielzeit = parseInt(itemData.spielzeit)
         if (itemData.nextSeason) itemData.nextSeason = parseInt(itemData.nextSeason)
         
-        emit('save', itemData)
+        // Handle save directly instead of emitting event
+        await handleSaveItem(itemData)
       } catch (err) {
-        error.value = err.message || 'Failed to save item'
+        // Handle duplicate error specifically
+        if (err.isDuplicate) {
+          error.value = err.message
+        } else {
+          error.value = err.message || 'Failed to save item'
+        }
       } finally {
         loading.value = false
       }
@@ -543,13 +587,14 @@ export default {
               searchResults = results.map(result => ({
                 title: result.title,
                 release: result.release,
-                genre: result.overview || '',
+                genre: result.genre || result.genres || '',
                 platforms: result.platforms || '',
                 link: result.link || '',
                 imageUrl: result.image || '',
                 rating: result.rating || '',
                 apiSource: result.api_source || '',
-                id: result.id || ''
+                id: result.id || '',
+                description: result.overview || ''
               }))
             }
           }
@@ -584,13 +629,45 @@ export default {
         return
       }
       
+      console.log('🔍 [EditModal] Selecting API result:', {
+        title: result.title,
+        genre: result.genre,
+        fullResult: result
+      })
       
       form.title = result.title
       if (result.release) form.release = result.release
       if (result.platforms) form.platforms = result.platforms
-      if (result.genre) form.genre = result.genre
+      if (result.genre) {
+        form.genre = result.genre
+        console.log('🔍 [EditModal] Set genre from API:', result.genre)
+      }
       if (result.link) form.link = result.link
       if (result.rating) form.rating = result.rating
+      if (result.description) form.description = result.description
+      
+      // If no genre is provided, try to extract from description or use fallback
+      if (!result.genre || result.genre.trim() === '') {
+        console.log('No genre provided, trying to extract from description...')
+        
+        // Try to extract genre information from the description
+        const description = result.description || result.overview || ''
+        const genreKeywords = extractGenreFromDescription(description)
+        
+        if (genreKeywords.length > 0) {
+          form.genre = genreKeywords.join(', ')
+          console.log('Extracted genre from description:', form.genre)
+        } else {
+          // Fallback: Use category-based genre suggestions
+          const categoryGenres = getCategoryGenres(result.category, result.api_source)
+          if (categoryGenres) {
+            form.genre = categoryGenres
+            console.log('Using category-based genre:', form.genre)
+          }
+        }
+      } else {
+        console.log('Genre already provided from API:', result.genre)
+      }
       
       // Handle Google Books specific fields
       if (result.apiSource === 'google_books') {
@@ -598,11 +675,6 @@ export default {
         // For books, we can use the author field in the genre or platforms field
         if (result.author) {
           form.platforms = result.author // Use platforms field for author
-        }
-        
-        // Handle description separately from genre
-        if (result.description) {
-          form.description = result.description
         }
         
         // Add publisher info to link if available
@@ -615,12 +687,12 @@ export default {
       // Handle image URL - use original URL directly
       if (result.imageUrl) {
         form.imageUrl = result.imageUrl
-        form.path = result.imageUrl // Use same URL for path
-      } else {
-        // Clear image fields if no image URL from API
-        form.imageUrl = ''
-        form.path = ''
+        // Only set path if it's not already set
+        if (!form.path) {
+          form.path = result.imageUrl
+        }
       }
+      // Don't clear existing image fields if no image URL from API
       
       apiResults.value = []
     }
@@ -629,6 +701,47 @@ export default {
       if (!dateString) return ''
       const date = new Date(dateString)
       return date.toLocaleDateString()
+    }
+    
+    const extractGenreFromDescription = (description) => {
+      if (!description) return []
+      
+      const genreKeywords = {
+        'drama': ['drama', 'dramatic', 'emotional', 'serious', 'tragedy'],
+        'comedy': ['comedy', 'funny', 'humor', 'comic', 'laugh'],
+        'action': ['action', 'fight', 'battle', 'adventure', 'thriller', 'martial arts', 'champion', 'defend'],
+        'horror': ['horror', 'scary', 'frightening', 'terror', 'monster'],
+        'romance': ['romance', 'love', 'romantic', 'relationship'],
+        'mystery': ['mystery', 'detective', 'investigation', 'crime', 'suspense'],
+        'sci-fi': ['sci-fi', 'science fiction', 'futuristic', 'space', 'alien', 'extraterrestrial'],
+        'fantasy': ['fantasy', 'magic', 'supernatural', 'wizard', 'fairy tale'],
+        'thriller': ['thriller', 'suspense', 'tense', 'edge-of-seat'],
+        'documentary': ['documentary', 'real', 'factual', 'educational'],
+        'animation': ['animation', 'animated', 'cartoon', 'anime'],
+        'adventure': ['adventure', 'journey', 'quest', 'exploration']
+      }
+      
+      const foundGenres = []
+      const lowerDesc = description.toLowerCase()
+      
+      for (const [genre, keywords] of Object.entries(genreKeywords)) {
+        if (keywords.some(keyword => lowerDesc.includes(keyword))) {
+          foundGenres.push(genre.charAt(0).toUpperCase() + genre.slice(1))
+        }
+      }
+      
+      return foundGenres.slice(0, 3) // Limit to 3 genres
+    }
+    
+    const getCategoryGenres = (category, apiSource) => {
+      const categoryGenres = {
+        'series': 'Drama, Action, Adventure',
+        'movie': 'Drama, Action, Adventure',
+        'game': 'Action, Adventure, RPG',
+        'buecher': 'Fiction, Non-fiction'
+      }
+      
+      return categoryGenres[category] || 'Drama'
     }
     
     const formatDateForInput = (dateString) => {
@@ -791,6 +904,18 @@ export default {
       }
     }
     
+    // Handle save item directly
+    const handleSaveItem = async (itemData) => {
+      const mediaStore = useMediaStore()
+      
+      if (props.item) {
+        await mediaStore.updateMediaItem(props.item.id, itemData)
+      } else {
+        await mediaStore.addMediaItem(itemData)
+      }
+      closeModal()
+    }
+    
     return {
       form,
       loading,
@@ -895,6 +1020,10 @@ export default {
   flex-direction: column;
 }
 
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
 .form-group label {
   margin-bottom: 4px;
   font-weight: 500;
@@ -903,7 +1032,8 @@ export default {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   padding: 12px; /* Larger for touch */
   border: 1px solid #555;
   border-radius: 4px;
@@ -913,8 +1043,15 @@ export default {
   min-height: 44px; /* Touch-friendly */
 }
 
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+}
+
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: #4a9eff;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);

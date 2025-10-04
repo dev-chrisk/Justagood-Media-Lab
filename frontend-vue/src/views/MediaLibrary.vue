@@ -17,7 +17,6 @@
       :categories="categories"
       @toggle="toggleSidebar"
       @set-category="setCategory"
-      @navigate-to-books="navigateToBooks"
       @navigate-to-statistics="navigateToStatistics"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-features="navigateToFeatures"
@@ -110,7 +109,6 @@
       :show="showBulkAddModal"
       :current-category="currentCategory"
       @close="closeBulkAddModal"
-      @save="handleBulkAddItems"
     />
 
     <!-- TXT Import Modals -->
@@ -286,7 +284,6 @@ export default {
       downloadFile,
       deleteAllInCategory,
       getCategoryDisplayName,
-      navigateToBooks,
       navigateToStatistics,
       navigateToCalendar,
       navigateToFeatures,
@@ -474,7 +471,6 @@ export default {
       closeMobileSidebar,
       setCategory,
       clearSearch,
-      navigateToBooks,
       navigateToStatistics,
       navigateToCalendar,
       navigateToFeatures,

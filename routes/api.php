@@ -27,6 +27,25 @@ use App\Http\Controllers\ExportImportController;
 // Public search endpoint (no authentication required)
 Route::get('search', [MediaController::class, 'search']);
 
+// Temporary debug route for batch-add testing (no authentication required)
+Route::post('debug/batch-add-test', function (Request $request) {
+    return response()->json([
+        'message' => 'Debug route reached',
+        'method' => $request->method(),
+        'url' => $request->url(),
+        'has_items' => $request->has('items'),
+        'items_count' => count($request->get('items', [])),
+        'user_agent' => $request->userAgent(),
+        'headers' => $request->headers->all()
+    ]);
+});
+
+// Temporary batch-add route outside auth for testing
+Route::post('media/batch-add-debug', [MediaController::class, 'batchAdd']);
+
+// Move batch-add outside auth temporarily for testing
+Route::post('media/batch-add-test', [MediaController::class, 'batchAdd']);
+
 // Debug endpoint to test basic API functionality
 Route::get('debug/health', function () {
     try {
@@ -58,6 +77,25 @@ Route::get('debug/health', function () {
     }
 });
 
+// Debug endpoint to list all registered routes
+Route::get('debug/routes', function () {
+    $routes = collect(\Route::getRoutes())->map(function ($route) {
+        return [
+            'method' => implode('|', $route->methods()),
+            'uri' => $route->uri(),
+            'name' => $route->getName(),
+            'action' => $route->getActionName()
+        ];
+    })->filter(function ($route) {
+        return str_contains($route['uri'], 'media') || str_contains($route['uri'], 'batch');
+    });
+    
+    return response()->json([
+        'media_routes' => $routes->values(),
+        'total_routes' => $routes->count()
+    ]);
+});
+
 // Server-Sent Events for real-time updates
 Route::get('events', [MediaController::class, 'events']);
 
@@ -84,6 +122,15 @@ Route::get('/google-books-config', function () {
     return response()->json([
         'api_key' => $apiKey ?: null,
         'base_url' => 'https://www.googleapis.com/books/v1'
+    ]);
+});
+
+// TMDB API configuration (no authentication required)
+Route::get('/tmdb-config', function () {
+    $apiKey = config('services.tmdb.api_key');
+    return response()->json([
+        'api_key' => $apiKey ?: null,
+        'base_url' => 'https://api.themoviedb.org/3'
     ]);
 });
 
@@ -211,6 +258,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Media items with user filtering
     Route::apiResource('media', MediaController::class);
+    Route::post('media/batch-add', [MediaController::class, 'batchAdd']);
     Route::post('media/batch-delete', [MediaController::class, 'batchDelete']);
     Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
     Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);

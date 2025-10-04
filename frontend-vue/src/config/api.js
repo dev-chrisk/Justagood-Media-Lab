@@ -10,10 +10,10 @@ function getApiBaseUrl() {
     currentUrl: window.location.href
   })
   
-  // Check if we're running on localhost FIRST (highest priority)
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    console.log('📍 Using localhost detection - local server')
-    return 'http://127.0.0.1:8000/api'
+  // Check for custom API URL from environment variable FIRST (highest priority)
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+    console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
+    return `${import.meta.env.VITE_API_URL}/api`
   }
   
   // Check if we're in development mode
@@ -22,10 +22,10 @@ function getApiBaseUrl() {
     return 'http://127.0.0.1:8000/api'
   }
   
-  // Check for custom API URL from environment variable
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-    console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
-    return `${import.meta.env.VITE_API_URL}/api`
+  // Check if we're running on localhost AND in development mode
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV) {
+    console.log('📍 Using localhost detection - local server')
+    return 'http://127.0.0.1:8000/api'
   }
   
   // Default to production
@@ -34,9 +34,9 @@ function getApiBaseUrl() {
 }
 
 function getBaseUrl() {
-  // Check if we're running on localhost FIRST (highest priority)
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return 'http://127.0.0.1:8000'
+  // Check for custom API URL from environment variable FIRST (highest priority)
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+    return import.meta.env.VITE_API_URL
   }
   
   // Check if we're in development mode
@@ -44,9 +44,9 @@ function getBaseUrl() {
     return 'http://127.0.0.1:8000'
   }
   
-  // Check for custom API URL from environment variable
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-    return import.meta.env.VITE_API_URL
+  // Check if we're running on localhost AND in development mode
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV) {
+    return 'http://127.0.0.1:8000'
   }
   
   // Default to production

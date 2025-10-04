@@ -94,6 +94,7 @@ class MediaController extends Controller
             'description' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
+            'image_url' => 'nullable|string',
             'discovered' => 'nullable|date',
             'spielzeit' => 'nullable|integer|min:0',
             'is_airing' => 'nullable|boolean',
@@ -188,6 +189,7 @@ class MediaController extends Controller
             'description' => 'nullable|string',
             'link' => 'nullable|url',
             'path' => 'nullable|string',
+            'image_url' => 'nullable|string',
             'discovered' => 'nullable|date',
             'spielzeit' => 'nullable|integer|min:0',
             'is_airing' => 'sometimes|boolean',
@@ -282,6 +284,7 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             '*.title' => 'required|string|max:255',
             '*.category' => 'required|string|in:game,series,movie,watchlist,buecher',
+            '*.image_url' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -355,6 +358,15 @@ class MediaController extends Controller
      */
     public function batchAdd(Request $request): JsonResponse
     {
+        \Log::info('🔍 BATCH ADD DEBUG: Method called', [
+            'method' => $request->method(),
+            'url' => $request->url(),
+            'user_id' => $request->user()?->id,
+            'has_items' => $request->has('items'),
+            'items_count' => count($request->get('items', [])),
+            'headers' => $request->headers->all()
+        ]);
+
         $validator = Validator::make($request->all(), [
             'items' => 'required|array|min:1',
             'items.*.title' => 'required|string|max:255',
@@ -365,6 +377,7 @@ class MediaController extends Controller
             'items.*.genre' => 'nullable|string',
             'items.*.link' => 'nullable|url',
             'items.*.path' => 'nullable|string',
+            'items.*.image_url' => 'nullable|string',
             'items.*.discovered' => 'nullable|date',
             'items.*.spielzeit' => 'required|integer|min:0',
             'items.*.is_airing' => 'nullable|boolean',
@@ -523,6 +536,13 @@ class MediaController extends Controller
                     
                     foreach (array_slice($bookResponse['items'] ?? [], 0, $bookLimit) as $item) {
                         $volumeInfo = $item['volumeInfo'] ?? [];
+                        
+                        // Extract all categories as genres
+                        $genreNames = [];
+                        if (!empty($volumeInfo['categories'])) {
+                            $genreNames = $volumeInfo['categories'];
+                        }
+                        
                         $results[] = [
                             'id' => "google_books_{$item['id']}",
                             'title' => $volumeInfo['title'] ?? 'Unknown Title',
@@ -530,6 +550,7 @@ class MediaController extends Controller
                             'image' => $this->ensureHttpsUrl($volumeInfo['imageLinks']['thumbnail'] ?? $volumeInfo['imageLinks']['smallThumbnail'] ?? ''),
                             'category' => 'buecher',
                             'overview' => $volumeInfo['description'] ?? '',
+                            'genre' => implode(', ', $genreNames),
                             'rating' => round(($volumeInfo['averageRating'] ?? 0) * 2, 1), // Convert 5-star to 10-point scale
                             'api_source' => 'google_books',
                             'authors' => $volumeInfo['authors'] ?? [],
@@ -550,13 +571,64 @@ class MediaController extends Controller
             try {
                 $tmdbApiKey = config('services.tmdb.api_key');
                 
+                // Cache genre maps to avoid multiple API calls
+                $movieGenreMap = [];
+                $tvGenreMap = [];
+                
                 // Search movies (only if category is not specified or is movie)
                 if (empty($category) || $category === 'movie') {
                     $movieUrl = "https://api.themoviedb.org/3/search/movie?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
                     $movieResponse = json_decode(file_get_contents($movieUrl), true);
                     
+                    // Get movie genres once
+                    if (empty($movieGenreMap)) {
+                        $genreUrl = "https://api.themoviedb.org/3/genre/movie/list?api_key={$tmdbApiKey}";
+                        $genreResponse = json_decode(file_get_contents($genreUrl), true);
+                        $movieGenreMap = array_column($genreResponse['genres'] ?? [], 'name', 'id');
+                    }
+                    
                     $movieLimit = empty($category) ? $limit / 2 : $limit;
                     foreach (array_slice($movieResponse['results'] ?? [], 0, $movieLimit) as $item) {
+                        // Get all genre names from TMDB - try to get detailed info for more genres
+                        $genreNames = [];
+                        
+                        // First try to get genres from search result
+                        if (!empty($item['genre_ids'])) {
+                            $genreNames = array_map(fn($id) => $movieGenreMap[$id] ?? '', $item['genre_ids']);
+                            $genreNames = array_filter($genreNames); // Remove empty values
+                        }
+                        
+                        // If we have few genres, try to get detailed info
+                        if (count($genreNames) < 3) {
+                            try {
+                                $detailsUrl = "https://api.themoviedb.org/3/movie/{$item['id']}?api_key={$tmdbApiKey}";
+                                $detailsResponse = json_decode(file_get_contents($detailsUrl), true);
+                                
+                                if (!empty($detailsResponse['genres'])) {
+                                    $detailedGenres = array_column($detailsResponse['genres'], 'name');
+                                    if (count($detailedGenres) > count($genreNames)) {
+                                        $genreNames = $detailedGenres;
+                                        \Log::info('TMDB Detailed Genres for ' . $item['title'] . ':', $genreNames);
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                // If detailed fetch fails, continue with search result genres
+                            }
+                        }
+                        
+                        // If we still have few genres, try to extract from overview
+                        if (count($genreNames) < 3 && !empty($item['overview'])) {
+                            $extractedGenres = $this->extractGenresFromDescription($item['overview']);
+                            if (count($extractedGenres) > 0) {
+                                $genreNames = array_merge($genreNames, $extractedGenres);
+                                $genreNames = array_unique($genreNames); // Remove duplicates
+                                $genreNames = array_slice($genreNames, 0, 5); // Limit to 5 genres
+                            }
+                        }
+                        
+                        // Debug: Log final genre names (commented out for production)
+                        // \Log::info('TMDB Final Genre Names for ' . $item['title'] . ':', $genreNames);
+                        
                         $results[] = [
                             'id' => "tmdb_movie_{$item['id']}",
                             'title' => $item['title'],
@@ -564,6 +636,7 @@ class MediaController extends Controller
                             'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
                             'category' => 'movie',
                             'overview' => $item['overview'] ?? '',
+                            'genre' => implode(', ', $genreNames),
                             'rating' => round($item['vote_average'] ?? 0, 1),
                             'api_source' => 'tmdb'
                         ];
@@ -575,8 +648,55 @@ class MediaController extends Controller
                     $tvUrl = "https://api.themoviedb.org/3/search/tv?api_key={$tmdbApiKey}&query=" . urlencode($query) . "&page=1";
                     $tvResponse = json_decode(file_get_contents($tvUrl), true);
                     
+                    // Get TV genres once
+                    if (empty($tvGenreMap)) {
+                        $genreUrl = "https://api.themoviedb.org/3/genre/tv/list?api_key={$tmdbApiKey}";
+                        $genreResponse = json_decode(file_get_contents($genreUrl), true);
+                        $tvGenreMap = array_column($genreResponse['genres'] ?? [], 'name', 'id');
+                    }
+                    
                     $tvLimit = empty($category) ? $limit / 2 : $limit;
                     foreach (array_slice($tvResponse['results'] ?? [], 0, $tvLimit) as $item) {
+                        // Get all genre names from TMDB - try to get detailed info for more genres
+                        $genreNames = [];
+                        
+                        // First try to get genres from search result
+                        if (!empty($item['genre_ids'])) {
+                            $genreNames = array_map(fn($id) => $tvGenreMap[$id] ?? '', $item['genre_ids']);
+                            $genreNames = array_filter($genreNames); // Remove empty values
+                        }
+                        
+                        // If we have few genres, try to get detailed info
+                        if (count($genreNames) < 3) {
+                            try {
+                                $detailsUrl = "https://api.themoviedb.org/3/tv/{$item['id']}?api_key={$tmdbApiKey}";
+                                $detailsResponse = json_decode(file_get_contents($detailsUrl), true);
+                                
+                                if (!empty($detailsResponse['genres'])) {
+                                    $detailedGenres = array_column($detailsResponse['genres'], 'name');
+                                    if (count($detailedGenres) > count($genreNames)) {
+                                        $genreNames = $detailedGenres;
+                                        \Log::info('TMDB Detailed Genres for ' . $item['name'] . ':', $genreNames);
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                // If detailed fetch fails, continue with search result genres
+                            }
+                        }
+                        
+                        // If we still have few genres, try to extract from overview
+                        if (count($genreNames) < 3 && !empty($item['overview'])) {
+                            $extractedGenres = $this->extractGenresFromDescription($item['overview']);
+                            if (count($extractedGenres) > 0) {
+                                $genreNames = array_merge($genreNames, $extractedGenres);
+                                $genreNames = array_unique($genreNames); // Remove duplicates
+                                $genreNames = array_slice($genreNames, 0, 5); // Limit to 5 genres
+                            }
+                        }
+                        
+                        // Debug: Log final genre names (commented out for production)
+                        // \Log::info('TMDB Final Genre Names for ' . $item['name'] . ':', $genreNames);
+                        
                         $results[] = [
                             'id' => "tmdb_tv_{$item['id']}",
                             'title' => $item['name'],
@@ -584,6 +704,7 @@ class MediaController extends Controller
                             'image' => $item['poster_path'] ? "https://image.tmdb.org/t/p/w200{$item['poster_path']}" : '',
                             'category' => 'series',
                             'overview' => $item['overview'] ?? '',
+                            'genre' => implode(', ', $genreNames),
                             'rating' => round($item['vote_average'] ?? 0, 1),
                             'api_source' => 'tmdb'
                         ];
@@ -603,6 +724,12 @@ class MediaController extends Controller
                 $gameResponse = json_decode(file_get_contents($gameUrl), true);
                 
                 foreach (array_slice($gameResponse['results'] ?? [], 0, $gameLimit) as $item) {
+                    // Extract genre names from RAWG response
+                    $genreNames = [];
+                    if (!empty($item['genres'])) {
+                        $genreNames = array_column($item['genres'], 'name');
+                    }
+                    
                     $results[] = [
                         'id' => "rawg_game_{$item['id']}",
                         'title' => $item['name'],
@@ -610,6 +737,7 @@ class MediaController extends Controller
                         'image' => $item['background_image'] ?? '',
                         'category' => 'game',
                         'overview' => $item['description_raw'] ?? '',
+                        'genre' => implode(', ', $genreNames),
                         'rating' => round($item['rating'] ?? 0, 1),
                         'api_source' => 'rawg'
                     ];
@@ -994,6 +1122,52 @@ class MediaController extends Controller
             'count' => $duplicates->count(),
             'category' => $category
         ]);
+    }
+
+    /**
+     * Extract genres from description/overview text
+     */
+    private function extractGenresFromDescription($description)
+    {
+        if (empty($description)) {
+            return [];
+        }
+        
+        $genreKeywords = [
+            'Action' => ['action', 'fight', 'battle', 'adventure', 'thriller', 'martial arts', 'champion', 'defend', 'combat', 'war'],
+            'Comedy' => ['comedy', 'funny', 'humor', 'comic', 'laugh', 'joke', 'satire'],
+            'Drama' => ['drama', 'dramatic', 'emotional', 'serious', 'tragedy', 'melodrama'],
+            'Horror' => ['horror', 'scary', 'frightening', 'terror', 'monster', 'ghost', 'zombie', 'vampire'],
+            'Romance' => ['romance', 'love', 'romantic', 'relationship', 'couple', 'dating'],
+            'Mystery' => ['mystery', 'detective', 'investigation', 'crime', 'suspense', 'thriller', 'murder'],
+            'Sci-Fi' => ['sci-fi', 'science fiction', 'futuristic', 'space', 'alien', 'extraterrestrial', 'robot', 'cyberpunk'],
+            'Fantasy' => ['fantasy', 'magic', 'supernatural', 'wizard', 'fairy tale', 'mythical', 'magical'],
+            'Thriller' => ['thriller', 'suspense', 'tense', 'edge-of-seat', 'psychological'],
+            'Documentary' => ['documentary', 'real', 'factual', 'educational', 'biography'],
+            'Animation' => ['animation', 'animated', 'cartoon', 'anime', 'animated series'],
+            'Adventure' => ['adventure', 'journey', 'quest', 'exploration', 'expedition'],
+            'Crime' => ['crime', 'criminal', 'gangster', 'heist', 'police', 'detective'],
+            'Family' => ['family', 'children', 'kids', 'family-friendly', 'parent'],
+            'History' => ['history', 'historical', 'period', 'ancient', 'medieval'],
+            'War' => ['war', 'military', 'soldier', 'battlefield', 'conflict'],
+            'Western' => ['western', 'cowboy', 'frontier', 'wild west'],
+            'Musical' => ['musical', 'music', 'song', 'dance', 'concert'],
+            'Sport' => ['sport', 'sports', 'athlete', 'competition', 'game', 'tournament']
+        ];
+        
+        $foundGenres = [];
+        $lowerDesc = strtolower($description);
+        
+        foreach ($genreKeywords as $genre => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (strpos($lowerDesc, $keyword) !== false) {
+                    $foundGenres[] = $genre;
+                    break; // Only add each genre once
+                }
+            }
+        }
+        
+        return array_unique($foundGenres);
     }
 
     /**

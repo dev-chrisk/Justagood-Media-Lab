@@ -34,6 +34,14 @@ export const healthCheck = async () => {
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
   
+  console.log('🔍 API Request Debug:', {
+    url: config.url,
+    method: config.method,
+    hasToken: !!token,
+    tokenPreview: token ? `${token.substring(0, 20)}...` : 'none',
+    headers: config.headers
+  })
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -148,6 +156,41 @@ export const authApi = {
     return response.data
   },
 
+  async adminSetup() {
+    try {
+      const response = await api.post('/admin-setup')
+      return response.data
+    } catch (error) {
+      // Check if it's a server error (500)
+      if (error.response?.status === 500) {
+        let errorMessage = 'Server-Fehler (500). Bitte versuchen Sie es später erneut.'
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage = `Server-Fehler: ${error.response.data}`
+          } else if (error.response.data.message) {
+            errorMessage = `Server-Fehler: ${error.response.data.message}`
+          } else if (error.response.data.error) {
+            errorMessage = `Server-Fehler: ${error.response.data.error}`
+          }
+        }
+        throw new Error(errorMessage)
+      }
+      
+      // Check if it's a network error
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.')
+      }
+      
+      // Check if it's a timeout
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Server antwortet nicht. Bitte versuchen Sie es später erneut.')
+      }
+      
+      // For other errors, re-throw with original message
+      throw error
+    }
+  }
+
 }
 
 // Media API - using the same endpoints as the original application
@@ -257,14 +300,18 @@ export const mediaApi = {
       const response = await api.delete(`/media/${id}`)
       return response.data
     } catch (error) {
-      // Handle 404 silently - item doesn't exist, which is fine for delete operations
+      // Handle 404 - item doesn't exist, which is fine for delete operations
       if (error.response?.status === 404) {
+        // Don't log 404 errors to console - they're expected for delete operations
         const notFoundError = new Error(`Media item with ID ${id} not found`)
         notFoundError.response = error.response
+        notFoundError.isNotFound = true // Add flag to identify 404 errors
+        notFoundError.silent = true // Mark as silent error
         throw notFoundError
       }
       
       // Log other errors
+      console.error('Delete API error:', error)
       
       // Provide more specific error messages for other errors
       if (error.response?.status === 403) {
@@ -279,9 +326,12 @@ export const mediaApi = {
 
   async batchAddMediaItems(items) {
     try {
+      console.log('🔍 DEBUG: Attempting batch add with items:', items)
       const response = await api.post('/media/batch-add', { items })
+      console.log('🔍 DEBUG: Batch add response:', response.data)
       return response.data
     } catch (error) {
+      console.error('🔍 DEBUG: Batch add error:', error)
       throw error
     }
   },
@@ -413,7 +463,12 @@ export const mediaApi = {
       if (itemData.watchlistType !== undefined) {
         transformedData.watchlist_type = itemData.watchlistType
       }
-      
+      if (itemData.imageUrl !== undefined) {
+        transformedData.image_url = itemData.imageUrl
+      }
+      if (itemData.path !== undefined) {
+        transformedData.path = itemData.path
+      }
       
       const response = await api.put(`/media/${id}`, transformedData)
       return response.data

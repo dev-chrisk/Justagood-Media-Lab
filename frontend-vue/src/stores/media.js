@@ -213,6 +213,9 @@ export const useMediaStore = defineStore('media', () => {
   }
 
   async function addMediaItem(itemData) {
+    // Clear any existing error when starting a new save operation
+    error.value = null
+    
     try {
       const token = localStorage.getItem('authToken')
       const user = localStorage.getItem('currentUser')
@@ -225,6 +228,15 @@ export const useMediaStore = defineStore('media', () => {
           await loadMedia()
           return newItem
         } catch (apiError) {
+          // Handle duplicate error specifically - don't set error in store
+          if (apiError.response?.status === 409 && apiError.response?.data?.duplicate) {
+            const duplicateError = new Error(apiError.response.data.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.')
+            duplicateError.isDuplicate = true
+            throw duplicateError
+          }
+          
+          // For other errors, set error in store and log
+          error.value = apiError.message || 'Failed to add media item'
           console.error('API save failed for logged in user:', apiError)
           throw apiError
         }
@@ -242,12 +254,15 @@ export const useMediaStore = defineStore('media', () => {
         return newItem
       }
     } catch (err) {
-      error.value = err.message || 'Failed to add media item'
+      // Re-throw the error - error handling is done in the specific API catch blocks
       throw err
     }
   }
 
   async function updateMediaItem(id, itemData) {
+    // Clear any existing error when starting a new update operation
+    error.value = null
+    
     try {
       const token = localStorage.getItem('authToken')
       const user = localStorage.getItem('currentUser')
@@ -274,7 +289,10 @@ export const useMediaStore = defineStore('media', () => {
         throw new Error('Media item not found')
       }
     } catch (err) {
-      error.value = err.message || 'Failed to update media item'
+      // Don't set error for duplicate errors - they should be handled in the modal
+      if (!err.isDuplicate) {
+        error.value = err.message || 'Failed to update media item'
+      }
       throw err
     }
   }
@@ -292,6 +310,15 @@ export const useMediaStore = defineStore('media', () => {
           await loadMedia()
           return true
         } catch (apiError) {
+          // If it's a 404 error, the item doesn't exist, so we should still refresh the data
+          // and consider the deletion successful (item is already gone)
+          if (apiError.response?.status === 404 || apiError.isNotFound) {
+            // Silent handling - no console output for expected 404s
+            await loadMedia()
+            return true
+          }
+          
+          // Log other errors
           console.error('API delete failed for logged in user:', apiError)
           throw apiError
         }

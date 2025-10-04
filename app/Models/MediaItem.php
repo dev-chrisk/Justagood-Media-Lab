@@ -24,6 +24,7 @@ class MediaItem extends Model
         'description', // New field for storing descriptions separately from genre
         'link',
         'path',
+        'image_url', // Direct image URL field
         'discovered',
         'spielzeit',
         'is_airing',
@@ -49,7 +50,14 @@ class MediaItem extends Model
     protected function imageUrl(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->path ? asset('storage/' . $this->path) : null,
+            get: function () {
+                // If image_url is set directly, use it
+                if (isset($this->attributes['image_url']) && $this->attributes['image_url']) {
+                    return $this->attributes['image_url'];
+                }
+                // Otherwise, use path as before
+                return $this->path ? asset('storage/' . $this->path) : null;
+            },
         );
     }
 

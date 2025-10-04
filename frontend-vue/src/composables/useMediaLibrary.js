@@ -217,12 +217,6 @@ export function useMediaLibrary() {
   }
 
   const setCategory = (category) => {
-    // Special handling for books category - navigate to books page
-    if (category === 'buecher') {
-      navigateToBooks()
-      return
-    }
-    
     mediaStore.setCategory(category)
     mobileSidebarOpen.value = false
   }
@@ -270,27 +264,14 @@ export function useMediaLibrary() {
   }
 
   const handleBulkAddItems = async (items) => {
-    try {
-      const result = await mediaStore.batchAddMediaItems(items)
-      
-      // Show success message
-      if (result.success) {
-        const { created, failed } = result.stats
-        let message = `Successfully added ${created} items`
-        if (failed > 0) {
-          message += ` (${failed} failed)`
-        }
-        messageStore.showSuccess(message, 'Bulk Add Successful')
-      }
-      
-      closeBulkAddModal()
-    } catch (error) {
-      console.error('Bulk add failed:', error)
-      messageStore.showError('Failed to add items: ' + (error.message || 'Unknown error'), 'Bulk Add Failed')
-    }
+    // This function is no longer used - the new BulkAddModal handles everything internally
+    // Keeping for backward compatibility but not used
+    console.log('handleBulkAddItems called but not used in new workflow')
   }
 
   const handleSaveItem = async (itemData) => {
+    // This function is now handled directly in EditModal
+    // Keeping for backward compatibility but not used
     if (editingItem.value) {
       await mediaStore.updateMediaItem(editingItem.value.id, itemData)
     } else {
@@ -302,13 +283,15 @@ export function useMediaLibrary() {
   const handleDeleteItem = async (item) => {
     try {
       await mediaStore.deleteMediaItem(item.id)
+      // If we get here, deletion was successful (even if item was already gone)
+      // No console output needed for successful operations
     } catch (error) {
       // Only show error to user if it's not a 404 (item not found)
-      if (error.response?.status !== 404) {
+      if (error.response?.status !== 404 && !error.silent) {
         console.error('Delete failed:', error)
         messageStore.showError('Failed to delete item: ' + (error.message || 'Unknown error'), 'Delete Failed')
       }
-      // For 404 errors, we silently handle them in the store
+      // For 404 errors, silently continue - item was already gone
     }
   }
 
@@ -557,11 +540,6 @@ export function useMediaLibrary() {
   }
 
   // Navigation functions
-  const navigateToBooks = () => {
-    console.log('📚 Navigating to books...')
-    router.push('/books')
-  }
-
   const navigateToStatistics = () => {
     router.push('/statistics')
   }
@@ -656,7 +634,6 @@ export function useMediaLibrary() {
     downloadFile,
     deleteAllInCategory,
     getCategoryDisplayName,
-    navigateToBooks,
     navigateToStatistics,
     navigateToCalendar,
     navigateToFeatures,

@@ -36,6 +36,10 @@
         {{ item.genre }}
       </div>
       
+      <div v-if="item.description" class="media-description">
+        {{ item.description }}
+      </div>
+      
       <div v-if="item.isAiring" class="media-airing">
         <span class="airing-badge">
           <span class="airing-dot"></span>
@@ -562,12 +566,30 @@ export default {
   overflow: hidden;
 }
 
+.media-description {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+  font-style: italic;
+}
+
 /* Optimize platform/genre info for mobile 3-column layout */
 @media (max-width: 768px) {
   .media-platforms,
   .media-genre {
     font-size: 10px;
     margin-bottom: 3px;
+  }
+  
+  .media-description {
+    font-size: 9px;
+    margin-bottom: 3px;
+    -webkit-line-clamp: 1;
   }
 }
 
@@ -577,12 +599,22 @@ export default {
     font-size: 9px;
     margin-bottom: 2px;
   }
+  
+  .media-description {
+    font-size: 8px;
+    margin-bottom: 2px;
+  }
 }
 
 @media (max-width: 360px) {
   .media-platforms,
   .media-genre {
     font-size: 8px;
+    margin-bottom: 2px;
+  }
+  
+  .media-description {
+    font-size: 7px;
     margin-bottom: 2px;
   }
 }

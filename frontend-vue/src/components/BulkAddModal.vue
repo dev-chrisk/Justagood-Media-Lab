@@ -7,113 +7,228 @@
       </div>
       
       <div class="modal-body">
-        <div class="bulk-add-form">
-          <div class="form-group">
-            <label for="category">Category *</label>
-            <select id="category" v-model="bulkData.category" required>
-              <option value="">Select Category</option>
-              <option value="game">Game</option>
-              <option value="series">Series</option>
-              <option value="movie">Movie</option>
-              <option value="buecher">Bücher</option>
-              <option value="watchlist">Watchlist</option>
-            </select>
+        <!-- Step 1: Input List -->
+        <div v-if="currentStep === 1" class="step-container">
+          <div class="step-header">
+            <div class="step-number">1</div>
+            <h3>Enter Your List</h3>
           </div>
           
-          <div class="form-group">
-            <label for="items-text">Items (one per line) *</label>
-            <textarea 
-              id="items-text"
-              v-model="bulkData.itemsText"
-              placeholder="Enter items one per line, for example:&#10;The Witcher 3&#10;Cyberpunk 2077&#10;Red Dead Redemption 2"
-              rows="10"
-              required
-            ></textarea>
-            <small class="help-text">Enter one item per line. The system will automatically search the API for each title and use the official names, images, and details. You can add additional info using: Title | Additional Info</small>
-          </div>
-          
-          <div class="form-group">
-            <label for="default-rating">Default Rating</label>
-            <input 
-              id="default-rating"
-              v-model.number="bulkData.defaultRating"
-              type="number"
-              min="0"
-              max="10"
-              step="0.1"
-              placeholder="Optional rating for all items"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="default-platforms">Default Platforms</label>
-            <input 
-              id="default-platforms"
-              v-model="bulkData.defaultPlatforms"
-              type="text"
-              placeholder="e.g., PC, PS5, Xbox"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="default-genre">Default Genre</label>
-            <input 
-              id="default-genre"
-              v-model="bulkData.defaultGenre"
-              type="text"
-              placeholder="e.g., Action, Adventure, RPG"
-            />
+          <div class="bulk-add-form">
+            <div class="form-group">
+              <label for="category">Category *</label>
+              <select id="category" v-model="bulkData.category" required>
+                <option value="">Select Category</option>
+                <option value="game">Game</option>
+                <option value="series">Series</option>
+                <option value="movie">Movie</option>
+                <option value="buecher">Bücher</option>
+                <option value="watchlist">Watchlist</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="items-text">Items (one per line) *</label>
+              <textarea 
+                id="items-text"
+                v-model="bulkData.itemsText"
+                placeholder="Enter items one per line, for example:&#10;The Witcher 3&#10;Cyberpunk 2077&#10;Red Dead Redemption 2"
+                rows="10"
+                required
+              ></textarea>
+              <small class="help-text">Enter one item per line. The system will automatically search and add each item individually.</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="default-rating">Default Rating</label>
+              <input 
+                id="default-rating"
+                v-model.number="bulkData.defaultRating"
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                placeholder="Optional rating for all items"
+              />
+            </div>
           </div>
         </div>
-        
-        <div v-if="isSearching" class="search-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: searchProgress + '%' }"></div>
+
+        <!-- Step 2: Processing -->
+        <div v-if="currentStep === 2" class="step-container">
+          <div class="step-header">
+            <div class="step-number">2</div>
+            <h3>Processing Items</h3>
           </div>
-          <span class="progress-text">Searching API for {{ previewItems ? previewItems.length : 0 }} items... {{ searchProgress }}%</span>
-        </div>
-        
-        <div v-if="previewItems && previewItems.length > 0 && !isSearching" class="preview-section">
-          <h3>Preview ({{ previewItems.length }} items)</h3>
-          <div class="preview-list">
-            <div 
-              v-for="(item, index) in previewItems.slice(0, 10)" 
-              :key="index"
-              class="preview-item"
-              :class="{ 'has-api-data': item.hasApiData }"
-            >
-              <div class="item-main">
-                <span class="item-title">{{ item.title }}</span>
-                <span v-if="item.hasApiData" class="api-badge">✓ API</span>
-                <span v-else class="manual-badge">Manual</span>
+          
+          <div class="processing-container">
+            <div class="progress-overview">
+              <div class="progress-stats">
+                <span class="stat">
+                  <span class="stat-number">{{ processedCount }}</span>
+                  <span class="stat-label">Processed</span>
+                </span>
+                <span class="stat">
+                  <span class="stat-number">{{ addedCount }}</span>
+                  <span class="stat-label">Added</span>
+                </span>
+                <span class="stat">
+                  <span class="stat-number">{{ skippedCount }}</span>
+                  <span class="stat-label">Skipped</span>
+                </span>
+                <span class="stat">
+                  <span class="stat-number">{{ errorCount }}</span>
+                  <span class="stat-label">Errors</span>
+                </span>
               </div>
-              <div v-if="item.additionalInfo" class="item-info">
-                | {{ item.additionalInfo }}
+              
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
               </div>
-              <div v-if="item.apiData" class="item-details">
-                <small v-if="item.apiData.release" class="item-release">{{ item.apiData.release }}</small>
-                <small v-if="item.apiData.rating" class="item-rating">⭐ {{ item.apiData.rating }}</small>
-                <small v-if="item.apiData.genre" class="item-genre">{{ item.apiData.genre }}</small>
+              <div class="progress-text">{{ progressPercentage }}% Complete</div>
+            </div>
+            
+            <div class="current-item">
+              <div class="current-item-header">
+                <span class="current-item-title">Processing: {{ currentItem?.title || '...' }}</span>
+                <span class="current-item-status" :class="currentItemStatus">
+                  {{ currentItemStatusText }}
+                </span>
+              </div>
+              <div v-if="currentItem?.description" class="current-item-description">
+                {{ currentItem.description }}
+              </div>
+              <div v-if="currentItemStatus === 'found'" class="api-data-indicator">
+                ✅ Real API data found with image and metadata
+              </div>
+              <div v-if="currentItemStatus === 'skipped'" class="no-api-indicator">
+                ❌ No API data found - will be retried
               </div>
             </div>
-            <div v-if="previewItems && previewItems.length > 10" class="preview-more">
-              ... and {{ previewItems.length - 10 }} more items
+            
+            <div class="results-list">
+              <div 
+                v-for="(result, index) in processingResults" 
+                :key="index"
+                class="result-item"
+                :class="result.status"
+              >
+                <div class="result-header">
+                  <span class="result-title">{{ result.title }}</span>
+                  <span class="result-status">{{ result.statusText }}</span>
+                </div>
+                <div v-if="result.message" class="result-message">{{ result.message }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Results -->
+        <div v-if="currentStep === 3" class="step-container">
+          <div class="step-header">
+            <div class="step-number">3</div>
+            <h3>Results</h3>
+          </div>
+          
+          <div class="results-summary">
+            <div class="summary-stats">
+              <div class="summary-stat success">
+                <span class="stat-number">{{ addedCount }}</span>
+                <span class="stat-label">Successfully Added</span>
+              </div>
+              <div class="summary-stat warning">
+                <span class="stat-number">{{ skippedCount }}</span>
+                <span class="stat-label">Not Found (Ready for Retry)</span>
+              </div>
+              <div class="summary-stat error">
+                <span class="stat-number">{{ errorCount }}</span>
+                <span class="stat-label">Errors</span>
+              </div>
+            </div>
+            
+            <div v-if="skippedItems.length > 0" class="retry-section">
+              <h4>Items Not Found - Ready for Retry</h4>
+              <p class="retry-description">
+                The following items were not found in the API. You can edit them and try again:
+              </p>
+              <div class="retry-list">
+                <div 
+                  v-for="(item, index) in skippedItems" 
+                  :key="index"
+                  class="retry-item"
+                >
+                  <input 
+                    v-model="item.searchTerm"
+                    class="retry-input"
+                    placeholder="Edit search term..."
+                  />
+                  <span v-if="item.additionalInfo" class="retry-additional">
+                    | {{ item.additionalInfo }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="processingResults.length > 0" class="detailed-results">
+              <h4>Detailed Results</h4>
+              <div class="results-list">
+                <div 
+                  v-for="(result, index) in processingResults" 
+                  :key="index"
+                  class="result-item"
+                  :class="result.status"
+                >
+                  <div class="result-header">
+                    <span class="result-title">{{ result.title }}</span>
+                    <span class="result-status">{{ result.statusText }}</span>
+                  </div>
+                  <div v-if="result.message" class="result-message">{{ result.message }}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
       
       <div class="modal-footer">
-        <button class="btn btn-secondary" @click="closeModal">Cancel</button>
         <button 
-          class="btn btn-primary" 
-          @click="saveBulkItems"
-          :disabled="!canSave || loading"
+          v-if="currentStep === 1" 
+          class="btn btn-secondary" 
+          @click="closeModal"
         >
-          <span v-if="loading">Adding {{ previewItems ? previewItems.length : 0 }} items...</span>
-          <span v-else-if="isSearching">Searching API...</span>
-          <span v-else>Add {{ previewItems ? previewItems.length : 0 }} Items</span>
+          Cancel
         </button>
+        <button 
+          v-if="currentStep === 1" 
+          class="btn btn-primary" 
+          @click="startProcessing"
+          :disabled="!canStart"
+        >
+          Check All and Add
+        </button>
+        <button 
+          v-if="currentStep === 2" 
+          class="btn btn-secondary" 
+          @click="cancelProcessing"
+          :disabled="!canCancel"
+        >
+          Cancel
+        </button>
+        <div v-if="currentStep === 3" class="footer-buttons">
+          <button 
+            v-if="skippedItems.length > 0"
+            class="btn btn-warning" 
+            @click="retrySkippedItems"
+          >
+            Retry {{ skippedItems.length }} Items
+          </button>
+          <button 
+            class="btn btn-primary" 
+            @click="closeModal"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -122,6 +237,7 @@
 <script>
 import { ref, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
+import { useMediaStore } from '@/stores/media'
 
 export default {
   name: 'BulkAddModal',
@@ -135,26 +251,50 @@ export default {
       default: ''
     }
   },
-  emits: ['close', 'save'],
+  emits: ['close'],
   setup(props, { emit }) {
-    const loading = ref(false)
-    const error = ref(null)
-    const searchProgress = ref(0)
-    const searchResults = ref([])
-    const isSearching = ref(false)
+    const mediaStore = useMediaStore()
     
+    // State
+    const currentStep = ref(1)
+    const isProcessing = ref(false)
+    const canCancel = ref(true)
+    
+    // Processing state
+    const processedCount = ref(0)
+    const addedCount = ref(0)
+    const skippedCount = ref(0)
+    const errorCount = ref(0)
+    const currentItem = ref(null)
+    const currentItemStatus = ref('')
+    const currentItemStatusText = ref('')
+    const processingResults = ref([])
+    const skippedItems = ref([])
+    
+    // Form data
     const bulkData = ref({
       category: '',
       itemsText: '',
-      defaultRating: null,
-      defaultPlatforms: '',
-      defaultGenre: ''
+      defaultRating: null
     })
     
-    const previewItems = computed(() => {
+    // Computed
+    const canStart = computed(() => {
+      return bulkData.value.category && 
+             bulkData.value.itemsText.trim() && 
+             !isProcessing.value
+    })
+    
+    const progressPercentage = computed(() => {
+      const total = getItemList().length
+      return total > 0 ? Math.round((processedCount.value / total) * 100) : 0
+    })
+    
+    // Helper functions
+    const getItemList = () => {
       if (!bulkData.value.itemsText || !bulkData.value.itemsText.trim()) return []
       
-      const rawItems = bulkData.value.itemsText
+      return bulkData.value.itemsText
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0)
@@ -165,223 +305,270 @@ export default {
             additionalInfo: parts[1] || null
           }
         })
-      
-      // If we have search results, merge them with the raw items
-      if (searchResults.value && searchResults.value.length > 0) {
-        return rawItems.map((item, index) => {
-          const searchResult = searchResults.value[index]
-          return {
-            searchTerm: item.searchTerm,
-            additionalInfo: item.additionalInfo,
-            title: searchResult?.title || item.searchTerm,
-            apiData: searchResult || null,
-            hasApiData: !!searchResult
-          }
-        })
-      }
-      
-      // Fallback to search terms as titles
-      return rawItems.map(item => ({
-        searchTerm: item.searchTerm,
-        additionalInfo: item.additionalInfo,
-        title: item.searchTerm,
-        apiData: null,
-        hasApiData: false
-      }))
-    })
+    }
     
-    const canSave = computed(() => {
-      return bulkData.value.category && 
-             bulkData.value.itemsText.trim() && 
-             previewItems.value && 
-             previewItems.value.length > 0 &&
-             !isSearching.value
-    })
+    const resetProcessing = () => {
+      processedCount.value = 0
+      addedCount.value = 0
+      skippedCount.value = 0
+      errorCount.value = 0
+      currentItem.value = null
+      currentItemStatus.value = ''
+      currentItemStatusText.value = ''
+      processingResults.value = []
+      skippedItems.value = []
+    }
+    
+    const updateCurrentItem = (item, status, statusText) => {
+      currentItem.value = item
+      currentItemStatus.value = status
+      currentItemStatusText.value = statusText
+    }
+    
+    const addResult = (title, status, message = '') => {
+      const statusText = {
+        'searching': 'Searching...',
+        'found': 'Found',
+        'adding': 'Adding...',
+        'added': 'Added',
+        'skipped': 'Skipped',
+        'error': 'Error'
+      }[status] || status
+      
+      processingResults.value.push({
+        title,
+        status,
+        statusText,
+        message
+      })
+    }
+    
+    // Main processing function
+    const startProcessing = async () => {
+      if (!canStart.value) return
+      
+      currentStep.value = 2
+      isProcessing.value = true
+      canCancel.value = true
+      resetProcessing()
+      
+      const items = getItemList()
+      
+      try {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i]
+          processedCount.value = i + 1
+          
+          // Update current item status
+          updateCurrentItem(
+            { title: item.searchTerm, description: item.additionalInfo },
+            'searching',
+            'Searching...'
+          )
+          
+          try {
+            // Step 1: Search for the item
+            addResult(item.searchTerm, 'searching', 'Searching API...')
+            
+            console.log(`🔍 Searching for: "${item.searchTerm}" in category: ${bulkData.value.category}`)
+            const searchResults = await mediaApi.searchApi(item.searchTerm, bulkData.value.category, 1)
+            console.log(`🔍 Search results for "${item.searchTerm}":`, searchResults)
+            
+            // Check if we have real API data (not just empty results)
+            const hasRealApiData = searchResults && 
+                                 searchResults.length > 0 && 
+                                 searchResults[0] && 
+                                 searchResults[0].api_source && 
+                                 searchResults[0].image
+            
+            if (hasRealApiData) {
+              // Item found in API with real data
+              const apiResult = searchResults[0]
+              
+              console.log(`✅ Found real API data for "${item.searchTerm}":`, {
+                title: apiResult.title,
+                api_source: apiResult.api_source,
+                has_image: !!apiResult.image,
+                has_genre: !!apiResult.genre,
+                has_release: !!apiResult.release
+              })
+              
+              updateCurrentItem(
+                { 
+                  title: apiResult.title, 
+                  description: `Found: ${apiResult.genre || 'Unknown genre'} • ${apiResult.release || 'Unknown year'} • ${apiResult.api_source}` 
+                },
+                'found',
+                'Found in API with data'
+              )
+              
+              addResult(item.searchTerm, 'found', `Found: ${apiResult.title} (${apiResult.api_source})`)
+              
+              // Step 2: Add the item using the same method as EditModal
+              updateCurrentItem(
+                { title: apiResult.title },
+                'adding',
+                'Adding to library...'
+              )
+              
+              const itemData = {
+                title: apiResult.title,
+                category: bulkData.value.category,
+                release: apiResult.release || null,
+                rating: apiResult.rating ? Math.round(apiResult.rating) : bulkData.value.defaultRating || null,
+                platforms: apiResult.platforms || null,
+                genre: apiResult.genre || null,
+                link: apiResult.link || null,
+                path: apiResult.image || null,
+                external_id: apiResult.id || null,
+                count: 1,
+                is_airing: false,
+                spielzeit: 0,
+                description: item.additionalInfo || null
+              }
+              
+              // Use the same add method as EditModal
+              await mediaStore.addMediaItem(itemData)
+              
+              addedCount.value++
+              updateCurrentItem(
+                { title: apiResult.title },
+                'added',
+                'Successfully added with API data'
+              )
+              
+              addResult(item.searchTerm, 'added', `Added: ${apiResult.title} with API data`)
+              
+            } else {
+              // Item not found in API or no real data - add to skipped items for retry
+              console.log(`❌ No real API data found for "${item.searchTerm}"`)
+              
+              updateCurrentItem(
+                { title: item.searchTerm },
+                'skipped',
+                'No API data found - will retry'
+              )
+              
+              skippedItems.value.push({
+                searchTerm: item.searchTerm,
+                additionalInfo: item.additionalInfo
+              })
+              
+              skippedCount.value++
+              addResult(item.searchTerm, 'skipped', 'No API data found - ready for retry')
+            }
+            
+          } catch (error) {
+            // Error occurred during processing
+            console.error(`Error processing "${item.searchTerm}":`, error)
+            
+            updateCurrentItem(
+              { title: item.searchTerm },
+              'error',
+              'Error occurred'
+            )
+            
+            errorCount.value++
+            addResult(item.searchTerm, 'error', error.message || 'Unknown error')
+          }
+          
+          // Small delay to prevent overwhelming the API and show progress
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+        
+        // Processing complete
+        currentStep.value = 3
+        updateCurrentItem(null, '', '')
+        
+      } catch (error) {
+        console.error('Bulk processing error:', error)
+        errorCount.value++
+      } finally {
+        isProcessing.value = false
+        canCancel.value = false
+      }
+    }
+    
+    const cancelProcessing = () => {
+      isProcessing.value = false
+      canCancel.value = false
+      currentStep.value = 1
+      resetProcessing()
+    }
+    
+    const retrySkippedItems = () => {
+      // Convert skipped items back to text format
+      const retryText = skippedItems.value
+        .map(item => {
+          if (item.additionalInfo) {
+            return `${item.searchTerm} | ${item.additionalInfo}`
+          }
+          return item.searchTerm
+        })
+        .join('\n')
+      
+      // Update the form with retry items
+      bulkData.value.itemsText = retryText
+      
+      // Reset processing state but keep the skipped items for reference
+      processedCount.value = 0
+      addedCount.value = 0
+      errorCount.value = 0
+      currentItem.value = null
+      currentItemStatus.value = ''
+      currentItemStatusText.value = ''
+      processingResults.value = []
+      
+      // Go back to step 1
+      currentStep.value = 1
+    }
     
     const closeModal = () => {
-      // Clear any error when closing modal
-      error.value = null
+      // Reset everything when closing
+      currentStep.value = 1
+      isProcessing.value = false
+      canCancel.value = true
+      resetProcessing()
+      
+      // Reset form
+      bulkData.value = {
+        category: '',
+        itemsText: '',
+        defaultRating: null
+      }
+      
       emit('close')
     }
     
-    
-    const searchApiData = async () => {
-      if (!bulkData.value.category || !bulkData.value.itemsText || !bulkData.value.itemsText.trim()) return
-      
-      isSearching.value = true
-      searchProgress.value = 0
-      searchResults.value = []
-      error.value = null
-      
-      try {
-        const rawItems = bulkData.value.itemsText
-          .split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0)
-          .map(line => line.split('|')[0].trim()) // Only use the first part before |
-        
-        const results = []
-        
-        for (let i = 0; i < rawItems.length; i++) {
-          const searchTerm = rawItems[i]
-          searchProgress.value = Math.round(((i + 1) / rawItems.length) * 100)
-          
-          try {
-            // Search for the item using the API
-            const searchResults = await mediaApi.searchApi(searchTerm, bulkData.value.category, 1)
-            
-            if (searchResults && searchResults.length > 0) {
-              // Use the first search result
-              const result = searchResults[0]
-              results.push({
-                title: result.title,
-                release: result.release,
-                rating: result.rating ? Math.round(result.rating) : null,
-                platforms: result.platforms || bulkData.value.defaultPlatforms,
-                genre: result.genre || bulkData.value.defaultGenre,
-                link: result.link,
-                path: result.image, // This will be the image URL
-                external_id: result.id,
-                api_source: result.api_source
-              })
-            } else {
-              // No API result found, use search term as title
-              results.push({
-                title: searchTerm,
-                release: null,
-                rating: bulkData.value.defaultRating,
-                platforms: bulkData.value.defaultPlatforms,
-                genre: bulkData.value.defaultGenre,
-                link: null,
-                path: null,
-                external_id: null,
-                api_source: null
-              })
-            }
-          } catch (searchError) {
-            console.warn(`Search failed for "${searchTerm}":`, searchError)
-            // Fallback to search term as title
-            results.push({
-              title: searchTerm,
-              release: null,
-              rating: bulkData.value.defaultRating,
-              platforms: bulkData.value.defaultPlatforms,
-              genre: bulkData.value.defaultGenre,
-              link: null,
-              path: null,
-              external_id: null,
-              api_source: null
-            })
-          }
-          
-          // Small delay to prevent overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 200))
-        }
-        
-        searchResults.value = results || []
-        
-      } catch (err) {
-        error.value = 'Failed to search API data: ' + (err.message || 'Unknown error')
-        console.error('API search error:', err)
-      } finally {
-        isSearching.value = false
-        searchProgress.value = 100
-      }
-    }
-    
-    const saveBulkItems = async () => {
-      if (!canSave.value || !previewItems.value) return
-      
-      loading.value = true
-      error.value = null
-      
-      try {
-        const items = previewItems.value.map(item => {
-          // Use API data if available, otherwise use form data
-          const apiData = item.apiData
-          
-          return {
-            title: item.title,
-            category: bulkData.value.category,
-            release: apiData?.release || null,
-            rating: apiData?.rating || bulkData.value.defaultRating || null,
-            platforms: apiData?.platforms || bulkData.value.defaultPlatforms || null,
-            genre: apiData?.genre || bulkData.value.defaultGenre || null,
-            link: apiData?.link || null,
-            path: apiData?.path || null, // This will be the image URL
-            external_id: apiData?.external_id || null,
-            count: 0,
-            is_airing: false,
-            spielzeit: 0
-          }
-        })
-        
-        emit('save', items)
-        
-        // Reset form
-        bulkData.value = {
-          category: '',
-          itemsText: '',
-          defaultRating: null,
-          defaultPlatforms: '',
-          defaultGenre: ''
-        }
-        searchResults.value = []
-        
-      } catch (err) {
-        error.value = err.message || 'Failed to add items'
-        console.error('Bulk add error:', err)
-      } finally {
-        loading.value = false
-      }
-    }
-    
-    // Auto-search when category and items are provided
-    watch([() => bulkData.value.category, () => bulkData.value.itemsText], 
-      ([newCategory, newItemsText]) => {
-        if (newCategory && newItemsText && newItemsText.trim() && !isSearching.value) {
-          // Small delay to prevent too many API calls while typing
-          setTimeout(() => {
-            if (bulkData.value.category === newCategory && 
-                bulkData.value.itemsText === newItemsText && 
-                !isSearching.value) {
-              searchApiData()
-            }
-          }, 1000) // 1 second delay
-        }
-      }
-    )
-
     // Set category when modal opens
     watch(() => props.show, (newVal) => {
       if (newVal && props.currentCategory) {
         bulkData.value.category = props.currentCategory
       } else if (!newVal) {
-        bulkData.value = {
-          category: '',
-          itemsText: '',
-          defaultRating: null,
-          defaultPlatforms: '',
-          defaultGenre: ''
-        }
-        searchResults.value = []
-        error.value = null
-        isSearching.value = false
-        searchProgress.value = 0
+        closeModal()
       }
     })
     
     return {
-      loading,
-      error,
+      currentStep,
+      isProcessing,
+      canCancel,
+      processedCount,
+      addedCount,
+      skippedCount,
+      errorCount,
+      currentItem,
+      currentItemStatus,
+      currentItemStatusText,
+      processingResults,
+      skippedItems,
       bulkData,
-      previewItems,
-      canSave,
-      closeModal,
-      searchApiData,
-      saveBulkItems,
-      isSearching,
-      searchProgress
+      canStart,
+      progressPercentage,
+      startProcessing,
+      cancelProcessing,
+      retrySkippedItems,
+      closeModal
     }
   }
 }
@@ -406,7 +593,7 @@ export default {
   background: #2d2d2d;
   border-radius: 12px;
   width: 100%;
-  max-width: 600px;
+  max-width: 700px;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -446,6 +633,37 @@ export default {
 
 .modal-body {
   padding: 0 24px;
+}
+
+.step-container {
+  min-height: 400px;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1a73e8;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.step-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
 .bulk-add-form {
@@ -498,37 +716,41 @@ export default {
   margin-top: 4px;
 }
 
-.preview-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #404040;
-}
-
-.preview-header {
+.processing-container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.preview-section h3 {
-  margin: 0;
-  color: #ffffff;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.btn-sm {
-  padding: 8px 16px;
-  font-size: 0.8rem;
-  min-width: auto;
-}
-
-.search-progress {
-  margin-bottom: 16px;
-  padding: 12px;
+.progress-overview {
   background: #1a1a1a;
-  border-radius: 6px;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.progress-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-number {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 4px;
 }
 
 .progress-bar {
@@ -548,100 +770,266 @@ export default {
 
 .progress-text {
   color: #999;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
+  text-align: center;
 }
 
-.preview-list {
+.current-item {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #1a73e8;
+}
+
+.current-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.current-item-title {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.current-item-status {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.current-item-status.searching {
+  background: #ff9800;
+  color: white;
+}
+
+.current-item-status.found {
+  background: #4caf50;
+  color: white;
+}
+
+.current-item-status.adding {
+  background: #2196f3;
+  color: white;
+}
+
+.current-item-status.added {
+  background: #4caf50;
+  color: white;
+}
+
+.current-item-status.skipped {
+  background: #ff9800;
+  color: white;
+}
+
+.current-item-status.error {
+  background: #f44336;
+  color: white;
+}
+
+.current-item-description {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.api-data-indicator {
+  color: #4caf50;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #4caf50;
+}
+
+.no-api-indicator {
+  color: #ff9800;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 152, 0, 0.1);
+  border-radius: 4px;
+  border-left: 3px solid #ff9800;
+}
+
+.results-list {
   max-height: 200px;
   overflow-y: auto;
   background: #1a1a1a;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 12px;
 }
 
-.preview-item {
-  padding: 12px 0;
+.result-item {
+  padding: 8px 0;
   border-bottom: 1px solid #333;
   color: #e0e0e0;
   font-size: 0.9rem;
 }
 
-.preview-item:last-child {
+.result-item:last-child {
   border-bottom: none;
 }
 
-.preview-item.has-api-data {
-  background: rgba(26, 115, 232, 0.1);
-  border-radius: 4px;
-  padding: 12px;
-  margin-bottom: 4px;
+.result-item.searching {
+  border-left: 3px solid #ff9800;
+  padding-left: 8px;
 }
 
-.item-main {
+.result-item.found {
+  border-left: 3px solid #4caf50;
+  padding-left: 8px;
+}
+
+.result-item.adding {
+  border-left: 3px solid #2196f3;
+  padding-left: 8px;
+}
+
+.result-item.added {
+  border-left: 3px solid #4caf50;
+  padding-left: 8px;
+}
+
+.result-item.skipped {
+  border-left: 3px solid #ff9800;
+  padding-left: 8px;
+}
+
+.result-item.error {
+  border-left: 3px solid #f44336;
+  padding-left: 8px;
+}
+
+.result-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
   margin-bottom: 4px;
 }
 
-.item-title {
+.result-title {
   font-weight: 500;
   color: #ffffff;
   flex: 1;
 }
 
-.api-badge {
-  background: #1a73e8;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
+.result-status {
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
-.manual-badge {
-  background: #666;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.item-info {
-  color: #999;
-  font-style: italic;
-  margin-bottom: 4px;
-}
-
-.item-details {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.item-details small {
+.result-message {
   color: #999;
   font-size: 0.8rem;
+  margin-left: 8px;
 }
 
-.item-release {
-  color: #4CAF50 !important;
+.results-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.item-rating {
-  color: #FFC107 !important;
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
 }
 
-.item-genre {
-  color: #9C27B0 !important;
-}
-
-.preview-more {
-  padding: 8px 0;
-  color: #999;
-  font-style: italic;
+.summary-stat {
   text-align: center;
+  padding: 20px;
+  border-radius: 8px;
+  background: #1a1a1a;
+}
+
+.summary-stat.success {
+  border-left: 4px solid #4caf50;
+}
+
+.summary-stat.warning {
+  border-left: 4px solid #ff9800;
+}
+
+.summary-stat.error {
+  border-left: 4px solid #f44336;
+}
+
+.detailed-results h4 {
+  margin: 0 0 16px 0;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.retry-section {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 20px;
+  border-left: 4px solid #ff9800;
+}
+
+.retry-section h4 {
+  margin: 0 0 12px 0;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.retry-description {
+  color: #999;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.retry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retry-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #2d2d2d;
+  border-radius: 6px;
+  border: 1px solid #555;
+}
+
+.retry-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.retry-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+}
+
+.retry-additional {
+  color: #999;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.footer-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .modal-footer {
@@ -687,6 +1075,15 @@ export default {
   background: #1557b0;
 }
 
+.btn-warning {
+  background: #ff9800;
+  color: #ffffff;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #f57c00;
+}
+
 @media (max-width: 768px) {
   .modal-content {
     margin: 10px;
@@ -699,6 +1096,10 @@ export default {
     padding-left: 16px;
     padding-right: 16px;
   }
+  
+  .progress-stats,
+  .summary-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>
-

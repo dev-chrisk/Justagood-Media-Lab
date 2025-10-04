@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const userName = computed(() => user.value?.name || '')
   const userEmail = computed(() => user.value?.email || '')
+  const isAdmin = computed(() => user.value?.is_admin || false)
 
   // Actions
   async function login(email, password) {
@@ -126,6 +127,41 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
+  async function adminSetup() {
+    loading.value = true
+    error.value = null
+    
+    try {
+      const response = await authApi.adminSetup()
+      
+      if (response.success) {
+        token.value = response.token
+        user.value = response.user
+        
+        // Save to localStorage
+        localStorage.setItem('authToken', token.value)
+        localStorage.setItem('currentUser', JSON.stringify(user.value))
+        
+        return { 
+          success: true, 
+          user: response.user, 
+          token: response.token
+        }
+      } else {
+        return { 
+          success: false, 
+          message: response.message,
+          admin_count: response.admin_count
+        }
+      }
+    } catch (err) {
+      error.value = err.response?.data?.message || err.message || 'Admin setup failed'
+      return { success: false, error: error.value }
+    } finally {
+      loading.value = false
+    }
+  }
+
   function clearError() {
     error.value = null
   }
@@ -141,6 +177,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoggedIn,
     userName,
     userEmail,
+    isAdmin,
     
     // Actions
     login,
@@ -148,6 +185,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     validateToken,
     initializeAuth,
+    adminSetup,
     clearError
   }
 })

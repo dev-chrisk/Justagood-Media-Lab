@@ -297,18 +297,14 @@ export default {
       error.value = ''
       
       try {
-        const response = await mediaApi.getMedia()
+        const data = await mediaApi.getMedia()
         
-        if (response.success) {
-          // Filter only books from the media data
-          books.value = response.data.filter(item => 
-            item.category === 'buecher' || 
-            item.watchlistType === 'buecher' ||
-            (item.category === 'watchlist' && item.watchlistType === 'buecher')
-          )
-        } else {
-          throw new Error(response.error || 'Failed to load books')
-        }
+        // Filter only books from the media data
+        books.value = data.filter(item => 
+          item.category === 'buecher' || 
+          item.watchlistType === 'buecher' ||
+          (item.category === 'watchlist' && item.watchlistType === 'buecher')
+        )
       } catch (err) {
         error.value = err.message || 'Failed to load books'
       } finally {
@@ -382,19 +378,22 @@ export default {
 
         let response
         if (editingBook.value) {
-          response = await mediaApi.updateMedia(editingBook.value.id, bookData)
+          response = await mediaApi.updateMediaItem(editingBook.value.id, bookData)
         } else {
-          response = await mediaApi.addMedia(bookData)
+          response = await mediaApi.addMediaItem(bookData)
         }
 
-        if (response.success) {
-          await loadBooks()
-          closeModal()
-        } else {
-          throw new Error(response.error || 'Failed to save book')
-        }
+        await loadBooks()
+        closeModal()
       } catch (err) {
-        error.value = err.message || 'Failed to save book'
+        // Handle duplicate error specifically
+        if (err.response?.status === 409 && err.response?.data?.duplicate) {
+          error.value = err.response.data.error || 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
+        } else if (err.isDuplicate) {
+          error.value = err.message
+        } else {
+          error.value = err.message || 'Failed to save book'
+        }
       } finally {
         saving.value = false
       }
