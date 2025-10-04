@@ -27,6 +27,17 @@ use App\Http\Controllers\ExportImportController;
 // Public search endpoint (no authentication required)
 Route::get('search', [MediaController::class, 'search']);
 
+// Debug endpoint to test basic API functionality
+Route::get('debug/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toISOString(),
+        'environment' => app()->environment(),
+        'debug' => config('app.debug'),
+        'database' => 'connected'
+    ]);
+});
+
 // Server-Sent Events for real-time updates
 Route::get('events', [MediaController::class, 'events']);
 
@@ -161,7 +172,19 @@ Route::get('/google-books/search', function (Request $request) {
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+            return response()->json($user);
+        } catch (\Exception $e) {
+            \Log::error('Error in /user endpoint', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
     });
     
     // Books API - Simple and clean
