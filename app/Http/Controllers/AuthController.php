@@ -180,15 +180,23 @@ class AuthController extends Controller
                 ]);
             }
 
+            // Get current DB config for debugging
+            $dbConfig = [
+                'connection' => config('database.default'),
+                'host' => config('database.connections.mysql.host'),
+                'port' => config('database.connections.mysql.port'),
+                'database' => config('database.connections.mysql.database'),
+                'username' => config('database.connections.mysql.username'),
+                'password_length' => strlen(config('database.connections.mysql.password')),
+                'environment' => app()->environment()
+            ];
+
             return response()->json([
                 'success' => $dbStatus === 'connected',
                 'status' => $dbStatus,
                 'user_count' => $userCount,
                 'error' => $error,
-                'connection' => config('database.default'),
-                'host' => config('database.connections.mysql.host'),
-                'database' => config('database.connections.mysql.database'),
-                'environment' => app()->environment(),
+                'config' => $dbConfig,
                 'timestamp' => now()->toISOString()
             ]);
 
