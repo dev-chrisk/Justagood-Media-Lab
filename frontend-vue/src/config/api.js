@@ -9,7 +9,7 @@ function getApiBaseUrl() {
   })
   
   // Check for custom API URL from environment variable first
-  if (import.meta.env.VITE_API_URL) {
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
     console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
     return `${import.meta.env.VITE_API_URL}/api`
   }
@@ -28,7 +28,7 @@ function getApiBaseUrl() {
 
 function getBaseUrl() {
   // Check for custom API URL from environment variable first
-  if (import.meta.env.VITE_API_URL) {
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
     return import.meta.env.VITE_API_URL
   }
   

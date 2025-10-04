@@ -89,18 +89,62 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   async login(email, password) {
-    const response = await api.post('/login', { email, password })
-    return response.data
+    try {
+      const response = await api.post('/login', { email, password })
+      return response.data
+    } catch (error) {
+      console.error('Login failed:', error)
+      
+      // Check if it's a server error (500)
+      if (error.response?.status === 500) {
+        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.')
+      }
+      
+      // Check if it's a network error
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.')
+      }
+      
+      // Check if it's a timeout
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Server antwortet nicht. Bitte versuchen Sie es später erneut.')
+      }
+      
+      // For other errors, re-throw with original message
+      throw error
+    }
   },
 
   async register(name, email, password, passwordConfirm) {
-    const response = await api.post('/register', { 
-      name, 
-      email, 
-      password, 
-      password_confirmation: passwordConfirm 
-    })
-    return response.data
+    try {
+      const response = await api.post('/register', { 
+        name, 
+        email, 
+        password, 
+        password_confirmation: passwordConfirm 
+      })
+      return response.data
+    } catch (error) {
+      console.error('Registration failed:', error)
+      
+      // Check if it's a server error (500)
+      if (error.response?.status === 500) {
+        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.')
+      }
+      
+      // Check if it's a network error
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
+        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.')
+      }
+      
+      // Check if it's a timeout
+      if (error.code === 'ECONNABORTED') {
+        throw new Error('Server antwortet nicht. Bitte versuchen Sie es später erneut.')
+      }
+      
+      // For other errors, re-throw with original message
+      throw error
+    }
   },
 
   async logout() {
