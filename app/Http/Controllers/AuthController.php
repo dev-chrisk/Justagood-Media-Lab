@@ -39,13 +39,25 @@ class AuthController extends Controller
             \Log::info('Login attempt started', [
                 'email' => $request->email,
                 'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
+                'user_agent' => $request->userAgent(),
+                'environment' => app()->environment(),
+                'url' => $request->fullUrl()
             ]);
 
-            $request->validate([
-                'email' => 'required|email',
-                'password' => 'required',
-            ]);
+            // Simple validation without Laravel validation to avoid issues
+            if (empty($request->email) || empty($request->password)) {
+                \Log::warning('Missing credentials', ['email' => $request->email]);
+                return response()->json([
+                    'error' => 'Email and password are required'
+                ], 400);
+            }
+
+            if (!filter_var($request->email, FILTER_VALIDATE_EMAIL)) {
+                \Log::warning('Invalid email format', ['email' => $request->email]);
+                return response()->json([
+                    'error' => 'Invalid email format'
+                ], 400);
+            }
 
             \Log::info('Validation passed, searching for user');
 
@@ -53,18 +65,18 @@ class AuthController extends Controller
 
             if (!$user) {
                 \Log::warning('User not found', ['email' => $request->email]);
-                throw ValidationException::withMessages([
-                    'email' => ['The provided credentials are incorrect.'],
-                ]);
+                return response()->json([
+                    'error' => 'Invalid credentials'
+                ], 401);
             }
 
             \Log::info('User found', ['user_id' => $user->id, 'email' => $user->email]);
 
             if (!Hash::check($request->password, $user->password)) {
                 \Log::warning('Invalid password', ['email' => $request->email]);
-                throw ValidationException::withMessages([
-                    'email' => ['The provided credentials are incorrect.'],
-                ]);
+                return response()->json([
+                    'error' => 'Invalid credentials'
+                ], 401);
             }
 
             \Log::info('Password verified, creating token');

@@ -152,7 +152,26 @@ export const authApi = {
       // Check if it's a server error (500)
       if (error.response?.status === 500) {
         console.log('🔐 API SERVICE: 500 Server Error detected')
-        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.')
+        console.log('🔐 API SERVICE: 500 Error details:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+        
+        // Try to get more specific error information
+        let errorMessage = 'Server-Fehler (500). Bitte versuchen Sie es später erneut.'
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage = `Server-Fehler: ${error.response.data}`
+          } else if (error.response.data.message) {
+            errorMessage = `Server-Fehler: ${error.response.data.message}`
+          } else if (error.response.data.error) {
+            errorMessage = `Server-Fehler: ${error.response.data.error}`
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
       
       // Check if it's a network error
@@ -187,7 +206,27 @@ export const authApi = {
       
       // Check if it's a server error (500)
       if (error.response?.status === 500) {
-        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.')
+        console.log('🔐 API SERVICE: 500 Server Error detected in register')
+        console.log('🔐 API SERVICE: 500 Error details:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          headers: error.response.headers
+        })
+        
+        // Try to get more specific error information
+        let errorMessage = 'Server-Fehler (500). Bitte versuchen Sie es später erneut.'
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage = `Server-Fehler: ${error.response.data}`
+          } else if (error.response.data.message) {
+            errorMessage = `Server-Fehler: ${error.response.data.message}`
+          } else if (error.response.data.error) {
+            errorMessage = `Server-Fehler: ${error.response.data.error}`
+          }
+        }
+        
+        throw new Error(errorMessage)
       }
       
       // Check if it's a network error
