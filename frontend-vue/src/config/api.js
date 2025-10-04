@@ -2,22 +2,44 @@
 // Automatically detects environment and sets appropriate API base URL
 
 function getApiBaseUrl() {
-  console.log('🔧 API Config Debug:', {
+  console.log('🔍 getApiBaseUrl Debug:', {
     VITE_API_URL: import.meta.env.VITE_API_URL,
     DEV: import.meta.env.DEV,
-    MODE: import.meta.env.MODE,
-    NODE_ENV: import.meta.env.NODE_ENV
+    MODE: import.meta.env.MODE
   })
   
-  // Use environment variable or fallback to production URL
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
-  return `${baseUrl}/api`
+  // Check for custom API URL from environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
+    return `${import.meta.env.VITE_API_URL}/api`
+  }
+  
+  // Check if we're in development mode
+  if (import.meta.env.DEV) {
+    console.log('📍 Using development mode - proxy')
+    // Development mode - use relative URL for Vite proxy
+    return '/api'
+  } else {
+    console.log('📍 Using production mode')
+    // Production mode - use the production domain
+    return 'https://teabubble.attrebi.ch/api'
+  }
 }
 
 function getBaseUrl() {
-  // Use environment variable or fallback to production URL
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
-  return baseUrl
+  // Check for custom API URL from environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Check if we're in development mode
+  if (import.meta.env.DEV) {
+    // Development mode - use relative URL for Vite proxy
+    return ''
+  } else {
+    // Production mode - use the production domain
+    return 'https://teabubble.attrebi.ch'
+  }
 }
 
 export const API_CONFIG = {
@@ -29,10 +51,11 @@ export const API_CONFIG = {
 }
 
 // Debug logging in development
-if (import.meta.env.DEV) {
-  console.log('🔧 API Configuration:', {
-    BASE_URL: API_CONFIG.BASE_URL,
-    API_BASE_URL: API_CONFIG.API_BASE_URL,
-    ENV: import.meta.env.MODE
-  })
-}
+console.log('🔧 API Configuration Debug:', {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  DEV: import.meta.env.DEV,
+  MODE: import.meta.env.MODE,
+  NODE_ENV: import.meta.env.NODE_ENV,
+  BASE_URL: API_CONFIG.BASE_URL,
+  API_BASE_URL: API_CONFIG.API_BASE_URL
+})

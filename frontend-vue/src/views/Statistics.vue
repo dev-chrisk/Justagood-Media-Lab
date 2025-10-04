@@ -1,38 +1,45 @@
 <template>
   <div class="vue-app">
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" :class="{ show: mobileSidebarOpen }" @click="closeMobileSidebar"></div>
+    
     <!-- Sidebar -->
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-header" @click="toggleSidebar">
-        <h2>Media Library</h2>
-        <button class="sidebar-toggle">☰</button>
-      </div>
-      <div class="sidebar-content">
-        <div class="sidebar-section">
-          <h3>Navigation</h3>
-          <nav class="sidebar-nav">
-            <button class="nav-btn" @click="navigateToLibrary">
-              <span class="nav-icon">📚</span>
-              <span class="nav-text">Library</span>
-            </button>
-            <button class="nav-btn active">
-              <span class="nav-icon">📊</span>
-              <span class="nav-text">Statistics</span>
-            </button>
-            <button class="nav-btn" @click="navigateToProfile">
-              <span class="nav-icon">👤</span>
-              <span class="nav-text">Profile</span>
-            </button>
-          </nav>
-        </div>
-      </div>
-    </aside>
+    <Sidebar
+      :collapsed="sidebarCollapsed"
+      :mobile-open="mobileSidebarOpen"
+      :is-logged-in="isLoggedIn"
+      :is-admin="isAdmin"
+      :user-name="userName"
+      :current-category="currentCategory"
+      :category-counts="categoryCounts"
+      :platforms="platforms"
+      :genres="genres"
+      :categories="categories"
+      @toggle="toggleSidebar"
+      @set-category="setCategory"
+      @navigate-to-books="navigateToBooks"
+      @navigate-to-statistics="navigateToStatistics"
+      @navigate-to-calendar="navigateToCalendar"
+      @navigate-to-features="navigateToFeatures"
+      @navigate-to-profile="navigateToProfile"
+      @navigate-to-admin="debugNavigateToAdmin"
+      @toggle-platform-filter="togglePlatformFilter"
+      @toggle-genre-filter="toggleGenreFilter"
+      @toggle-airing-filter="toggleAiringFilter"
+      @add-item="addItemFromSidebar"
+      @show-login="showLoginModal = true"
+      @show-register="showRegisterModal = true"
+      @show-admin-login="showAdminLogin"
+      @logout="logout"
+    />
 
     <!-- Main Content -->
     <div class="main-content">
+      <!-- Header -->
       <header class="main-header">
         <div class="header-left">
           <button class="mobile-sidebar-toggle" @click="toggleMobileSidebar">☰</button>
-          <h1 class="page-title">Statistics</h1>
+          <h1 class="page-title">📊 Statistics</h1>
         </div>
         <div class="header-right">
           <button class="refresh-stats-btn" @click="refreshStatistics" title="Refresh statistics">
@@ -41,8 +48,16 @@
         </div>
       </header>
 
+      <!-- Content Area -->
       <main class="content-area">
-        <div class="statistics-container">
+        <LoadingSpinner v-if="loading" message="Loading statistics..." />
+        
+        <div v-else-if="error" class="error">
+          <p>{{ error }}</p>
+          <button @click="refreshStatistics">Retry</button>
+        </div>
+        
+        <div v-else class="statistics-container">
           <div class="statistics-header">
             <h1>📊 Media Library Statistics</h1>
             <p>Übersicht über deine Media Collection</p>
@@ -51,16 +66,7 @@
             </div>
           </div>
 
-          <div v-if="loading" class="loading">
-            <p>Lade Statistiken...</p>
-          </div>
-
-          <div v-else-if="error" class="error">
-            <p>{{ error }}</p>
-            <button @click="refreshStatistics">Retry</button>
-          </div>
-
-          <div v-else class="statistics-content">
+          <div class="statistics-content">
             <!-- Summary Cards -->
             <div class="stats-summary">
               <div class="summary-card">
@@ -200,6 +206,20 @@
         </div>
       </main>
     </div>
+
+    <!-- Modals -->
+    <LoginModal 
+      v-if="showLoginModal" 
+      @close="showLoginModal = false"
+      @success="() => { showLoginModal = false }"
+      @switch-to-register="() => { showLoginModal = false; showRegisterModal = true }"
+    />
+    
+    <RegisterModal 
+      v-if="showRegisterModal" 
+      @close="showRegisterModal = false"
+      @success="() => { showRegisterModal = false }"
+    />
   </div>
 </template>
 
@@ -207,15 +227,48 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMediaStore } from '@/stores/media'
+import { useAuthStore } from '@/stores/auth'
+import Sidebar from '@/components/Sidebar.vue'
+import LoadingSpinner from '@/components/LoadingSpinner.vue'
+import LoginModal from '@/components/LoginModal.vue'
+import RegisterModal from '@/components/RegisterModal.vue'
 
 export default {
   name: 'Statistics',
+  components: {
+    Sidebar,
+    LoadingSpinner,
+    LoginModal,
+    RegisterModal
+  },
   setup() {
     const router = useRouter()
     const mediaStore = useMediaStore()
+    const authStore = useAuthStore()
     
+    // State
     const loading = ref(false)
     const error = ref('')
+    const sidebarCollapsed = ref(false)
+    const mobileSidebarOpen = ref(false)
+    const showLoginModal = ref(false)
+    const showRegisterModal = ref(false)
+    
+    // Computed properties
+    const isLoggedIn = computed(() => authStore.isLoggedIn)
+    const isAdmin = computed(() => authStore.isAdmin)
+    const userName = computed(() => authStore.user?.name || '')
+    const currentCategory = computed(() => 'statistics')
+    const categoryCounts = computed(() => ({}))
+    const platforms = computed(() => [])
+    const genres = computed(() => [])
+    const categories = computed(() => [
+      { key: 'game', name: 'Games', icon: '🎮' },
+      { key: 'series', name: 'Series', icon: '📺' },
+      { key: 'movie', name: 'Movies', icon: '🎬' },
+      { key: 'buecher', name: 'Bücher', icon: '📚' },
+      { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
+    ])
     
     const statistics = computed(() => {
       const data = mediaStore.mediaData
@@ -308,20 +361,71 @@ export default {
       return stats
     })
     
+    // Methods
     const toggleSidebar = () => {
-      // Sidebar toggle logic
+      sidebarCollapsed.value = !sidebarCollapsed.value
     }
     
     const toggleMobileSidebar = () => {
-      // Mobile sidebar toggle logic - can be implemented if needed
+      mobileSidebarOpen.value = !mobileSidebarOpen.value
     }
     
-    const navigateToLibrary = () => {
-      router.push('/')
+    const closeMobileSidebar = () => {
+      mobileSidebarOpen.value = false
+    }
+    
+    const setCategory = (category) => {
+      // Not applicable for statistics view
+    }
+    
+    const navigateToBooks = () => {
+      router.push('/books')
+    }
+    
+    const navigateToStatistics = () => {
+      // Already on statistics page
+    }
+    
+    const navigateToCalendar = () => {
+      router.push('/calendar')
+    }
+    
+    const navigateToFeatures = () => {
+      router.push('/features')
     }
     
     const navigateToProfile = () => {
       router.push('/profile')
+    }
+    
+    const debugNavigateToAdmin = () => {
+      console.log('Admin navigation clicked')
+      router.push('/admin')
+    }
+    
+    const togglePlatformFilter = () => {
+      // Not applicable for statistics view
+    }
+    
+    const toggleGenreFilter = () => {
+      // Not applicable for statistics view
+    }
+    
+    const toggleAiringFilter = () => {
+      // Not applicable for statistics view
+    }
+    
+    const addItemFromSidebar = () => {
+      // Not applicable for statistics view
+    }
+    
+    const showAdminLogin = () => {
+      // Handle admin login
+    }
+    
+    const logout = () => {
+      authStore.logout()
+      router.push('/')
     }
     
     const refreshStatistics = async () => {
@@ -347,13 +451,42 @@ export default {
     })
     
     return {
+      // State
       loading,
       error,
+      sidebarCollapsed,
+      mobileSidebarOpen,
+      showLoginModal,
+      showRegisterModal,
+      
+      // Computed
+      isLoggedIn,
+      isAdmin,
+      userName,
+      currentCategory,
+      categoryCounts,
+      platforms,
+      genres,
+      categories,
       statistics,
+      
+      // Methods
       toggleSidebar,
       toggleMobileSidebar,
-      navigateToLibrary,
+      closeMobileSidebar,
+      setCategory,
+      navigateToBooks,
+      navigateToStatistics,
+      navigateToCalendar,
+      navigateToFeatures,
       navigateToProfile,
+      debugNavigateToAdmin,
+      togglePlatformFilter,
+      toggleGenreFilter,
+      toggleAiringFilter,
+      addItemFromSidebar,
+      showAdminLogin,
+      logout,
       refreshStatistics,
       formatDate
     }
@@ -376,11 +509,13 @@ export default {
 .statistics-header h1 {
   margin: 0 0 10px 0;
   color: #e0e0e0;
+  font-size: 24px;
 }
 
 .statistics-header p {
   margin: 0 0 20px 0;
   color: #a0a0a0;
+  font-size: 16px;
 }
 
 .refresh-controls {
@@ -393,14 +528,190 @@ export default {
   background: #4a9eff;
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 20px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
 
 .refresh-btn:hover {
   background: #3a8eef;
+  transform: translateY(-1px);
+}
+
+.refresh-stats-btn {
+  background: #4a9eff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.refresh-stats-btn:hover {
+  background: #3a8eef;
+  transform: translateY(-1px);
+}
+
+.page-title {
+  margin: 0;
+  color: #e0e0e0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.error {
+  text-align: center;
+  padding: 40px 20px;
+  color: #ff6b6b;
+}
+
+.error button {
+  background: #4a9eff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 15px;
+}
+
+.error button:hover {
+  background: #3a8eef;
+}
+
+/* Mobile Overlay */
+.mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.mobile-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Main Header Styles */
+.main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #404040;
+  min-height: 60px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.mobile-sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.mobile-sidebar-toggle:hover {
+  background: #404040;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .mobile-sidebar-toggle {
+    display: block;
+  }
+  
+  .main-header {
+    padding: 10px 15px;
+  }
+  
+  .page-title {
+    font-size: 18px;
+  }
+  
+  .statistics-container {
+    padding: 15px;
+  }
+  
+  .stats-summary {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .summary-card {
+    padding: 15px;
+  }
+  
+  .summary-number {
+    font-size: 1.5em;
+  }
+  
+  .chart-container {
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  
+  .category-stat,
+  .rating-stat,
+  .platform-stat,
+  .genre-stat {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .category-name,
+  .rating-stars,
+  .platform-name,
+  .genre-name {
+    min-width: auto;
+    font-size: 14px;
+  }
+  
+  .category-bar,
+  .rating-bar,
+  .platform-bar,
+  .genre-bar {
+    width: 100%;
+    height: 16px;
+  }
+  
+  .category-count,
+  .rating-count,
+  .platform-count,
+  .genre-count {
+    min-width: auto;
+    text-align: left;
+    font-size: 11px;
+  }
 }
 
 .stats-summary {

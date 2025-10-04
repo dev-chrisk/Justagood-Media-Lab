@@ -327,7 +327,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
-import googleBooksApi from '@/services/googleBooksApi'
+import { simpleGoogleBooksApi } from '@/services/simpleApi'
 
 export default {
   name: 'EditModal',
@@ -516,7 +516,7 @@ export default {
           if (searchCategory === 'buecher') {
             console.log('📚 Searching Google Books API for:', form.title)
             
-            const googleBooksResult = await googleBooksApi.searchBooks(form.title, 10)
+            const googleBooksResult = await simpleGoogleBooksApi.searchBooks(form.title, 10)
             
             if (googleBooksResult.success && googleBooksResult.data) {
               console.log('📚 Google Books API Success:', googleBooksResult.data.length, 'results')

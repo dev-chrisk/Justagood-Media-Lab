@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\File;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\CollectionController;
 use App\Http\Controllers\Api\ImageController;
@@ -22,6 +23,111 @@ use App\Http\Controllers\ExportImportController;
 Route::get('media_relative.json', [MediaController::class, 'getMediaRelative'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 Route::get('api/search', [MediaController::class, 'search'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+// Authentication API routes - using proper AuthController
+Route::post('api/login', [\App\Http\Controllers\AuthController::class, 'login'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+Route::post('api/register', [\App\Http\Controllers\AuthController::class, 'register'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+Route::post('api/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+Route::get('api/user', function (Request $request) {
+    return $request->user();
+})->middleware('auth:sanctum')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+// Google Books API routes
+Route::get('api/google-books-config', function () {
+    $apiKey = config('services.google_books.api_key');
+    return response()->json([
+        'api_key' => $apiKey ?: null,
+        'base_url' => 'https://www.googleapis.com/books/v1'
+    ]);
+})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
+Route::get('api/google-books/search', function (Request $request) {
+    $query = $request->get('q');
+    $maxResults = $request->get('maxResults', 10);
+    
+    if (!$query || trim($query) === '') {
+        return response()->json([
+            'success' => false,
+            'error' => 'Query parameter is required'
+        ], 400);
+    }
+
+    try {
+        $apiKey = config('services.google_books.api_key');
+        
+        if (!$apiKey) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Google Books API key not configured'
+            ], 500);
+        }
+
+        $url = 'https://www.googleapis.com/books/v1/volumes';
+        $params = [
+            'q' => $query,
+            'key' => $apiKey,
+            'maxResults' => min($maxResults, 40)
+        ];
+
+        $response = \Illuminate\Support\Facades\Http::timeout(10)->get($url, $params);
+
+        if (!$response->successful()) {
+            $errorBody = $response->body();
+            $errorData = json_decode($errorBody, true);
+            
+            $errorMessage = 'Google Books API error: ' . $response->status();
+            if (isset($errorData['error']['message'])) {
+                $errorMessage .= ' - ' . $errorData['error']['message'];
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => $errorMessage,
+                'details' => $errorBody
+            ], 400);
+        }
+
+        $data = $response->json();
+        
+        // Format the data for frontend
+        $formattedItems = array_map(function ($item) {
+            $volumeInfo = $item['volumeInfo'] ?? [];
+            $imageLinks = $volumeInfo['imageLinks'] ?? [];
+            
+            return [
+                'id' => $item['id'] ?? '',
+                'title' => $volumeInfo['title'] ?? 'Unknown Title',
+                'authors' => $volumeInfo['authors'] ?? [],
+                'author' => isset($volumeInfo['authors']) ? implode(', ', $volumeInfo['authors']) : '',
+                'description' => $volumeInfo['description'] ?? '',
+                'publishedDate' => $volumeInfo['publishedDate'] ?? '',
+                'publisher' => $volumeInfo['publisher'] ?? '',
+                'pageCount' => $volumeInfo['pageCount'] ?? null,
+                'categories' => $volumeInfo['categories'] ?? [],
+                'language' => $volumeInfo['language'] ?? '',
+                'isbn10' => null,
+                'isbn13' => null,
+                'imageUrl' => $imageLinks['thumbnail'] ?? $imageLinks['smallThumbnail'] ?? null,
+                'previewLink' => $volumeInfo['previewLink'] ?? null,
+                'infoLink' => $volumeInfo['infoLink'] ?? null,
+                'canonicalVolumeLink' => $volumeInfo['canonicalVolumeLink'] ?? null
+            ];
+        }, $data['items'] ?? []);
+
+        return response()->json([
+            'success' => true,
+            'data' => $formattedItems,
+            'totalItems' => $data['totalItems'] ?? 0
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to search books: ' . $e->getMessage()
+        ], 500);
+    }
+})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
 // Collections API
 Route::get('collections', [CollectionController::class, 'index'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
@@ -153,19 +259,3 @@ Route::get('/{path}', function ($path) {
     
     return response('File not found', 404);
 })->where('path', '[a-zA-Z0-9_/.-]+\\.(css|js|html|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$');
-
-// Catch-all route for Vue.js SPA (must be last)
-Route::get('/{any}', function () {
-    $vuePath = base_path('frontend-vue/dist/index.html');
-    if (File::exists($vuePath)) {
-        return File::get($vuePath);
-    }
-    
-    // Fallback to old frontend if Vue.js build doesn't exist
-    $frontendPath = base_path('public/frontend/index.html');
-    if (File::exists($frontendPath)) {
-        return File::get($frontendPath);
-    }
-    
-    return response('Frontend not found', 404);
-})->where('any', '.*');

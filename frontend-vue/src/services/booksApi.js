@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // Create axios instance for books API
 const booksApi = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'}/api`,
+  baseURL: `${import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')}/api`,
   headers: {
     'Content-Type': 'application/json'
   }

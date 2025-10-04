@@ -106,6 +106,38 @@ export const useMediaStore = defineStore('media', () => {
     return filtered
   })
 
+  // Extract unique platforms from media data
+  const platforms = computed(() => {
+    const platformSet = new Set()
+    mediaData.value.forEach(item => {
+      if (item.platforms) {
+        // Split by common separators and clean up
+        const platformList = item.platforms
+          .split(/[,;|&]/)
+          .map(p => p.trim())
+          .filter(p => p.length > 0)
+        platformList.forEach(platform => platformSet.add(platform))
+      }
+    })
+    return Array.from(platformSet).sort()
+  })
+
+  // Extract unique genres from media data
+  const genres = computed(() => {
+    const genreSet = new Set()
+    mediaData.value.forEach(item => {
+      if (item.genre) {
+        // Split by common separators and clean up
+        const genreList = item.genre
+          .split(/[,;|&]/)
+          .map(g => g.trim())
+          .filter(g => g.length > 0)
+        genreList.forEach(genre => genreSet.add(genre))
+      }
+    })
+    return Array.from(genreSet).sort()
+  })
+
   // Actions
   async function loadMedia() {
     loading.value = true
@@ -449,6 +481,8 @@ export const useMediaStore = defineStore('media', () => {
     totalItems,
     categoryCounts,
     filteredMedia,
+    platforms,
+    genres,
     
     // Actions
     loadMedia,

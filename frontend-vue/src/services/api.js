@@ -1,12 +1,17 @@
 import axios from 'axios'
 import { API_CONFIG } from '@/config/api'
+import { createSecureFetch, logSecurityInfo } from '@/config/security'
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
+  baseURL: API_CONFIG.API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  },
+  withCredentials: true, // Enable credentials for CORS
+  timeout: 10000 // 10 second timeout
 })
 
 // MAXIMUM DEBUGGING
@@ -46,20 +51,30 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    console.log('❌ API Response Error:', {
-      url: error.config?.url,
-      baseURL: error.config?.baseURL,
-      fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    })
+    // Don't log 404 errors for DELETE operations as errors - they're expected
+    const isDelete404 = error.config?.method === 'delete' && error.response?.status === 404
+    
+    if (!isDelete404) {
+      console.log('❌ API Response Error:', {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      })
+    } else {
+      console.log('ℹ️ Item not found (404) - removing from local data:', {
+        url: error.config?.url,
+        itemId: error.config?.url?.split('/').pop()
+      })
+    }
     
     if (error.response?.status === 401) {
       // Only clear auth data if it's an actual auth error, not a validation error
-      // Check if the error is from the /api/user endpoint (token validation)
-      if (error.config?.url?.includes('/api/user')) {
+      // Check if the error is from the /user endpoint (token validation)
+      if (error.config?.url?.includes('/user')) {
         // Token validation failed, clear auth data
         localStorage.removeItem('authToken')
         localStorage.removeItem('currentUser')
@@ -74,12 +89,12 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   async login(email, password) {
-    const response = await api.post('/api/login', { email, password })
+    const response = await api.post('/login', { email, password })
     return response.data
   },
 
   async register(name, email, password, passwordConfirm) {
-    const response = await api.post('/api/register', { 
+    const response = await api.post('/register', { 
       name, 
       email, 
       password, 
@@ -89,19 +104,19 @@ export const authApi = {
   },
 
   async logout() {
-    const response = await api.post('/api/logout')
+    const response = await api.post('/logout')
     return response.data
   },
 
   async validateToken(token) {
-    const response = await api.get('/api/user', {
+    const response = await api.get('/user', {
       headers: { Authorization: `Bearer ${token}` }
     })
     return response.data
   },
 
   async adminSetup() {
-    const response = await api.post('/api/admin-setup')
+    const response = await api.post('/admin-setup')
     return response.data
   }
 }
@@ -159,7 +174,7 @@ export const mediaApi = {
     
     try {
       // Try API for logged in users
-      const response = await api.get('/api/media')
+      const response = await api.get('/media')
       return response.data
     } catch (error) {
       console.error('API Error:', error)
@@ -175,7 +190,7 @@ export const mediaApi = {
 
   async fetchApiData(title, category) {
     try {
-      const response = await api.post('/api/fetch-api', { title, category })
+      const response = await api.post('/fetch-api', { title, category })
       const data = response.data
       
       // Ensure image URLs use HTTPS
@@ -192,7 +207,7 @@ export const mediaApi = {
 
   async searchApi(title, category, limit = 10) {
     try {
-      const response = await api.get('/api/search', { 
+      const response = await api.get('/search', { 
         params: { 
           q: title, 
           category: category,
@@ -213,17 +228,33 @@ export const mediaApi = {
 
   async deleteMediaItem(id) {
     try {
-      const response = await api.delete(`/api/media/${id}`)
+      const response = await api.delete(`/media/${id}`)
       return response.data
     } catch (error) {
+      // Handle 404 silently - item doesn't exist, which is fine for delete operations
+      if (error.response?.status === 404) {
+        const notFoundError = new Error(`Media item with ID ${id} not found`)
+        notFoundError.response = error.response
+        throw notFoundError
+      }
+      
+      // Log other errors
       console.error('API delete failed:', error)
+      
+      // Provide more specific error messages for other errors
+      if (error.response?.status === 403) {
+        const forbiddenError = new Error('You do not have permission to delete this item')
+        forbiddenError.response = error.response
+        throw forbiddenError
+      }
+      
       throw error
     }
   },
 
   async batchAddMediaItems(items) {
     try {
-      const response = await api.post('/api/media/batch-add', { items })
+      const response = await api.post('/media/batch-add', { items })
       return response.data
     } catch (error) {
       console.error('API batch add failed:', error)
@@ -233,7 +264,7 @@ export const mediaApi = {
 
   async batchDeleteMediaItems(ids) {
     try {
-      const response = await api.post('/api/media/batch-delete', { ids })
+      const response = await api.post('/media/batch-delete', { ids })
       return response.data
     } catch (error) {
       console.error('API batch delete failed:', error)
@@ -295,7 +326,7 @@ export const mediaApi = {
       console.log('User authenticated:', !!localStorage.getItem('authToken'))
       console.log('Current user:', localStorage.getItem('currentUser'))
       
-      const response = await api.post('/api/media', transformedData)
+      const response = await api.post('/media', transformedData)
       return response.data
     } catch (error) {
       console.error('API add media failed:', error)
@@ -360,7 +391,7 @@ export const mediaApi = {
       
       console.log('Updating data to API:', transformedData)
       
-      const response = await api.put(`/api/media/${id}`, transformedData)
+      const response = await api.put(`/media/${id}`, transformedData)
       return response.data
     } catch (error) {
       console.error('API update media failed:', error)
@@ -377,7 +408,7 @@ export const mediaApi = {
         formData.append('dst', customPath)
       }
       
-      const response = await api.post('/api/upload-image', formData, {
+      const response = await api.post('/upload-image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -392,7 +423,7 @@ export const mediaApi = {
   // Download image from URL
   async downloadImageFromUrl(url, path) {
     try {
-      const response = await api.post('/api/download-image', { url, path })
+      const response = await api.post('/download-image', { url, path })
       return response.data
     } catch (error) {
       console.error('Image download failed:', error)

@@ -217,6 +217,12 @@ export function useMediaLibrary() {
   }
 
   const setCategory = (category) => {
+    // Special handling for books category - navigate to books page
+    if (category === 'buecher') {
+      navigateToBooks()
+      return
+    }
+    
     mediaStore.setCategory(category)
     mobileSidebarOpen.value = false
   }
@@ -294,7 +300,16 @@ export function useMediaLibrary() {
   }
 
   const handleDeleteItem = async (item) => {
-    await mediaStore.deleteMediaItem(item.id)
+    try {
+      await mediaStore.deleteMediaItem(item.id)
+    } catch (error) {
+      // Only show error to user if it's not a 404 (item not found)
+      if (error.response?.status !== 404) {
+        console.error('Delete failed:', error)
+        messageStore.showError('Failed to delete item: ' + (error.message || 'Unknown error'), 'Delete Failed')
+      }
+      // For 404 errors, we silently handle them in the store
+    }
   }
 
   const logout = async () => {

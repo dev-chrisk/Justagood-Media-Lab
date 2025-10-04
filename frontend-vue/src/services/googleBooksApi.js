@@ -12,8 +12,14 @@ class GoogleBooksApi {
   async initializeConfig() {
     try {
       console.log('📚 Fetching Google Books API config from backend...')
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
-      const response = await fetch(`${baseUrl}/api/google-books-config`)
+      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
+      const response = await fetch(`${baseUrl}/api/google-books-config`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      })
       const config = await response.json()
       
       GOOGLE_BOOKS_API_KEY = config.api_key
@@ -44,7 +50,7 @@ class GoogleBooksApi {
     // Try backend API first
     try {
       console.log('📚 Trying backend Google Books API...')
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
       const response = await fetch(`${baseUrl}/api/google-books/search?q=${encodeURIComponent(query)}&maxResults=${maxResults}`)
       
       if (response.ok) {

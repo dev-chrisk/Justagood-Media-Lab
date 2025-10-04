@@ -36,22 +36,22 @@
               <span class="add-icon">+</span>
             </button>
           </div>
-          <button class="nav-btn" @click="$emit('navigateToBooks')">
-            <span class="nav-icon">📚</span>
-            <span class="nav-text">Books</span>
-          </button>
-          <button class="nav-btn" @click="$emit('navigateToStatistics')">
+          <router-link to="/statistics" class="nav-btn">
             <span class="nav-icon">📊</span>
             <span class="nav-text">Statistics</span>
-          </button>
-          <button class="nav-btn" @click="$emit('navigateToCalendar')">
+          </router-link>
+          <router-link to="/calendar" class="nav-btn">
             <span class="nav-icon">📅</span>
             <span class="nav-text">Calendar</span>
-          </button>
-          <button class="nav-btn" @click="$emit('navigateToFeatures')">
+          </router-link>
+          <router-link to="/features" class="nav-btn">
             <span class="nav-icon">⚡</span>
             <span class="nav-text">Features</span>
-          </button>
+          </router-link>
+          <router-link to="/profile" class="nav-btn">
+            <span class="nav-icon">👤</span>
+            <span class="nav-text">Profile</span>
+          </router-link>
         </nav>
       </div>
 
@@ -394,7 +394,7 @@ export default {
   position: relative;
 }
 
-.nav-btn {
+.nav-btn, .nav-btn:visited {
   display: flex;
   align-items: center;
   padding: 12px 20px;
@@ -407,6 +407,7 @@ export default {
   font-size: 14px;
   min-height: 44px;
   flex: 1;
+  text-decoration: none;
 }
 
 .sidebar.collapsed .nav-btn {
@@ -418,7 +419,7 @@ export default {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.nav-btn.active {
+.nav-btn.active, .nav-btn.router-link-active {
   background: #4a9eff;
   color: white;
 }

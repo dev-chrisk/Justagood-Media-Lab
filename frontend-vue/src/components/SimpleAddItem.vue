@@ -55,7 +55,7 @@ export default {
       
       try {
         // First login
-        const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
         const loginResponse = await fetch(`${baseUrl}/api/login`, {
           method: 'POST',
           headers: {

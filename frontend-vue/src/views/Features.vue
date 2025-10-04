@@ -336,7 +336,7 @@ export default {
     }
 
     const fetchMovieDetails = async (tmdbId) => {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
       const response = await fetch(`${baseUrl}/api/tmdb/movie/${tmdbId}`)
       if (!response.ok) {
         throw new Error('Film-Details konnten nicht abgerufen werden')
@@ -345,7 +345,7 @@ export default {
     }
 
     const fetchCollectionDetails = async (collectionId) => {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
       const response = await fetch(`${baseUrl}/api/tmdb/collection/${collectionId}`)
       if (!response.ok) {
         throw new Error('Collection-Details konnten nicht abgerufen werden')
