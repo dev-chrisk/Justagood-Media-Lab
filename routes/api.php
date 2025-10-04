@@ -50,14 +50,113 @@ Route::post('/admin-setup', [AuthController::class, 'adminSetup']);
 
 // Google Books API configuration (no authentication required)
 Route::get('/google-books-config', function () {
+    $apiKey = config('services.google_books.api_key');
     return response()->json([
-        'api_key' => config('services.google_books.api_key'),
+        'api_key' => $apiKey ?: null,
         'base_url' => 'https://www.googleapis.com/books/v1'
     ]);
 });
 
 // Google Books API search (no authentication required)
-Route::get('/google-books/search', [GoogleBooksController::class, 'search']);
+Route::get('/google-books/search', function (Request $request) {
+    $query = $request->get('q');
+    $maxResults = $request->get('maxResults', 10);
+    
+    if (!$query || trim($query) === '') {
+        return response()->json([
+            'success' => false,
+            'error' => 'Query parameter is required'
+        ], 400);
+    }
+
+    try {
+        $apiKey = config('services.google_books.api_key');
+        
+        if (!$apiKey) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Google Books API key not configured'
+            ], 500);
+        }
+
+        $url = 'https://www.googleapis.com/books/v1/volumes';
+        $params = [
+            'q' => $query,
+            'key' => $apiKey,
+            'maxResults' => min($maxResults, 40)
+        ];
+
+        \Log::info('📚 Google Books API Request', [
+            'url' => $url,
+            'api_key_length' => strlen($apiKey),
+            'api_key_prefix' => substr($apiKey, 0, 10) . '...',
+            'query' => $query,
+            'maxResults' => $maxResults
+        ]);
+
+        $response = \Illuminate\Support\Facades\Http::timeout(10)->get($url, $params);
+
+        if (!$response->successful()) {
+            $errorBody = $response->body();
+            $errorData = json_decode($errorBody, true);
+            
+            $errorMessage = 'Google Books API error: ' . $response->status();
+            if (isset($errorData['error']['message'])) {
+                $errorMessage .= ' - ' . $errorData['error']['message'];
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => $errorMessage,
+                'details' => $errorBody,
+                'debug' => [
+                    'url' => $url,
+                    'api_key_length' => strlen($apiKey),
+                    'api_key_prefix' => substr($apiKey, 0, 10) . '...'
+                ]
+            ], 400);
+        }
+
+        $data = $response->json();
+        
+        // Format the data for frontend
+        $formattedItems = array_map(function ($item) {
+            $volumeInfo = $item['volumeInfo'] ?? [];
+            $imageLinks = $volumeInfo['imageLinks'] ?? [];
+            
+            return [
+                'id' => $item['id'] ?? '',
+                'title' => $volumeInfo['title'] ?? 'Unknown Title',
+                'authors' => $volumeInfo['authors'] ?? [],
+                'author' => isset($volumeInfo['authors']) ? implode(', ', $volumeInfo['authors']) : '',
+                'description' => $volumeInfo['description'] ?? '',
+                'publishedDate' => $volumeInfo['publishedDate'] ?? '',
+                'publisher' => $volumeInfo['publisher'] ?? '',
+                'pageCount' => $volumeInfo['pageCount'] ?? null,
+                'categories' => $volumeInfo['categories'] ?? [],
+                'language' => $volumeInfo['language'] ?? '',
+                'isbn10' => null,
+                'isbn13' => null,
+                'imageUrl' => $imageLinks['thumbnail'] ?? $imageLinks['smallThumbnail'] ?? null,
+                'previewLink' => $volumeInfo['previewLink'] ?? null,
+                'infoLink' => $volumeInfo['infoLink'] ?? null,
+                'canonicalVolumeLink' => $volumeInfo['canonicalVolumeLink'] ?? null
+            ];
+        }, $data['items'] ?? []);
+
+        return response()->json([
+            'success' => true,
+            'data' => $formattedItems,
+            'totalItems' => $data['totalItems'] ?? 0
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to search books: ' . $e->getMessage()
+        ], 500);
+    }
+});
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {

@@ -64,14 +64,28 @@ class GoogleBooksController extends Controller
                 $errorBody = $response->body();
                 Log::error('📚 Google Books API Error', [
                     'status' => $response->status(),
-                    'body' => $errorBody
+                    'body' => $errorBody,
+                    'url' => $url,
+                    'params' => $params
                 ]);
+
+                // Try to parse error response
+                $errorData = json_decode($errorBody, true);
+                $errorMessage = 'Google Books API error: ' . $response->status();
+                
+                if (isset($errorData['error']['message'])) {
+                    $errorMessage .= ' - ' . $errorData['error']['message'];
+                }
 
                 return response()->json([
                     'success' => false,
-                    'error' => 'Google Books API error: ' . $response->status(),
-                    'details' => $errorBody
-                ], $response->status());
+                    'error' => $errorMessage,
+                    'details' => $errorBody,
+                    'debug' => [
+                        'url' => $url,
+                        'params' => array_merge($params, ['key' => 'HIDDEN'])
+                    ]
+                ], 400); // Always return 400 for client errors
             }
 
             $data = $response->json();

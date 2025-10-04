@@ -7,7 +7,7 @@ class RealtimeService {
     this.listeners = new Map()
     this.pollingInterval = null
     this.lastUpdate = null
-    this.pollingIntervalMs = 2000 // Poll every 2 seconds
+    this.pollingIntervalMs = 20000 // Poll every 20 seconds
   }
 
   connect() {
@@ -23,7 +23,7 @@ class RealtimeService {
       return
     }
 
-    console.log('Starting polling for real-time updates')
+    // Starting polling for real-time updates
     this.isConnected.value = true
     this.lastUpdate = new Date()
 
@@ -62,7 +62,7 @@ class RealtimeService {
       const data = await response.json()
       
       if (data && data.length > 0) {
-        console.log('Polling found updates:', data.length, 'items')
+        // Polling found updates
         
         // Notify all listeners
         this.listeners.forEach((callback, key) => {
@@ -81,7 +81,7 @@ class RealtimeService {
 
       this.lastUpdate = new Date()
     } catch (error) {
-      console.error('Polling error:', error)
+      // Polling error - will retry on next interval
       // If there's a network error, don't disconnect immediately
       // The service will retry on the next interval
     }

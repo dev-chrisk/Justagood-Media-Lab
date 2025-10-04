@@ -95,7 +95,7 @@ class MediaController extends Controller
             'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
-            'count' => 'required|integer|min:0',
+            'count' => 'nullable|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
             'link' => 'nullable|url',
@@ -109,6 +109,11 @@ class MediaController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::error('Media API Validation Failed', [
+                'request_data' => $request->all(),
+                'validation_errors' => $validator->errors(),
+                'user_id' => $request->user()?->id
+            ]);
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
@@ -119,6 +124,7 @@ class MediaController extends Controller
         
         // Set default values for required fields
         $data['is_airing'] = $data['is_airing'] ?? false;
+        $data['count'] = $data['count'] ?? 1;
         
         // Add user_id if user is authenticated
         if ($request->user()) {
@@ -187,7 +193,7 @@ class MediaController extends Controller
             'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
-            'count' => 'sometimes|integer|min:0',
+            'count' => 'nullable|integer|min:0',
             'platforms' => 'nullable|string',
             'genre' => 'nullable|string',
             'link' => 'nullable|url',

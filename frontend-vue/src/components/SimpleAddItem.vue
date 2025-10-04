@@ -55,7 +55,8 @@ export default {
       
       try {
         // First login
-        const loginResponse = await fetch('http://127.0.0.1:8000/api/login', {
+        const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -74,7 +75,7 @@ export default {
         const token = loginData.token
         
         // Add item
-        const addResponse = await fetch('http://127.0.0.1:8000/api/media', {
+        const addResponse = await fetch(`${baseUrl}/api/media`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

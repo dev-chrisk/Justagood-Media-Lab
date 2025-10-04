@@ -247,7 +247,7 @@ export const mediaApi = {
       const transformedData = {
         title: itemData.title,
         category: itemData.category,
-        count: itemData.count || 0
+        count: Math.max(itemData.count || 1, 1)  // Ensure minimum count of 1
       }
       
       // Only add optional fields if they exist and are not empty
@@ -292,6 +292,8 @@ export const mediaApi = {
       }
       
       console.log('Sending data to API:', transformedData)
+      console.log('User authenticated:', !!localStorage.getItem('authToken'))
+      console.log('Current user:', localStorage.getItem('currentUser'))
       
       const response = await api.post('/api/media', transformedData)
       return response.data

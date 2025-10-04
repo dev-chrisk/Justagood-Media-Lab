@@ -12,7 +12,8 @@ class GoogleBooksApi {
   async initializeConfig() {
     try {
       console.log('📚 Fetching Google Books API config from backend...')
-      const response = await fetch('http://127.0.0.1:8000/api/google-books-config')
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+      const response = await fetch(`${baseUrl}/api/google-books-config`)
       const config = await response.json()
       
       GOOGLE_BOOKS_API_KEY = config.api_key
@@ -43,7 +44,8 @@ class GoogleBooksApi {
     // Try backend API first
     try {
       console.log('📚 Trying backend Google Books API...')
-      const response = await fetch(`http://127.0.0.1:8000/api/google-books/search?q=${encodeURIComponent(query)}&maxResults=${maxResults}`)
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://teabubble.attrebi.ch'
+      const response = await fetch(`${baseUrl}/api/google-books/search?q=${encodeURIComponent(query)}&maxResults=${maxResults}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -51,24 +53,32 @@ class GoogleBooksApi {
         return data
       } else {
         console.warn('📚 Backend Google Books API failed:', response.status)
+        // If backend fails, try direct API call
+        return await this.tryDirectApiCall(query, maxResults)
       }
     } catch (error) {
       console.warn('📚 Backend Google Books API error:', error.message)
+      // If backend fails, try direct API call
+      return await this.tryDirectApiCall(query, maxResults)
     }
+  }
 
-    // Fallback to direct API call
-    console.log('📚 Falling back to direct Google Books API...')
-    
+  // Try direct API call as fallback
+  async tryDirectApiCall(query, maxResults) {
     // Wait for API key to be loaded if not already loaded
     if (!GOOGLE_BOOKS_API_KEY) {
       console.log('📚 Google Books Search: API key not loaded, waiting...')
       await this.initializeConfig()
-      
-      if (!GOOGLE_BOOKS_API_KEY) {
-        console.error('📚 Google Books Search: API key still missing after initialization')
-        return { success: false, error: 'Google Books API key not configured' }
-      }
     }
+
+    // Check if API key is available
+    if (!GOOGLE_BOOKS_API_KEY) {
+      console.log('📚 Google Books Search: No API key available, using fallback results')
+      return this.getFallbackResults(query)
+    }
+
+    // Try direct API call
+    console.log('📚 Trying direct Google Books API...')
 
     try {
       const url = `${GOOGLE_BOOKS_BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${GOOGLE_BOOKS_API_KEY}&maxResults=${maxResults}`
@@ -83,7 +93,6 @@ class GoogleBooksApi {
       })
 
       console.log('📚 Google Books Response Status:', response.status)
-      console.log('📚 Google Books Response Headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -101,13 +110,7 @@ class GoogleBooksApi {
       const data = await response.json()
       console.log('📚 Google Books API Success:', {
         totalItems: data.totalItems,
-        itemsCount: data.items ? data.items.length : 0,
-        items: data.items ? data.items.map(item => ({
-          id: item.id,
-          title: item.volumeInfo?.title,
-          authors: item.volumeInfo?.authors,
-          publishedDate: item.volumeInfo?.publishedDate
-        })) : []
+        itemsCount: data.items ? data.items.length : 0
       })
 
       return {
