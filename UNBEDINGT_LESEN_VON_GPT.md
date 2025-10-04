@@ -7,6 +7,6 @@
 
 ## Key Points
 - Environment variables exist on server
-- Database: MySQL only
+- Database: MySQL only (IMPORTANT)
 - Production: `https://teabubble.attrebi.ch`
 - Focus on code fixes, not environment config

@@ -79,6 +79,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanc
 // Admin setup route (no authentication required)
 Route::post('/admin-setup', [AuthController::class, 'adminSetup']);
 
+// Database check routes (no authentication required)
+Route::get('/check-db', [AuthController::class, 'checkDatabase']);
+Route::post('/delete-all-users', [AuthController::class, 'deleteAllUsers']);
+
 // Google Books API configuration (no authentication required)
 Route::get('/google-books-config', function () {
     $apiKey = config('services.google_books.api_key');

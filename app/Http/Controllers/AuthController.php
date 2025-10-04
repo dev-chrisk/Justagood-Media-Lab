@@ -146,6 +146,102 @@ class AuthController extends Controller
         }
     }
 
+    public function checkDatabase(Request $request)
+    {
+        try {
+            \Log::info('Database check requested', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'timestamp' => now()
+            ]);
+
+            // Test database connection
+            $dbStatus = 'connected';
+            $userCount = 0;
+            $error = null;
+            
+            try {
+                \DB::connection()->getPdo();
+                $userCount = User::count();
+                \Log::info('Database check successful', [
+                    'user_count' => $userCount,
+                    'connection' => config('database.default'),
+                    'host' => config('database.connections.mysql.host'),
+                    'database' => config('database.connections.mysql.database')
+                ]);
+            } catch (\Exception $e) {
+                $dbStatus = 'error';
+                $error = $e->getMessage();
+                \Log::error('Database check failed', [
+                    'error' => $e->getMessage(),
+                    'connection' => config('database.default'),
+                    'host' => config('database.connections.mysql.host'),
+                    'database' => config('database.connections.mysql.database')
+                ]);
+            }
+
+            return response()->json([
+                'success' => $dbStatus === 'connected',
+                'status' => $dbStatus,
+                'user_count' => $userCount,
+                'error' => $error,
+                'connection' => config('database.default'),
+                'host' => config('database.connections.mysql.host'),
+                'database' => config('database.connections.mysql.database'),
+                'environment' => app()->environment(),
+                'timestamp' => now()->toISOString()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Database check endpoint failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Database check failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deleteAllUsers(Request $request)
+    {
+        try {
+            \Log::info('Delete all users requested', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'timestamp' => now()
+            ]);
+
+            $userCount = User::count();
+            
+            // Delete all users
+            User::truncate();
+            
+            \Log::info('All users deleted', [
+                'deleted_count' => $userCount,
+                'timestamp' => now()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "Deleted {$userCount} users",
+                'deleted_count' => $userCount,
+                'timestamp' => now()->toISOString()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Delete all users failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Delete failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function adminSetup(Request $request)
     {
         try {

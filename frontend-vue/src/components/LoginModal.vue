@@ -37,6 +37,18 @@
             Cancel
           </button>
         </div>
+        
+        <div class="debug-buttons">
+          <button type="button" @click="checkLocalDB" :disabled="loading" class="debug-btn">
+            Check Local DB
+          </button>
+          <button type="button" @click="checkProdDB" :disabled="loading" class="debug-btn">
+            Check Prod DB
+          </button>
+          <button type="button" @click="deleteAllUsers" :disabled="loading" class="debug-btn danger">
+            Delete All Users
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -116,12 +128,61 @@ export default {
       emit('close')
     }
     
+    const checkLocalDB = async () => {
+      try {
+        console.log('🔍 Checking local database...')
+        const response = await fetch('http://127.0.0.1:8000/api/check-db')
+        const data = await response.json()
+        console.log('🔍 Local DB Check Result:', data)
+        alert(`Local DB: ${data.success ? '✅ Connected' : '❌ Error'}\nUsers: ${data.user_count}\nError: ${data.error || 'None'}`)
+      } catch (err) {
+        console.error('🔍 Local DB Check Failed:', err)
+        alert(`Local DB Check Failed: ${err.message}`)
+      }
+    }
+    
+    const checkProdDB = async () => {
+      try {
+        console.log('🔍 Checking production database...')
+        const response = await fetch('https://teabubble.attrebi.ch/api/check-db')
+        const data = await response.json()
+        console.log('🔍 Prod DB Check Result:', data)
+        alert(`Prod DB: ${data.success ? '✅ Connected' : '❌ Error'}\nUsers: ${data.user_count}\nError: ${data.error || 'None'}`)
+      } catch (err) {
+        console.error('🔍 Prod DB Check Failed:', err)
+        alert(`Prod DB Check Failed: ${err.message}`)
+      }
+    }
+    
+    const deleteAllUsers = async () => {
+      if (!confirm('⚠️ WARNING: This will delete ALL users! Are you sure?')) {
+        return
+      }
+      
+      try {
+        console.log('🗑️ Deleting all users...')
+        const response = await fetch('https://teabubble.attrebi.ch/api/delete-all-users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        const data = await response.json()
+        console.log('🗑️ Delete Result:', data)
+        alert(`Delete Result: ${data.success ? '✅ Success' : '❌ Error'}\nDeleted: ${data.deleted_count} users\nError: ${data.error || 'None'}`)
+      } catch (err) {
+        console.error('🗑️ Delete Failed:', err)
+        alert(`Delete Failed: ${err.message}`)
+      }
+    }
+    
     return {
       form,
       loading,
       error,
       handleLogin,
-      closeModal
+      closeModal,
+      checkLocalDB,
+      checkProdDB,
+      deleteAllUsers
     }
   }
 }
@@ -229,6 +290,45 @@ export default {
 }
 
 .modal-buttons button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.debug-buttons {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #555;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.debug-btn {
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #3a3a3a;
+  color: #d0d0d0;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.debug-btn:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.debug-btn.danger {
+  background: #4a2a2a;
+  border-color: #e74c3c;
+  color: #ff6b6b;
+}
+
+.debug-btn.danger:hover:not(:disabled) {
+  background: #5a3a3a;
+}
+
+.debug-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
