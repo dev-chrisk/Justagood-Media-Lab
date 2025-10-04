@@ -11,8 +11,26 @@ const api = axios.create({
     'X-Requested-With': 'XMLHttpRequest'
   },
   withCredentials: true, // Enable credentials for CORS
-  timeout: 10000 // 10 second timeout
+  timeout: 15000 // 15 second timeout for production
 })
+
+// Add a health check function
+export const healthCheck = async () => {
+  try {
+    console.log('🏥 Performing health check...')
+    const response = await axios.get(`${API_CONFIG.API_BASE_URL}/debug/health`, {
+      timeout: 5000,
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    console.log('✅ Health check successful:', response.data)
+    return { success: true, data: response.data }
+  } catch (error) {
+    console.log('❌ Health check failed:', error.message)
+    return { success: false, error: error.message }
+  }
+}
 
 // MAXIMUM DEBUGGING
 console.log('🚀 API Instance Created:', {
@@ -89,28 +107,68 @@ api.interceptors.response.use(
 // Auth API
 export const authApi = {
   async login(email, password) {
+    console.log('🔐 API SERVICE: Starting login API call')
+    console.log('🔐 API SERVICE: Request details:', {
+      url: '/login',
+      baseURL: api.defaults.baseURL,
+      fullURL: `${api.defaults.baseURL}/login`,
+      method: 'POST',
+      email: email,
+      passwordLength: password.length,
+      timestamp: new Date().toISOString()
+    })
+    
     try {
+      console.log('🔐 API SERVICE: Making POST request to /login...')
       const response = await api.post('/login', { email, password })
+      
+      console.log('🔐 API SERVICE: Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        hasData: !!response.data,
+        dataKeys: response.data ? Object.keys(response.data) : [],
+        hasToken: !!response.data?.token,
+        hasUser: !!response.data?.user,
+        userEmail: response.data?.user?.email
+      })
+      
       return response.data
     } catch (error) {
-      console.error('Login failed:', error)
+      console.log('🔐 API SERVICE: Login API error:', {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        config: {
+          url: error.config?.url,
+          baseURL: error.config?.baseURL,
+          method: error.config?.method
+        },
+        stack: error.stack
+      })
       
       // Check if it's a server error (500)
       if (error.response?.status === 500) {
+        console.log('🔐 API SERVICE: 500 Server Error detected')
         throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut.')
       }
       
       // Check if it's a network error
-      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.')
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        console.log('🔐 API SERVICE: Network Error detected')
+        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.')
       }
       
       // Check if it's a timeout
       if (error.code === 'ECONNABORTED') {
+        console.log('🔐 API SERVICE: Timeout Error detected')
         throw new Error('Server antwortet nicht. Bitte versuchen Sie es später erneut.')
       }
       
       // For other errors, re-throw with original message
+      console.log('🔐 API SERVICE: Re-throwing original error')
       throw error
     }
   },
@@ -133,8 +191,8 @@ export const authApi = {
       }
       
       // Check if it's a network error
-      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error')) {
-        throw new Error('Verbindung zum Server fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung.')
+      if (error.code === 'NETWORK_ERROR' || error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+        throw new Error('Server ist momentan nicht erreichbar. Bitte versuchen Sie es später erneut oder kontaktieren Sie den Administrator.')
       }
       
       // Check if it's a timeout

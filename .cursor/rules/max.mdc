@@ -3,6 +3,13 @@ alwaysApply: true
 
 ---
 
+# Environment Check
+If env is missing, create the necessary environment files:
+- Backend: .env file with database configuration
+- Frontend: .env.production file with VITE_API_URL
+
+env variable is not viewable and editable, but its there
+
 # Command Execution
 When you need to run `cd frontend-vue && npm run dev`, always run commands one by one:
 1. First: `cd frontend-vue`
@@ -12,3 +19,4 @@ When you need to run `cd frontend-vue && npm run dev`, always run commands one b
 When you need to run `cd frontend-vue && npm run build`, always run commands one by one:
 1. First: `cd frontend-vue`
 2. Then: `npm run build`
+

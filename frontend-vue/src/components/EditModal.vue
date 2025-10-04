@@ -1,4 +1,4 @@
-<template>
+biem <template>
   <div class="modal" @click="closeModal">
     <div class="modal-content" @click.stop>
       <h2>{{ isEditing ? 'Edit Item' : 'Add Item' }}</h2>

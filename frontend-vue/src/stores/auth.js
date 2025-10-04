@@ -24,18 +24,45 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Actions
   async function login(email, password) {
+    console.log('🔐 AUTH STORE: Starting login process')
+    console.log('🔐 AUTH STORE: Input parameters:', {
+      email: email,
+      passwordLength: password.length,
+      timestamp: new Date().toISOString()
+    })
+    
     loading.value = true
     error.value = null
     
     try {
+      console.log('🔐 AUTH STORE: Calling authApi.login...')
       const response = await authApi.login(email, password)
+      
+      console.log('🔐 AUTH STORE: API response received:', {
+        hasToken: !!response.token,
+        hasUser: !!response.user,
+        userEmail: response.user?.email,
+        tokenLength: response.token?.length,
+        responseKeys: Object.keys(response)
+      })
       
       token.value = response.token
       user.value = response.user
       
+      console.log('🔐 AUTH STORE: Setting local state:', {
+        tokenSet: !!token.value,
+        userSet: !!user.value,
+        userEmail: user.value?.email
+      })
+      
       // Save to localStorage
       localStorage.setItem('authToken', token.value)
       localStorage.setItem('currentUser', JSON.stringify(user.value))
+      
+      console.log('🔐 AUTH STORE: Saved to localStorage:', {
+        tokenSaved: !!localStorage.getItem('authToken'),
+        userSaved: !!localStorage.getItem('currentUser')
+      })
       
       return { 
         success: true, 
@@ -43,9 +70,20 @@ export const useAuthStore = defineStore('auth', () => {
         token: response.token
       }
     } catch (err) {
+      console.log('🔐 AUTH STORE: Login error caught:', {
+        message: err.message,
+        name: err.name,
+        code: err.code,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        responseData: err.response?.data,
+        stack: err.stack
+      })
+      
       error.value = err.response?.data?.message || err.message || 'Login failed'
       return { success: false, error: error.value }
     } finally {
+      console.log('🔐 AUTH STORE: Login process completed, setting loading to false')
       loading.value = false
     }
   }

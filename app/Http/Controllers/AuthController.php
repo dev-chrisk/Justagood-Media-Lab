@@ -35,29 +35,83 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
+        try {
+            \Log::info('Login attempt started', [
+                'email' => $request->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
             ]);
+
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required',
+            ]);
+
+            \Log::info('Validation passed, searching for user');
+
+            $user = User::where('email', $request->email)->first();
+
+            if (!$user) {
+                \Log::warning('User not found', ['email' => $request->email]);
+                throw ValidationException::withMessages([
+                    'email' => ['The provided credentials are incorrect.'],
+                ]);
+            }
+
+            \Log::info('User found', ['user_id' => $user->id, 'email' => $user->email]);
+
+            if (!Hash::check($request->password, $user->password)) {
+                \Log::warning('Invalid password', ['email' => $request->email]);
+                throw ValidationException::withMessages([
+                    'email' => ['The provided credentials are incorrect.'],
+                ]);
+            }
+
+            \Log::info('Password verified, creating token');
+
+            $token = $user->createToken('auth-token')->plainTextToken;
+
+            \Log::info('Token created successfully');
+
+            // Prüfe und bereinige Duplikate beim Login
+            $duplicateInfo = $this->checkAndCleanupDuplicates($user->id);
+
+            \Log::info('Login successful', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'token_length' => strlen($token)
+            ]);
+
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+                'duplicate_check' => $duplicateInfo,
+            ]);
+
+        } catch (ValidationException $e) {
+            \Log::warning('Login validation failed', [
+                'email' => $request->email,
+                'errors' => $e->errors()
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('Login failed with exception', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            return response()->json([
+                'error' => 'Login failed: ' . $e->getMessage(),
+                'debug' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ]
+            ], 500);
         }
-
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        // Prüfe und bereinige Duplikate beim Login
-        $duplicateInfo = $this->checkAndCleanupDuplicates($user->id);
-
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'duplicate_check' => $duplicateInfo,
-        ]);
     }
 
     public function logout(Request $request)

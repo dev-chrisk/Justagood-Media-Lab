@@ -29,13 +29,33 @@ Route::get('search', [MediaController::class, 'search']);
 
 // Debug endpoint to test basic API functionality
 Route::get('debug/health', function () {
-    return response()->json([
-        'status' => 'ok',
-        'timestamp' => now()->toISOString(),
-        'environment' => app()->environment(),
-        'debug' => config('app.debug'),
-        'database' => 'connected'
-    ]);
+    try {
+        // Test database connection
+        $dbStatus = 'connected';
+        $userCount = 0;
+        try {
+            $userCount = \App\Models\User::count();
+        } catch (\Exception $e) {
+            $dbStatus = 'error: ' . $e->getMessage();
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'timestamp' => now()->toISOString(),
+            'environment' => app()->environment(),
+            'debug' => config('app.debug'),
+            'database' => $dbStatus,
+            'user_count' => $userCount,
+            'php_version' => PHP_VERSION,
+            'laravel_version' => app()->version()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'error' => $e->getMessage(),
+            'timestamp' => now()->toISOString()
+        ], 500);
+    }
 });
 
 // Server-Sent Events for real-time updates

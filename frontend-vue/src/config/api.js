@@ -5,41 +5,52 @@ function getApiBaseUrl() {
   console.log('🔍 getApiBaseUrl Debug:', {
     VITE_API_URL: import.meta.env.VITE_API_URL,
     DEV: import.meta.env.DEV,
-    MODE: import.meta.env.MODE
+    MODE: import.meta.env.MODE,
+    hostname: window.location.hostname,
+    currentUrl: window.location.href
   })
   
-  // Check for custom API URL from environment variable first
+  // Check if we're running on localhost FIRST (highest priority)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    console.log('📍 Using localhost detection - local server')
+    return 'http://127.0.0.1:8000/api'
+  }
+  
+  // Check if we're in development mode
+  if (import.meta.env.DEV) {
+    console.log('📍 Using development mode - local server')
+    return 'http://127.0.0.1:8000/api'
+  }
+  
+  // Check for custom API URL from environment variable
   if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
     console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
     return `${import.meta.env.VITE_API_URL}/api`
   }
   
-  // Check if we're in development mode
-  if (import.meta.env.DEV) {
-    console.log('📍 Using development mode - proxy')
-    // Development mode - use relative URL for Vite proxy
-    return '/api'
-  } else {
-    console.log('📍 Using production mode')
-    // Production mode - use the production domain
-    return 'https://teabubble.attrebi.ch/api'
-  }
+  // Default to production
+  console.log('📍 Using production mode (default)')
+  return 'https://teabubble.attrebi.ch/api'
 }
 
 function getBaseUrl() {
-  // Check for custom API URL from environment variable first
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-    return import.meta.env.VITE_API_URL
+  // Check if we're running on localhost FIRST (highest priority)
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8000'
   }
   
   // Check if we're in development mode
   if (import.meta.env.DEV) {
-    // Development mode - use relative URL for Vite proxy
-    return ''
-  } else {
-    // Production mode - use the production domain
-    return 'https://teabubble.attrebi.ch'
+    return 'http://127.0.0.1:8000'
   }
+  
+  // Check for custom API URL from environment variable
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+    return import.meta.env.VITE_API_URL
+  }
+  
+  // Default to production
+  return 'https://teabubble.attrebi.ch'
 }
 
 export const API_CONFIG = {

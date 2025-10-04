@@ -61,20 +61,53 @@ export default {
     const error = ref('')
     
     const handleLogin = async () => {
+      console.log('🔐 LOGIN DEBUG: Starting login process')
+      console.log('🔐 LOGIN DEBUG: Environment check:', {
+        isDev: import.meta.env.DEV,
+        mode: import.meta.env.MODE,
+        viteApiUrl: import.meta.env.VITE_API_URL,
+        currentUrl: window.location.href,
+        userAgent: navigator.userAgent
+      })
+      
       loading.value = true
       error.value = ''
       
+      console.log('🔐 LOGIN DEBUG: Form data:', {
+        email: form.email,
+        passwordLength: form.password.length,
+        timestamp: new Date().toISOString()
+      })
+      
       try {
+        console.log('🔐 LOGIN DEBUG: Calling authStore.login...')
         const result = await authStore.login(form.email, form.password)
         
+        console.log('🔐 LOGIN DEBUG: Login result:', {
+          success: result.success,
+          hasUser: !!result.user,
+          hasToken: !!result.token,
+          error: result.error
+        })
+        
         if (result.success) {
+          console.log('🔐 LOGIN DEBUG: Login successful, emitting success event')
           emit('success', result)
         } else {
+          console.log('🔐 LOGIN DEBUG: Login failed, setting error:', result.error)
           error.value = result.error
         }
       } catch (err) {
+        console.log('🔐 LOGIN DEBUG: Login exception caught:', {
+          message: err.message,
+          name: err.name,
+          code: err.code,
+          stack: err.stack,
+          response: err.response?.data
+        })
         error.value = err.message || 'Login failed'
       } finally {
+        console.log('🔐 LOGIN DEBUG: Login process completed, setting loading to false')
         loading.value = false
       }
     }
