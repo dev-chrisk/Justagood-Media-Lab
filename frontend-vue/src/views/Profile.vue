@@ -169,6 +169,30 @@
                     </select>
                   </div>
                   <div class="form-group">
+                    <label for="booksApiProvider">Books API Provider</label>
+                    <select id="booksApiProvider" v-model="profileData.booksApiProvider">
+                      <option value="wikipedia">Wikipedia (Primary)</option>
+                      <option value="google_books">Google Books (Fallback)</option>
+                      <option value="both">Both (Wikipedia + Google Books)</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="enableGoogleBooksFallback">Enable Google Books Fallback</label>
+                    <div class="checkbox-container">
+                      <input 
+                        type="checkbox" 
+                        id="enableGoogleBooksFallback" 
+                        v-model="profileData.enableGoogleBooksFallback"
+                      />
+                      <label for="enableGoogleBooksFallback" class="checkbox-label">
+                        Use Google Books as fallback when Wikipedia search fails
+                      </label>
+                    </div>
+                  </div>
+                  <div class="form-group">
                     <!-- Empty div to maintain layout -->
                   </div>
                 </div>
@@ -276,7 +300,9 @@ export default {
       avatar: '',
       language: 'en',
       timezone: 'UTC',
-      dateFormat: 'MM/DD/YYYY'
+      dateFormat: 'MM/DD/YYYY',
+      booksApiProvider: 'wikipedia',
+      enableGoogleBooksFallback: true
     })
     
     const totalItems = computed(() => mediaStore.totalItems)
@@ -420,7 +446,9 @@ export default {
           avatar: '',
           language: 'en',
           timezone: 'UTC',
-          dateFormat: 'MM/DD/YYYY'
+          dateFormat: 'MM/DD/YYYY',
+          booksApiProvider: 'wikipedia',
+          enableGoogleBooksFallback: true
         })
         saveProfileData()
       }
@@ -868,6 +896,29 @@ export default {
   .content-area {
     padding: 20px;
   }
+}
+
+/* Checkbox styles */
+.checkbox-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.checkbox-container input[type="checkbox"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #4a9eff;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #d0d0d0;
+  line-height: 1.4;
+  cursor: pointer;
+  margin: 0;
 }
 
 @media (max-width: 768px) {

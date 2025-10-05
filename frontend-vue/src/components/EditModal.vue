@@ -167,6 +167,13 @@ biem <template>
           </div>
         </div>
         
+        <!-- Books API Control Panel -->
+        <BooksApiControlPanel 
+          v-if="(form.category === 'buecher' || form.watchlistType === 'buecher')"
+          :expanded="false"
+          @preferences-changed="handlePreferencesChanged"
+        />
+        
         <div class="form-row">
           <div class="form-group">
             <label for="link">Link:</label>
@@ -344,9 +351,14 @@ import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
+import { unifiedBooksApiService } from '@/services/unifiedBooksApi'
+import BooksApiControlPanel from '@/components/BooksApiControlPanel.vue'
 
 export default {
   name: 'EditModal',
+  components: {
+    BooksApiControlPanel
+  },
   props: {
     item: {
       type: Object,
@@ -399,16 +411,31 @@ export default {
           form[key] = newItem[key] || ''
         })
         
-        // Handle rating fields - map backend fields to form fields
+        // Map backend field names to frontend field names
+        if (newItem.watchlist_type !== undefined) {
+          form.watchlistType = newItem.watchlist_type
+        }
+        if (newItem.is_airing !== undefined) {
+          form.isAiring = newItem.is_airing
+        }
+        if (newItem.next_season !== undefined) {
+          form.nextSeason = newItem.next_season
+        }
+        if (newItem.next_season_release !== undefined) {
+          form.nextSeasonRelease = newItem.next_season_release
+        }
         if (newItem.api_rating !== undefined) {
           form.apiRating = newItem.api_rating
         }
         if (newItem.personal_rating !== undefined) {
           form.personalRating = newItem.personal_rating
         }
-        // Fallback for old data structure
-        if (newItem.rating !== undefined && !form.apiRating) {
-          form.apiRating = newItem.rating
+        if (newItem.image_url !== undefined) {
+          form.imageUrl = newItem.image_url
+        }
+        // Map the main rating field to personal rating (since that's what users edit)
+        if (newItem.rating !== undefined && !form.personalRating) {
+          form.personalRating = newItem.rating
         }
       } else {
         // Reset form for new item - use current category from sidebar
@@ -485,9 +512,44 @@ export default {
         if (itemData.spielzeit) itemData.spielzeit = parseInt(itemData.spielzeit)
         if (itemData.nextSeason) itemData.nextSeason = parseInt(itemData.nextSeason)
         
+        // Map frontend field names to backend field names
+        if (itemData.watchlistType) {
+          itemData.watchlist_type = itemData.watchlistType
+          delete itemData.watchlistType
+        }
+        if (itemData.isAiring !== undefined) {
+          itemData.is_airing = itemData.isAiring
+          delete itemData.isAiring
+        }
+        if (itemData.nextSeason) {
+          itemData.next_season = itemData.nextSeason
+          delete itemData.nextSeason
+        }
+        if (itemData.nextSeasonRelease) {
+          itemData.next_season_release = itemData.nextSeasonRelease
+          delete itemData.nextSeasonRelease
+        }
+        if (itemData.apiRating) {
+          itemData.api_rating = itemData.apiRating
+          delete itemData.apiRating
+        }
+        if (itemData.personalRating) {
+          itemData.personal_rating = itemData.personalRating
+          delete itemData.personalRating
+        }
+        if (itemData.imageUrl) {
+          itemData.image_url = itemData.imageUrl
+          delete itemData.imageUrl
+        }
+        
         emit('save', itemData)
       } catch (err) {
-        error.value = err.message || 'Failed to save item'
+        // Handle duplicate errors specifically
+        if (err.isDuplicate || (err.response?.status === 409 && err.response?.data?.duplicate)) {
+          error.value = 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits. Bitte wählen Sie einen anderen Titel oder bearbeiten Sie den bestehenden Eintrag.'
+        } else {
+          error.value = err.message || 'Failed to save item'
+        }
       } finally {
         loading.value = false
       }
@@ -545,22 +607,22 @@ export default {
 
           // Check if this is a books search
           if (searchCategory === 'buecher') {
-            console.log('📚 Searching Google Books API for:', form.title)
+            console.log('📚 Searching Unified Books API for:', form.title)
             
-            const googleBooksResult = await simpleGoogleBooksApi.searchBooks(form.title, 10)
+            const unifiedResult = await unifiedBooksApiService.searchBooks(form.title, 10)
             
-            if (googleBooksResult.success && googleBooksResult.data) {
-              console.log('📚 Google Books API Success:', googleBooksResult.data.length, 'results')
+            if (unifiedResult.success && unifiedResult.data) {
+              console.log('📚 Unified Books API Success:', unifiedResult.data.length, 'results from', unifiedResult.source)
               
-              searchResults = googleBooksResult.data.map(book => ({
+              searchResults = unifiedResult.data.map(book => ({
                 title: book.title,
                 release: book.publishedDate ? formatDateForInput(book.publishedDate) : '',
                 genre: book.categories ? book.categories.join(', ') : '',
-                platforms: '', // Books don't have platforms
-                link: book.infoLink || book.previewLink || '',
+                platforms: book.author || '', // Use author in platforms field for books
+                link: book.link || '',
                 imageUrl: book.imageUrl || '',
-                rating: '', // Google Books doesn't provide ratings
-                apiSource: 'google_books',
+                rating: '', // Most APIs don't provide ratings
+                apiSource: book.apiSource || unifiedResult.source,
                 id: book.id,
                 author: book.author,
                 description: book.description,
@@ -569,9 +631,9 @@ export default {
                 isbn13: book.isbn13
               }))
               
-              console.log('📚 Formatted Google Books results:', searchResults)
+              console.log('📚 Formatted Unified Books results:', searchResults)
             } else {
-              console.warn('📚 Google Books API failed:', googleBooksResult.error)
+              console.warn('📚 Unified Books API failed:', unifiedResult.error)
             }
           } else {
             // Use existing media API for other categories
@@ -640,9 +702,10 @@ export default {
       if (result.link) form.link = result.link
       if (result.rating) form.apiRating = result.rating
       
-      // Handle Google Books specific fields
-      if (result.apiSource === 'google_books') {
-        console.log('📚 Filling Google Books data:', {
+      // Handle Books API specific fields (both Wikipedia and Google Books)
+      if (result.apiSource === 'google_books' || result.apiSource === 'wikipedia') {
+        console.log('📚 Filling Books API data:', {
+          apiSource: result.apiSource,
           author: result.author,
           description: result.description,
           publisher: result.publisher,
@@ -650,7 +713,7 @@ export default {
           isbn13: result.isbn13
         })
         
-        // For books, we can use the author field in the genre or platforms field
+        // For books, we can use the author field in the platforms field
         if (result.author) {
           form.platforms = result.author // Use platforms field for author
         }
@@ -849,6 +912,12 @@ export default {
       }
     }
     
+    const handlePreferencesChanged = (preferences) => {
+      console.log('📚 [EditModal] Preferences changed:', preferences)
+      // Clear current API results to force a new search with new preferences
+      apiResults.value = []
+    }
+    
     return {
       form,
       loading,
@@ -874,7 +943,8 @@ export default {
       getImagePreviewUrl,
       handleImageError,
       clearImage,
-      removeUploadedImage
+      removeUploadedImage,
+      handlePreferencesChanged
     }
   }
 }

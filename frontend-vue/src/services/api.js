@@ -428,10 +428,11 @@ export const mediaApi = {
         transformedData.release = itemData.release
       }
       if (itemData.apiRating !== undefined) {
-        transformedData.api_rating = itemData.apiRating ? Math.round(itemData.apiRating) : null
+        transformedData.rating = itemData.apiRating ? Math.round(itemData.apiRating) : null
       }
       if (itemData.personalRating !== undefined) {
-        transformedData.personal_rating = itemData.personalRating ? Math.round(itemData.personalRating) : null
+        // For now, use personal rating as the main rating since that's what the user sets
+        transformedData.rating = itemData.personalRating ? Math.round(itemData.personalRating) : null
       }
       if (itemData.platforms !== undefined) {
         transformedData.platforms = itemData.platforms
