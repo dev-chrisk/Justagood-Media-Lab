@@ -219,7 +219,7 @@
         @click="handleAdminSetup" 
         :disabled="adminSetupLoading"
         class="admin-setup-btn"
-        title="Setup Admin Account (Creates admin@teabubble.attrebi.ch / admin123)"
+        title="Setup Admin Account (Creates admin account with default password)"
       >
         <span v-if="adminSetupLoading">🔧 Setting up...</span>
         <span v-else>🔧 Admin Setup</span>

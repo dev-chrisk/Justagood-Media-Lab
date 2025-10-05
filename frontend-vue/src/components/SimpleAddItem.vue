@@ -62,7 +62,7 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            email: 'admin@teabubble.attrebi.ch',
+            email: 'admin@example.com',
             password: 'admin123'
           })
         })

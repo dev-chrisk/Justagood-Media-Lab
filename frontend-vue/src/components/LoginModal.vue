@@ -97,7 +97,8 @@ export default {
     
     const checkProdDB = async () => {
       try {
-        const response = await fetch('https://teabubble.attrebi.ch/api/check-db')
+        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
+        const response = await fetch(`${baseUrl}/api/check-db`)
         const data = await response.json()
         alert(`Prod DB: ${data.success ? '✅ Connected' : '❌ Error'}\nUsers: ${data.user_count}\nError: ${data.error || 'None'}`)
       } catch (err) {
@@ -111,7 +112,8 @@ export default {
       }
       
       try {
-        const response = await fetch('https://teabubble.attrebi.ch/api/delete-all-users', {
+        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
+        const response = await fetch(`${baseUrl}/api/delete-all-users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         })
