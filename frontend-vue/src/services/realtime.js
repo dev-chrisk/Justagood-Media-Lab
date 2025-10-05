@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { mediaApi } from '@/services/api'
+import { API_CONFIG } from '@/config/api'
 
 class RealtimeService {
   constructor() {
@@ -11,26 +12,10 @@ class RealtimeService {
   }
 
   /**
-   * Get API base URL using the same logic as other services
+   * Get API base URL using the central API configuration
    */
   getApiBaseUrl() {
-    // Check for custom API URL from environment variable FIRST (highest priority)
-    if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-      return import.meta.env.VITE_API_URL
-    }
-    
-    // Check if we're in development mode
-    if (import.meta.env.DEV) {
-      return 'http://127.0.0.1:8000'
-    }
-    
-    // Check if we're running on localhost AND in development mode
-    if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && import.meta.env.DEV) {
-      return 'http://127.0.0.1:8000'
-    }
-    
-    // Default to production
-    return 'https://teabubble.attrebi.ch'
+    return API_CONFIG.BASE_URL
   }
 
   connect() {

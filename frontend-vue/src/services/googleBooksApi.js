@@ -1,4 +1,6 @@
 // Google Books API Service with maximum debugging
+import { API_CONFIG } from '@/config/api'
+
 let GOOGLE_BOOKS_API_KEY = null
 let GOOGLE_BOOKS_BASE_URL = 'https://www.googleapis.com/books/v1'
 
@@ -12,7 +14,7 @@ class GoogleBooksApi {
   async initializeConfig() {
     try {
       console.log('📚 Fetching Google Books API config from backend...')
-      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
+      const baseUrl = API_CONFIG.BASE_URL
       const response = await fetch(`${baseUrl}/api/google-books-config`, {
         method: 'GET',
         headers: {
@@ -50,7 +52,7 @@ class GoogleBooksApi {
     // Try backend API first
     try {
       console.log('📚 Trying backend Google Books API...')
-      const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : 'https://teabubble.attrebi.ch')
+      const baseUrl = API_CONFIG.BASE_URL
       const response = await fetch(`${baseUrl}/api/google-books/search?q=${encodeURIComponent(query)}&maxResults=${maxResults}`)
       
       if (response.ok) {

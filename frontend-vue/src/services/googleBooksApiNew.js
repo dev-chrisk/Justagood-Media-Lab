@@ -3,8 +3,10 @@
  * Handles all Google Books API interactions with proper error handling
  */
 
+import { API_CONFIG as APP_CONFIG } from '@/config/api'
+
 // Configuration
-const API_CONFIG = {
+const GOOGLE_BOOKS_CONFIG = {
   BASE_URL: 'https://www.googleapis.com/books/v1',
   TIMEOUT: 10000,
   MAX_RESULTS: 40
@@ -60,20 +62,10 @@ class GoogleBooksApiService {
   }
 
   /**
-   * Get base URL based on environment
+   * Get base URL using central API configuration
    */
   getBaseUrl() {
-    // Check for environment variable first
-    if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
-      return import.meta.env.VITE_API_URL
-    }
-    
-    // Auto-detect based on environment
-    if (import.meta.env.DEV) {
-      return 'http://127.0.0.1:8000'
-    } else {
-      return 'https://teabubble.attrebi.ch'
-    }
+    return APP_CONFIG.BASE_URL
   }
 
   /**
@@ -159,7 +151,7 @@ class GoogleBooksApiService {
         },
         mode: 'cors',
         credentials: 'include',
-        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
+        signal: AbortSignal.timeout(GOOGLE_BOOKS_CONFIG.TIMEOUT)
       })
 
       if (!response.ok) {
@@ -189,7 +181,7 @@ class GoogleBooksApiService {
    */
   async searchDirect(query, maxResults) {
     try {
-      const url = `${API_CONFIG.BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${this.apiKey}&maxResults=${Math.min(maxResults, API_CONFIG.MAX_RESULTS)}`
+      const url = `${GOOGLE_BOOKS_CONFIG.BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${this.apiKey}&maxResults=${Math.min(maxResults, GOOGLE_BOOKS_CONFIG.MAX_RESULTS)}`
       
       console.log('📚 [GoogleBooks] Direct API request:', url.substring(0, 100) + '...')
 
@@ -202,7 +194,7 @@ class GoogleBooksApiService {
         },
         mode: 'cors',
         credentials: 'include',
-        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
+        signal: AbortSignal.timeout(GOOGLE_BOOKS_CONFIG.TIMEOUT)
       })
 
       if (!response.ok) {
@@ -359,7 +351,7 @@ class GoogleBooksApiService {
     }
 
     try {
-      const url = `${API_CONFIG.BASE_URL}/volumes/${bookId}?key=${this.apiKey}`
+      const url = `${GOOGLE_BOOKS_CONFIG.BASE_URL}/volumes/${bookId}?key=${this.apiKey}`
       
       const response = await fetch(url, {
         method: 'GET',
@@ -370,7 +362,7 @@ class GoogleBooksApiService {
         },
         mode: 'cors',
         credentials: 'include',
-        signal: AbortSignal.timeout(API_CONFIG.TIMEOUT)
+        signal: AbortSignal.timeout(GOOGLE_BOOKS_CONFIG.TIMEOUT)
       })
 
       if (!response.ok) {
