@@ -109,8 +109,25 @@ class MediaController extends Controller
 
         $data = $request->all();
         
+        // Debug log to see what data is received
+        \Log::info('MediaController update request data:', $data);
+        \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
+        
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
+        
+        // Handle image_url and path fields
+        if (isset($data['image_url']) && $data['image_url']) {
+            // If image_url is provided, use it
+            $data['image_url'] = $data['image_url'];
+            // Also set path if it's not already set
+            if (!isset($data['path']) || !$data['path']) {
+                $data['path'] = $data['image_url'];
+            }
+        } elseif (isset($data['path']) && $data['path']) {
+            // If only path is provided, use it for both fields
+            $data['image_url'] = $data['path'];
+        }
         
         // Set default values for required fields
         $data['is_airing'] = $data['is_airing'] ?? false;
@@ -177,6 +194,7 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
         }
 
+
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
             'category' => 'sometimes|string|in:game,series,movie,watchlist,buecher',
@@ -204,8 +222,25 @@ class MediaController extends Controller
 
         $data = $request->all();
         
+        // Debug log to see what data is received
+        \Log::info('MediaController update request data:', $data);
+        \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
+        
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
+        
+        // Handle image_url and path fields
+        if (isset($data['image_url']) && $data['image_url']) {
+            // If image_url is provided, use it
+            $data['image_url'] = $data['image_url'];
+            // Also set path if it's not already set
+            if (!isset($data['path']) || !$data['path']) {
+                $data['path'] = $data['image_url'];
+            }
+        } elseif (isset($data['path']) && $data['path']) {
+            // If only path is provided, use it for both fields
+            $data['image_url'] = $data['path'];
+        }
         
         // Set default values for required fields
         if (isset($data['is_airing'])) {

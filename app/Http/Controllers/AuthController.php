@@ -15,12 +15,14 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
         $user = User::create([
             'name' => $request->name,
+            'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
@@ -38,20 +40,14 @@ class AuthController extends Controller
         try {
 
             // Simple validation without Laravel validation to avoid issues
-            if (empty($request->email) || empty($request->password)) {
+            if (empty($request->username) || empty($request->password)) {
                 return response()->json([
-                    'error' => 'Email and password are required'
+                    'error' => 'Username and password are required'
                 ], 400);
             }
 
-            if (!filter_var($request->email, FILTER_VALIDATE_EMAIL)) {
-                return response()->json([
-                    'error' => 'Invalid email format'
-                ], 400);
-            }
-
-
-            $user = User::where('email', $request->email)->first();
+            // Find user by username
+            $user = User::where('username', $request->username)->first();
 
             if (!$user) {
                 return response()->json([
@@ -59,20 +55,16 @@ class AuthController extends Controller
                 ], 401);
             }
 
-
             if (!Hash::check($request->password, $user->password)) {
                 return response()->json([
                     'error' => 'Invalid credentials'
                 ], 401);
             }
 
-
             $token = $user->createToken('auth-token')->plainTextToken;
-
 
             // Prüfe und bereinige Duplikate beim Login
             $duplicateInfo = $this->checkAndCleanupDuplicates($user->id);
-
 
             return response()->json([
                 'user' => $user,

@@ -2,8 +2,8 @@
   <div class="media-item" :class="getCategoryClass()" :style="getCategoryStyle()" @click="editItem">
     <div class="media-image">
       <img 
-        v-if="item.path" 
-        :src="getImageUrl(item.path)" 
+        v-if="item.image_url || item.path" 
+        :src="getImageUrl(item.image_url || item.path)" 
         :alt="item.title"
         @error="handleImageError"
       />

@@ -44,22 +44,8 @@ class MediaItem extends Model
         'next_season' => 'integer',
     ];
 
-    protected $appends = ['image_url', 'category_name'];
+    protected $appends = ['category_name'];
 
-    // Accessor for image URL
-    protected function imageUrl(): Attribute
-    {
-        return Attribute::make(
-            get: function () {
-                // If image_url is set directly, use it
-                if (isset($this->attributes['image_url']) && $this->attributes['image_url']) {
-                    return $this->attributes['image_url'];
-                }
-                // Otherwise, use path as before
-                return $this->path ? asset('storage/' . $this->path) : null;
-            },
-        );
-    }
 
     // Accessor for category name (backward compatibility)
     protected function categoryName(): Attribute
@@ -157,7 +143,7 @@ class MediaItem extends Model
      */
     public static function findDuplicates($title, $category, $userId, $excludeId = null)
     {
-        $query = static::where('title', $title)
+        $query = static::whereRaw('LOWER(TRIM(title)) = ?', [strtolower(trim($title))])
             ->where('category', $category)
             ->where('user_id', $userId);
             

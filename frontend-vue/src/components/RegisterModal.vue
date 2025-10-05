@@ -15,6 +15,17 @@
         </div>
         
         <div class="form-group">
+          <label for="username">Username:</label>
+          <input 
+            type="text" 
+            id="username"
+            v-model="form.username" 
+            required
+            :disabled="loading"
+          />
+        </div>
+        
+        <div class="form-group">
           <label for="email">Email:</label>
           <input 
             type="email" 
@@ -78,6 +89,7 @@ export default {
     
     const form = reactive({
       name: '',
+      username: '',
       email: '',
       password: '',
       passwordConfirm: ''
@@ -88,6 +100,7 @@ export default {
     
     const isFormValid = computed(() => {
       return form.name && 
+             form.username &&
              form.email && 
              form.password && 
              form.passwordConfirm && 
@@ -107,6 +120,7 @@ export default {
       try {
         const result = await authStore.register(
           form.name, 
+          form.username,
           form.email, 
           form.password, 
           form.passwordConfirm

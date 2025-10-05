@@ -16,12 +16,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.is_admin || false)
 
   // Actions
-  async function login(email, password) {
+  async function login(username, password) {
     loading.value = true
     error.value = null
     
     try {
-      const response = await authApi.login(email, password)
+      const response = await authApi.login(username, password)
       
       token.value = response.token
       user.value = response.user
@@ -43,12 +43,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function register(name, email, password, passwordConfirm) {
+  async function register(name, username, email, password, passwordConfirm) {
     loading.value = true
     error.value = null
     
     try {
-      const response = await authApi.register(name, email, password, passwordConfirm)
+      const response = await authApi.register(name, username, email, password, passwordConfirm)
       
       token.value = response.token
       user.value = response.user

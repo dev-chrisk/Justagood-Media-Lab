@@ -69,9 +69,9 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  async login(email, password) {
+  async login(username, password) {
     try {
-      const response = await api.post('/login', { email, password })
+      const response = await api.post('/login', { username, password })
       return response.data
     } catch (error) {
       // Check if it's a server error (500)
@@ -104,10 +104,11 @@ export const authApi = {
     }
   },
 
-  async register(name, email, password, passwordConfirm) {
+  async register(name, username, email, password, passwordConfirm) {
     try {
       const response = await api.post('/register', { 
         name, 
+        username,
         email, 
         password, 
         password_confirmation: passwordConfirm 
@@ -247,6 +248,10 @@ export const mediaApi = {
     try {
       // Try API for logged in users
       const response = await api.get('/media')
+      console.log('API - getMedia response:', response.data)
+      if (response.data && response.data.length > 0) {
+        console.log('API - first item rating:', response.data[0].rating)
+      }
       return response.data
     } catch (error) {
       // Don't fallback to demo data for logged in users - throw the error
@@ -427,12 +432,15 @@ export const mediaApi = {
       if (itemData.release !== undefined) {
         transformedData.release = itemData.release
       }
-      if (itemData.apiRating !== undefined) {
-        transformedData.rating = itemData.apiRating ? Math.round(itemData.apiRating) : null
-      }
-      if (itemData.personalRating !== undefined) {
-        // For now, use personal rating as the main rating since that's what the user sets
+      // Handle rating - prioritize personal rating over API rating
+      if (itemData.personalRating !== undefined && itemData.personalRating !== null) {
+        // Use personal rating as the main rating since that's what the user sets
         transformedData.rating = itemData.personalRating ? Math.round(itemData.personalRating) : null
+      } else if (itemData.rating !== undefined && itemData.rating !== null) {
+        // Use rating if personalRating is not set
+        transformedData.rating = itemData.rating ? Math.round(itemData.rating) : null
+      } else if (itemData.apiRating !== undefined) {
+        transformedData.rating = itemData.apiRating ? Math.round(itemData.apiRating) : null
       }
       if (itemData.platforms !== undefined) {
         transformedData.platforms = itemData.platforms
@@ -483,7 +491,11 @@ export const mediaApi = {
         }
       }
       
+      console.log('API - updateMediaItem transformedData:', transformedData)
+      console.log('API - rating in transformedData:', transformedData.rating)
       const response = await api.put(`/media/${id}`, transformedData)
+      console.log('API - update response:', response.data)
+      console.log('API - response data rating:', response.data.data?.rating)
       return response.data
     } catch (error) {
       throw error

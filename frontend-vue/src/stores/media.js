@@ -1,16 +1,89 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import realtimeService from '@/services/realtime'
 
 export const useMediaStore = defineStore('media', () => {
+  // Load current category from localStorage
+  const loadCurrentCategory = () => {
+    try {
+      const saved = localStorage.getItem('currentCategory')
+      return saved || 'game'
+    } catch (err) {
+      console.error('Failed to load current category from localStorage:', err)
+      return 'game'
+    }
+  }
+
+  // Save current category to localStorage
+  const saveCurrentCategory = (category) => {
+    try {
+      localStorage.setItem('currentCategory', category)
+    } catch (err) {
+      console.error('Failed to save current category to localStorage:', err)
+    }
+  }
+
+  // Load search query from localStorage
+  const loadSearchQuery = () => {
+    try {
+      const saved = localStorage.getItem('searchQuery')
+      return saved || ''
+    } catch (err) {
+      console.error('Failed to load search query from localStorage:', err)
+      return ''
+    }
+  }
+
+  // Save search query to localStorage
+  const saveSearchQuery = (query) => {
+    try {
+      localStorage.setItem('searchQuery', query)
+    } catch (err) {
+      console.error('Failed to save search query to localStorage:', err)
+    }
+  }
+
+  // Load active filters from localStorage
+  const loadActiveFilters = () => {
+    try {
+      const saved = localStorage.getItem('activeFilters')
+      return saved ? JSON.parse(saved) : []
+    } catch (err) {
+      console.error('Failed to load active filters from localStorage:', err)
+      return []
+    }
+  }
+
+  // Save active filters to localStorage
+  const saveActiveFilters = (filters) => {
+    try {
+      localStorage.setItem('activeFilters', JSON.stringify(filters))
+    } catch (err) {
+      console.error('Failed to save active filters to localStorage:', err)
+    }
+  }
+
   // State
   const mediaData = ref(loadMediaFromStorage())
-  const currentCategory = ref('game')
-  const searchQuery = ref('')
-  const activeFilters = ref([])
+  const currentCategory = ref(loadCurrentCategory())
+  const searchQuery = ref(loadSearchQuery())
+  const activeFilters = ref(loadActiveFilters())
   const loading = ref(false)
   const error = ref(null)
+
+  // Watch for changes and persist to localStorage
+  watch(currentCategory, (newValue) => {
+    saveCurrentCategory(newValue)
+  }, { immediate: false })
+
+  watch(searchQuery, (newValue) => {
+    saveSearchQuery(newValue)
+  }, { immediate: false })
+
+  watch(activeFilters, (newValue) => {
+    saveActiveFilters(newValue)
+  }, { immediate: false, deep: true })
 
   // Load media from localStorage on initialization
   function loadMediaFromStorage() {
@@ -506,6 +579,17 @@ export const useMediaStore = defineStore('media', () => {
     realtimeService.removeListener('media-store')
   }
 
+  // Reset media state to defaults
+  const resetMediaState = () => {
+    currentCategory.value = 'game'
+    searchQuery.value = ''
+    activeFilters.value = []
+    // Clear from localStorage
+    localStorage.removeItem('currentCategory')
+    localStorage.removeItem('searchQuery')
+    localStorage.removeItem('activeFilters')
+  }
+
   return {
     // State
     mediaData,
@@ -537,6 +621,7 @@ export const useMediaStore = defineStore('media', () => {
     saveMedia,
     clearError,
     initializeRealtimeUpdates,
-    cleanupRealtimeUpdates
+    cleanupRealtimeUpdates,
+    resetMediaState
   }
 })

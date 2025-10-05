@@ -407,6 +407,10 @@ export default {
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
       if (newItem) {
+        console.log('EditModal - Loading item data:', newItem)
+        console.log('EditModal - Item rating:', newItem.rating)
+        console.log('EditModal - Item personal_rating:', newItem.personal_rating)
+        
         Object.keys(form).forEach(key => {
           form[key] = newItem[key] || ''
         })
@@ -433,10 +437,17 @@ export default {
         if (newItem.image_url !== undefined) {
           form.imageUrl = newItem.image_url
         }
+        if (newItem.path !== undefined) {
+          form.path = newItem.path
+        }
         // Map the main rating field to personal rating (since that's what users edit)
         if (newItem.rating !== undefined && !form.personalRating) {
           form.personalRating = newItem.rating
         }
+        
+        console.log('EditModal - Form after initialization:')
+        console.log('EditModal - form.personalRating:', form.personalRating)
+        console.log('EditModal - form.rating:', form.rating)
       } else {
         // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
@@ -484,6 +495,13 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
+        // Convert empty strings to null for optional fields (except watchlistType and image fields)
+        Object.keys(itemData).forEach(key => {
+          if (itemData[key] === '' && key !== 'watchlistType' && key !== 'imageUrl' && key !== 'path') {
+            itemData[key] = null
+          }
+        })
+        
         // Process image URL - prioritize uploaded image over URL
         if (uploadedImagePath.value) {
           // Use uploaded image path
@@ -492,25 +510,37 @@ export default {
         } else if (itemData.imageUrl && itemData.imageUrl.trim()) {
           // Use image URL if no uploaded image
           itemData.path = itemData.imageUrl
+        } else if (isEditing.value && props.item) {
+          // When editing, preserve existing image if no new image is provided
+          if (props.item.image_url) {
+            itemData.imageUrl = props.item.image_url
+            itemData.path = props.item.path || props.item.image_url
+          } else if (props.item.path) {
+            itemData.path = props.item.path
+            itemData.imageUrl = props.item.path
+          }
         } else {
-          // Clear empty image fields
+          // Clear empty image fields only for new items
           itemData.imageUrl = null
           itemData.path = null
         }
         
-        // Convert empty strings to null for optional fields (except watchlistType)
-        Object.keys(itemData).forEach(key => {
-          if (itemData[key] === '' && key !== 'watchlistType') {
-            itemData[key] = null
-          }
-        })
-        
         // Convert numeric fields
-        if (itemData.apiRating) itemData.apiRating = parseFloat(itemData.apiRating)
-        if (itemData.personalRating) itemData.personalRating = parseFloat(itemData.personalRating)
-        if (itemData.count) itemData.count = parseInt(itemData.count)
-        if (itemData.spielzeit) itemData.spielzeit = parseInt(itemData.spielzeit)
-        if (itemData.nextSeason) itemData.nextSeason = parseInt(itemData.nextSeason)
+        if (itemData.apiRating !== undefined && itemData.apiRating !== null && itemData.apiRating !== '') {
+          itemData.apiRating = parseFloat(itemData.apiRating)
+        }
+        if (itemData.personalRating !== undefined && itemData.personalRating !== null && itemData.personalRating !== '') {
+          itemData.personalRating = parseFloat(itemData.personalRating)
+        }
+        if (itemData.count !== undefined && itemData.count !== null && itemData.count !== '') {
+          itemData.count = parseInt(itemData.count)
+        }
+        if (itemData.spielzeit !== undefined && itemData.spielzeit !== null && itemData.spielzeit !== '') {
+          itemData.spielzeit = parseInt(itemData.spielzeit)
+        }
+        if (itemData.nextSeason !== undefined && itemData.nextSeason !== null && itemData.nextSeason !== '') {
+          itemData.nextSeason = parseInt(itemData.nextSeason)
+        }
         
         // Map frontend field names to backend field names
         if (itemData.watchlistType) {
@@ -529,20 +559,33 @@ export default {
           itemData.next_season_release = itemData.nextSeasonRelease
           delete itemData.nextSeasonRelease
         }
-        if (itemData.apiRating) {
-          itemData.api_rating = itemData.apiRating
-          delete itemData.apiRating
-        }
-        if (itemData.personalRating) {
-          itemData.personal_rating = itemData.personalRating
+        // Handle rating - prioritize personal rating over API rating
+        if (itemData.personalRating !== undefined) {
+          itemData.rating = itemData.personalRating
           delete itemData.personalRating
+        } else if (itemData.apiRating !== undefined) {
+          itemData.rating = itemData.apiRating
+          delete itemData.apiRating
         }
         if (itemData.imageUrl) {
           itemData.image_url = itemData.imageUrl
           delete itemData.imageUrl
         }
         
-        emit('save', itemData)
+        // Debug log to see what data is being sent
+        console.log('EditModal - Saving item data:', itemData)
+        console.log('EditModal - personalRating value:', itemData.personalRating)
+        console.log('EditModal - rating value:', itemData.rating)
+        
+        // Make API call directly instead of emitting save event
+        if (isEditing.value && props.item) {
+          await mediaApi.updateMediaItem(props.item.id, itemData)
+        } else {
+          await mediaApi.addMediaItem(itemData)
+        }
+        
+        // Close modal after successful save
+        closeModal()
       } catch (err) {
         // Handle duplicate errors specifically
         if (err.isDuplicate || (err.response?.status === 409 && err.response?.data?.duplicate)) {
