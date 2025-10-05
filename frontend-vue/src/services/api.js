@@ -358,8 +358,11 @@ export const mediaApi = {
       if (itemData.release) {
         transformedData.release = this.formatDateForBackend(itemData.release)
       }
-      if (itemData.rating) {
-        transformedData.rating = Math.round(itemData.rating)
+      if (itemData.apiRating) {
+        transformedData.api_rating = Math.round(itemData.apiRating)
+      }
+      if (itemData.personalRating) {
+        transformedData.personal_rating = Math.round(itemData.personalRating)
       }
       if (itemData.platforms) {
         transformedData.platforms = itemData.platforms
@@ -424,8 +427,11 @@ export const mediaApi = {
       if (itemData.release !== undefined) {
         transformedData.release = itemData.release
       }
-      if (itemData.rating !== undefined) {
-        transformedData.rating = itemData.rating ? Math.round(itemData.rating) : null
+      if (itemData.apiRating !== undefined) {
+        transformedData.api_rating = itemData.apiRating ? Math.round(itemData.apiRating) : null
+      }
+      if (itemData.personalRating !== undefined) {
+        transformedData.personal_rating = itemData.personalRating ? Math.round(itemData.personalRating) : null
       }
       if (itemData.platforms !== undefined) {
         transformedData.platforms = itemData.platforms
@@ -464,10 +470,16 @@ export const mediaApi = {
         transformedData.watchlist_type = itemData.watchlistType
       }
       if (itemData.imageUrl !== undefined) {
-        transformedData.image_url = itemData.imageUrl
+        // Only send image_url if it's not null (null means "don't update this field")
+        if (itemData.imageUrl !== null) {
+          transformedData.image_url = itemData.imageUrl
+        }
       }
       if (itemData.path !== undefined) {
-        transformedData.path = itemData.path
+        // Only send path if it's not null (null means "don't update this field")
+        if (itemData.path !== null) {
+          transformedData.path = itemData.path
+        }
       }
       
       const response = await api.put(`/media/${id}`, transformedData)

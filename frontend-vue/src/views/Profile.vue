@@ -1,12 +1,12 @@
 <template>
   <div class="vue-app">
     <!-- Mobile Overlay -->
-    <div class="mobile-overlay" :class="{ show: mobileSidebarOpen }" @click="closeMobileSidebar"></div>
+    <div class="mobile-overlay" :class="{ show: sidebarStore.mobileOpen }" @click="sidebarStore.closeMobileSidebar"></div>
     
     <!-- Sidebar -->
     <Sidebar
-      :collapsed="sidebarCollapsed"
-      :mobile-open="mobileSidebarOpen"
+      :collapsed="sidebarStore.collapsed"
+      :mobile-open="sidebarStore.mobileOpen"
       :is-logged-in="isLoggedIn"
       :is-admin="isAdmin"
       :user-name="userName"
@@ -15,11 +15,9 @@
       :platforms="[]"
       :genres="[]"
       :categories="[]"
-      @toggle="toggleSidebar"
+      @toggle="sidebarStore.toggleSidebar"
       @navigate-to-library="navigateToLibrary"
-      @navigate-to-statistics="navigateToStatistics"
       @navigate-to-calendar="navigateToCalendar"
-      @navigate-to-features="navigateToFeatures"
       @logout="logout"
     />
 
@@ -28,7 +26,7 @@
       <!-- Header -->
       <header class="main-header">
         <div class="header-left">
-          <button class="mobile-sidebar-toggle" @click="toggleMobileSidebar">☰</button>
+          <button class="mobile-sidebar-toggle" @click="sidebarStore.toggleMobileSidebar">☰</button>
           <h1 class="page-title">Profile Settings</h1>
         </div>
         <div class="header-right">
@@ -254,6 +252,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMediaStore } from '@/stores/media'
 import Sidebar from '@/components/Sidebar.vue'
+import { useSidebarStore } from '@/stores/sidebar'
 
 export default {
   name: 'Profile',
@@ -264,6 +263,7 @@ export default {
     const router = useRouter()
     const authStore = useAuthStore()
     const mediaStore = useMediaStore()
+    const sidebarStore = useSidebarStore()
     
     const avatarInput = ref(null)
     
@@ -281,42 +281,24 @@ export default {
     
     const totalItems = computed(() => mediaStore.totalItems)
     
-    // Sidebar state
-    const sidebarCollapsed = ref(false)
-    const mobileSidebarOpen = ref(false)
+    // Sidebar state is now managed globally in useSidebarStore
     
     // Computed properties
     const isLoggedIn = computed(() => authStore.isLoggedIn)
     const isAdmin = computed(() => authStore.isAdmin)
     const userName = computed(() => authStore.userName)
     
-    const toggleSidebar = () => {
-      sidebarCollapsed.value = !sidebarCollapsed.value
-    }
-    
-    const toggleMobileSidebar = () => {
-      mobileSidebarOpen.value = !mobileSidebarOpen.value
-    }
-    
-    const closeMobileSidebar = () => {
-      mobileSidebarOpen.value = false
-    }
+    // Sidebar methods are now managed globally in useSidebarStore
     
     const navigateToLibrary = () => {
       router.push('/')
     }
     
-    const navigateToStatistics = () => {
-      router.push('/statistics')
-    }
     
     const navigateToCalendar = () => {
       router.push('/calendar')
     }
     
-    const navigateToFeatures = () => {
-      router.push('/features')
-    }
     
     const logout = async () => {
       await authStore.logout()
@@ -484,18 +466,11 @@ export default {
       avatarInput,
       profileData,
       totalItems,
-      sidebarCollapsed,
-      mobileSidebarOpen,
       isLoggedIn,
       isAdmin,
       userName,
-      toggleSidebar,
-      toggleMobileSidebar,
-      closeMobileSidebar,
       navigateToLibrary,
-      navigateToStatistics,
       navigateToCalendar,
-      navigateToFeatures,
       logout,
       refreshStats,
       getInitials,
@@ -507,7 +482,10 @@ export default {
       clearCache,
       resetSettings,
       clearAllData,
-      saveAllChanges
+      saveAllChanges,
+      
+      // Sidebar Store
+      sidebarStore
     }
   }
 }

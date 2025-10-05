@@ -1,12 +1,12 @@
 <template>
   <div class="vue-app">
     <!-- Mobile Overlay -->
-    <div class="mobile-overlay" :class="{ show: mobileSidebarOpen }" @click="closeMobileSidebar"></div>
+    <div class="mobile-overlay" :class="{ show: sidebarStore.mobileOpen }" @click="sidebarStore.closeMobileSidebar"></div>
     
     <!-- Sidebar -->
     <Sidebar
-      :collapsed="sidebarCollapsed"
-      :mobile-open="mobileSidebarOpen"
+      :collapsed="sidebarStore.collapsed"
+      :mobile-open="sidebarStore.mobileOpen"
       :is-logged-in="isLoggedIn"
       :user-name="userName"
       :current-category="currentCategory"
@@ -14,9 +14,8 @@
       :platforms="platforms"
       :genres="genres"
       :categories="categories"
-      @toggle="toggleSidebar"
+      @toggle="sidebarStore.toggleSidebar"
       @set-category="setCategory"
-      @navigate-to-statistics="navigateToStatistics"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-profile="navigateToProfile"
       @toggle-platform-filter="togglePlatformFilter"
@@ -33,7 +32,7 @@
         v-model:search-query="searchQuery"
         v-model:grid-columns="gridColumns"
         v-model:sort-by="sortBy"
-        @toggle-mobile-sidebar="toggleMobileSidebar"
+        @toggle-mobile-sidebar="sidebarStore.toggleMobileSidebar"
         @clear-search="clearSearch"
       />
 
@@ -123,6 +122,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
+import { useSidebarStore } from '@/stores/sidebar'
 import MainHeader from '@/components/MainHeader.vue'
 import LoginModal from '@/components/LoginModal.vue'
 import RegisterModal from '@/components/RegisterModal.vue'
@@ -141,10 +141,10 @@ export default {
     const router = useRouter()
     const authStore = useAuthStore()
     const mediaStore = useMediaStore()
+    const sidebarStore = useSidebarStore()
 
     // State
-    const sidebarCollapsed = ref(false)
-    const mobileSidebarOpen = ref(false)
+    // Sidebar state is now managed globally in useSidebarStore
     const showLoginModal = ref(false)
     const showRegisterModal = ref(false)
     const searchQuery = ref('')
@@ -218,17 +218,7 @@ export default {
     })
 
     // Methods
-    const toggleSidebar = () => {
-      sidebarCollapsed.value = !sidebarCollapsed.value
-    }
-
-    const toggleMobileSidebar = () => {
-      mobileSidebarOpen.value = !mobileSidebarOpen.value
-    }
-
-    const closeMobileSidebar = () => {
-      mobileSidebarOpen.value = false
-    }
+    // Sidebar methods are now managed globally in useSidebarStore
 
     const setCategory = () => {
       // Not used in calendar view
@@ -238,10 +228,6 @@ export default {
       searchQuery.value = ''
     }
 
-    const navigateToStatistics = () => {
-      router.push('/statistics')
-      mobileSidebarOpen.value = false
-    }
 
     const navigateToCalendar = () => {
       // Already on calendar
@@ -249,7 +235,7 @@ export default {
 
     const navigateToProfile = () => {
       router.push('/profile')
-      mobileSidebarOpen.value = false
+      sidebarStore.closeMobileSidebar()
     }
 
     const togglePlatformFilter = () => {
@@ -365,8 +351,6 @@ export default {
 
     return {
       // State
-      sidebarCollapsed,
-      mobileSidebarOpen,
       showLoginModal,
       showRegisterModal,
       searchQuery,
@@ -391,12 +375,8 @@ export default {
       calendarDays,
       
       // Methods
-      toggleSidebar,
-      toggleMobileSidebar,
-      closeMobileSidebar,
       setCategory,
       clearSearch,
-      navigateToStatistics,
       navigateToCalendar,
       navigateToProfile,
       togglePlatformFilter,
@@ -410,7 +390,10 @@ export default {
       selectDay,
       formatSelectedDay,
       hasEventsForDate,
-      getEventsForDate
+      getEventsForDate,
+      
+      // Sidebar Store
+      sidebarStore
     }
   }
 }

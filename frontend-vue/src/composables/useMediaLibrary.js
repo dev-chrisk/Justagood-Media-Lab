@@ -5,6 +5,7 @@ import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
 import { useConfirmStore } from '@/stores/confirm'
 import { useInputStore } from '@/stores/input'
+import { useSidebarStore } from '@/stores/sidebar'
 
 export function useMediaLibrary() {
   const router = useRouter()
@@ -15,8 +16,7 @@ export function useMediaLibrary() {
   const inputStore = useInputStore()
   
   // UI State
-  const sidebarCollapsed = ref(false)
-  const mobileSidebarOpen = ref(false)
+  // Sidebar state is now managed globally in useSidebarStore
   const showLoginModal = ref(false)
   const showRegisterModal = ref(false)
   const showEditModal = ref(false)
@@ -147,6 +147,14 @@ export function useMediaLibrary() {
           // Sort by airing status (airing first, then finished)
           aVal = a.isAiring ? 1 : 0
           bVal = b.isAiring ? 1 : 0
+        } else if (field === 'api_rating') {
+          // Sort by API rating
+          aVal = a.api_rating || a.rating || 0
+          bVal = b.api_rating || b.rating || 0
+        } else if (field === 'personal_rating') {
+          // Sort by personal rating
+          aVal = a.personal_rating || 0
+          bVal = b.personal_rating || 0
         }
         
         if (typeof aVal === 'string') {
@@ -204,21 +212,13 @@ export function useMediaLibrary() {
   })
 
   // Methods
-  const toggleSidebar = () => {
-    sidebarCollapsed.value = !sidebarCollapsed.value
-  }
-
-  const toggleMobileSidebar = () => {
-    mobileSidebarOpen.value = !mobileSidebarOpen.value
-  }
-
-  const closeMobileSidebar = () => {
-    mobileSidebarOpen.value = false
-  }
+  // Sidebar methods are now managed globally in useSidebarStore
 
   const setCategory = (category) => {
     mediaStore.setCategory(category)
-    mobileSidebarOpen.value = false
+    // Close mobile sidebar when category is set
+    const sidebarStore = useSidebarStore()
+    sidebarStore.closeMobileSidebar()
   }
 
   const clearSearch = () => {
@@ -540,17 +540,11 @@ export function useMediaLibrary() {
   }
 
   // Navigation functions
-  const navigateToStatistics = () => {
-    router.push('/statistics')
-  }
 
   const navigateToCalendar = () => {
     router.push('/calendar')
   }
 
-  const navigateToFeatures = () => {
-    router.push('/features')
-  }
 
   const navigateToProfile = () => {
     router.push('/profile')
@@ -577,8 +571,6 @@ export function useMediaLibrary() {
 
   return {
     // State
-    sidebarCollapsed,
-    mobileSidebarOpen,
     showLoginModal,
     showRegisterModal,
     showEditModal,
@@ -606,9 +598,6 @@ export function useMediaLibrary() {
     genres,
     
     // Methods
-    toggleSidebar,
-    toggleMobileSidebar,
-    closeMobileSidebar,
     setCategory,
     clearSearch,
     togglePlatformFilter,
@@ -634,9 +623,7 @@ export function useMediaLibrary() {
     downloadFile,
     deleteAllInCategory,
     getCategoryDisplayName,
-    navigateToStatistics,
     navigateToCalendar,
-    navigateToFeatures,
     navigateToProfile,
     navigateToAdmin,
     processTxtContent,

@@ -3,9 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Lazy load components
 const MediaLibrary = () => import('@/views/MediaLibrary.vue')
 const Profile = () => import('@/views/Profile.vue')
-const Statistics = () => import('@/views/Statistics.vue')
 const Calendar = () => import('@/views/Calendar.vue')
-const Features = () => import('@/views/Features.vue')
 
 const routes = [
   {
@@ -21,21 +19,9 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/statistics',
-    name: 'Statistics',
-    component: Statistics,
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/calendar',
     name: 'Calendar',
     component: Calendar,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/features',
-    name: 'Features',
-    component: Features,
     meta: { requiresAuth: false }
   },
   {

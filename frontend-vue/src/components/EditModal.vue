@@ -77,16 +77,32 @@ biem <template>
           </div>
           
           <div class="form-group">
-            <label for="rating">Rating:</label>
+            <label for="apiRating">API Rating:</label>
             <input 
               type="number" 
-              id="rating"
-              v-model="form.rating" 
+              id="apiRating"
+              v-model="form.apiRating" 
+              step="0.1" 
+              min="0" 
+              max="10"
+              placeholder="0-10"
+              readonly
+            />
+            <div class="field-hint">From API - read only</div>
+          </div>
+          
+          <div class="form-group">
+            <label for="personalRating">Personal Rating:</label>
+            <input 
+              type="number" 
+              id="personalRating"
+              v-model="form.personalRating" 
               step="0.1" 
               min="0" 
               max="10"
               placeholder="0-10"
             />
+            <div class="field-hint">Your personal rating</div>
           </div>
         </div>
         
@@ -131,18 +147,6 @@ biem <template>
               v-model="form.genre" 
               placeholder="Action, Adventure, RPG"
             />
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group full-width">
-            <label for="description">Description:</label>
-            <textarea 
-              id="description"
-              v-model="form.description" 
-              placeholder="Enter a description..."
-              rows="3"
-            ></textarea>
           </div>
         </div>
         
@@ -340,7 +344,6 @@ import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
-import { useMediaStore } from '@/stores/media'
 
 export default {
   name: 'EditModal',
@@ -367,11 +370,11 @@ export default {
       category: 'watchlist',
       title: '',
       release: '',
-      rating: '',
+      apiRating: '',
+      personalRating: '',
       count: '',
       platforms: '',
       genre: '',
-      description: '',
       link: '',
       path: '',
       discovered: '',
@@ -380,7 +383,8 @@ export default {
       nextSeason: '',
       nextSeasonRelease: '',
       imageUrl: '',
-      watchlistType: ''
+      watchlistType: '',
+      imageCleared: false
     })
     
     const isEditing = computed(() => !!props.item)
@@ -391,21 +395,21 @@ export default {
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
       if (newItem) {
-        console.log('🔍 [EditModal] Loading item into form:', {
-          genre: newItem.genre,
-          description: newItem.description,
-          fullItem: newItem
-        })
         Object.keys(form).forEach(key => {
-          // Only update form field if the item has this property and it's not null/undefined
-          if (newItem.hasOwnProperty(key) && newItem[key] !== null && newItem[key] !== undefined) {
-            form[key] = newItem[key]
-          }
+          form[key] = newItem[key] || ''
         })
-        console.log('🔍 [EditModal] Form after loading:', {
-          genre: form.genre,
-          description: form.description
-        })
+        
+        // Handle rating fields - map backend fields to form fields
+        if (newItem.api_rating !== undefined) {
+          form.apiRating = newItem.api_rating
+        }
+        if (newItem.personal_rating !== undefined) {
+          form.personalRating = newItem.personal_rating
+        }
+        // Fallback for old data structure
+        if (newItem.rating !== undefined && !form.apiRating) {
+          form.apiRating = newItem.rating
+        }
       } else {
         // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
@@ -453,31 +457,18 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
-        console.log('🔍 [EditModal] Saving item data:', {
-          genre: itemData.genre,
-          description: itemData.description,
-          fullItemData: itemData
-        })
-        
         // Process image URL - prioritize uploaded image over URL
         if (uploadedImagePath.value) {
           // Use uploaded image path
           itemData.path = uploadedImagePath.value
           itemData.imageUrl = uploadedImagePath.value
         } else if (itemData.imageUrl && itemData.imageUrl.trim()) {
-          // Use image URL if no uploaded image - keep both fields
-          // Don't overwrite path if it already has a value
-          if (!itemData.path) {
-            itemData.path = itemData.imageUrl
-          }
+          // Use image URL if no uploaded image
+          itemData.path = itemData.imageUrl
         } else {
-          // Only clear image fields if they are truly empty
-          if (!itemData.imageUrl || itemData.imageUrl.trim() === '') {
-            itemData.imageUrl = null
-          }
-          if (!itemData.path || itemData.path.trim() === '') {
-            itemData.path = null
-          }
+          // Clear empty image fields
+          itemData.imageUrl = null
+          itemData.path = null
         }
         
         // Convert empty strings to null for optional fields (except watchlistType)
@@ -488,20 +479,15 @@ export default {
         })
         
         // Convert numeric fields
-        if (itemData.rating) itemData.rating = parseFloat(itemData.rating)
+        if (itemData.apiRating) itemData.apiRating = parseFloat(itemData.apiRating)
+        if (itemData.personalRating) itemData.personalRating = parseFloat(itemData.personalRating)
         if (itemData.count) itemData.count = parseInt(itemData.count)
         if (itemData.spielzeit) itemData.spielzeit = parseInt(itemData.spielzeit)
         if (itemData.nextSeason) itemData.nextSeason = parseInt(itemData.nextSeason)
         
-        // Handle save directly instead of emitting event
-        await handleSaveItem(itemData)
+        emit('save', itemData)
       } catch (err) {
-        // Handle duplicate error specifically
-        if (err.isDuplicate) {
-          error.value = err.message
-        } else {
-          error.value = err.message || 'Failed to save item'
-        }
+        error.value = err.message || 'Failed to save item'
       } finally {
         loading.value = false
       }
@@ -539,6 +525,11 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
+          console.log('🔍 EditModal API Search:', {
+            title: form.title,
+            category: form.category,
+            watchlistType: form.watchlistType
+          })
 
           // For watchlist, use the watchlistType as category for API search
           const searchCategory = form.category === 'watchlist' ? form.watchlistType : form.category
@@ -554,10 +545,12 @@ export default {
 
           // Check if this is a books search
           if (searchCategory === 'buecher') {
+            console.log('📚 Searching Google Books API for:', form.title)
             
             const googleBooksResult = await simpleGoogleBooksApi.searchBooks(form.title, 10)
             
             if (googleBooksResult.success && googleBooksResult.data) {
+              console.log('📚 Google Books API Success:', googleBooksResult.data.length, 'results')
               
               searchResults = googleBooksResult.data.map(book => ({
                 title: book.title,
@@ -576,10 +569,13 @@ export default {
                 isbn13: book.isbn13
               }))
               
+              console.log('📚 Formatted Google Books results:', searchResults)
             } else {
+              console.warn('📚 Google Books API failed:', googleBooksResult.error)
             }
           } else {
             // Use existing media API for other categories
+            console.log('🎬 Searching Media API for:', form.title, 'category:', searchCategory)
             
             results = await mediaApi.searchApi(form.title, searchCategory, 10)
             
@@ -587,21 +583,22 @@ export default {
               searchResults = results.map(result => ({
                 title: result.title,
                 release: result.release,
-                genre: result.genre || result.genres || '',
+                genre: result.overview || '',
                 platforms: result.platforms || '',
                 link: result.link || '',
                 imageUrl: result.image || '',
                 rating: result.rating || '',
                 apiSource: result.api_source || '',
-                id: result.id || '',
-                description: result.overview || ''
+                id: result.id || ''
               }))
             }
           }
           
           if (searchResults.length > 0) {
+            console.log('✅ API Search Results:', searchResults.length, 'items found')
             apiResults.value = searchResults
           } else {
+            console.log('❌ No API results found')
             // Show a message that API is not available
             apiResults.value = [{
               title: `"${form.title}" - Keine Ergebnisse gefunden`,
@@ -611,6 +608,7 @@ export default {
             }]
           }
         } catch (err) {
+          console.error('❌ API search failed:', err)
           // Show a message that API is not available
           apiResults.value = [{
             title: `"${form.title}" - API nicht verfügbar`,
@@ -629,52 +627,38 @@ export default {
         return
       }
       
-      console.log('🔍 [EditModal] Selecting API result:', {
+      console.log('📚 Selecting API result:', {
         title: result.title,
-        genre: result.genre,
-        fullResult: result
+        apiSource: result.apiSource,
+        author: result.author
       })
       
       form.title = result.title
       if (result.release) form.release = result.release
       if (result.platforms) form.platforms = result.platforms
-      if (result.genre) {
-        form.genre = result.genre
-        console.log('🔍 [EditModal] Set genre from API:', result.genre)
-      }
+      if (result.genre) form.genre = result.genre
       if (result.link) form.link = result.link
-      if (result.rating) form.rating = result.rating
-      if (result.description) form.description = result.description
-      
-      // If no genre is provided, try to extract from description or use fallback
-      if (!result.genre || result.genre.trim() === '') {
-        console.log('No genre provided, trying to extract from description...')
-        
-        // Try to extract genre information from the description
-        const description = result.description || result.overview || ''
-        const genreKeywords = extractGenreFromDescription(description)
-        
-        if (genreKeywords.length > 0) {
-          form.genre = genreKeywords.join(', ')
-          console.log('Extracted genre from description:', form.genre)
-        } else {
-          // Fallback: Use category-based genre suggestions
-          const categoryGenres = getCategoryGenres(result.category, result.api_source)
-          if (categoryGenres) {
-            form.genre = categoryGenres
-            console.log('Using category-based genre:', form.genre)
-          }
-        }
-      } else {
-        console.log('Genre already provided from API:', result.genre)
-      }
+      if (result.rating) form.apiRating = result.rating
       
       // Handle Google Books specific fields
       if (result.apiSource === 'google_books') {
+        console.log('📚 Filling Google Books data:', {
+          author: result.author,
+          description: result.description,
+          publisher: result.publisher,
+          isbn10: result.isbn10,
+          isbn13: result.isbn13
+        })
         
         // For books, we can use the author field in the genre or platforms field
         if (result.author) {
           form.platforms = result.author // Use platforms field for author
+        }
+        
+        // Add description to genre if available
+        if (result.description) {
+          const currentGenre = form.genre || ''
+          form.genre = currentGenre ? `${currentGenre} | ${result.description.substring(0, 100)}...` : result.description.substring(0, 200)
         }
         
         // Add publisher info to link if available
@@ -687,12 +671,12 @@ export default {
       // Handle image URL - use original URL directly
       if (result.imageUrl) {
         form.imageUrl = result.imageUrl
-        // Only set path if it's not already set
-        if (!form.path) {
-          form.path = result.imageUrl
-        }
+        form.path = result.imageUrl // Use same URL for path
+      } else {
+        // Clear image fields if no image URL from API
+        form.imageUrl = ''
+        form.path = ''
       }
-      // Don't clear existing image fields if no image URL from API
       
       apiResults.value = []
     }
@@ -701,47 +685,6 @@ export default {
       if (!dateString) return ''
       const date = new Date(dateString)
       return date.toLocaleDateString()
-    }
-    
-    const extractGenreFromDescription = (description) => {
-      if (!description) return []
-      
-      const genreKeywords = {
-        'drama': ['drama', 'dramatic', 'emotional', 'serious', 'tragedy'],
-        'comedy': ['comedy', 'funny', 'humor', 'comic', 'laugh'],
-        'action': ['action', 'fight', 'battle', 'adventure', 'thriller', 'martial arts', 'champion', 'defend'],
-        'horror': ['horror', 'scary', 'frightening', 'terror', 'monster'],
-        'romance': ['romance', 'love', 'romantic', 'relationship'],
-        'mystery': ['mystery', 'detective', 'investigation', 'crime', 'suspense'],
-        'sci-fi': ['sci-fi', 'science fiction', 'futuristic', 'space', 'alien', 'extraterrestrial'],
-        'fantasy': ['fantasy', 'magic', 'supernatural', 'wizard', 'fairy tale'],
-        'thriller': ['thriller', 'suspense', 'tense', 'edge-of-seat'],
-        'documentary': ['documentary', 'real', 'factual', 'educational'],
-        'animation': ['animation', 'animated', 'cartoon', 'anime'],
-        'adventure': ['adventure', 'journey', 'quest', 'exploration']
-      }
-      
-      const foundGenres = []
-      const lowerDesc = description.toLowerCase()
-      
-      for (const [genre, keywords] of Object.entries(genreKeywords)) {
-        if (keywords.some(keyword => lowerDesc.includes(keyword))) {
-          foundGenres.push(genre.charAt(0).toUpperCase() + genre.slice(1))
-        }
-      }
-      
-      return foundGenres.slice(0, 3) // Limit to 3 genres
-    }
-    
-    const getCategoryGenres = (category, apiSource) => {
-      const categoryGenres = {
-        'series': 'Drama, Action, Adventure',
-        'movie': 'Drama, Action, Adventure',
-        'game': 'Action, Adventure, RPG',
-        'buecher': 'Fiction, Non-fiction'
-      }
-      
-      return categoryGenres[category] || 'Drama'
     }
     
     const formatDateForInput = (dateString) => {
@@ -769,6 +712,7 @@ export default {
       }
       
       if (isNaN(date.getTime())) {
+        console.warn('📚 Invalid date format:', dateString)
         return ''
       }
       
@@ -877,6 +821,7 @@ export default {
     }
     
     const handleImageError = (event) => {
+      console.warn('Image preview failed:', event.target.src)
       event.target.style.display = 'none'
     }
     
@@ -902,18 +847,6 @@ export default {
       if (imageUploadRef.value) {
         imageUploadRef.value.value = ''
       }
-    }
-    
-    // Handle save item directly
-    const handleSaveItem = async (itemData) => {
-      const mediaStore = useMediaStore()
-      
-      if (props.item) {
-        await mediaStore.updateMediaItem(props.item.id, itemData)
-      } else {
-        await mediaStore.addMediaItem(itemData)
-      }
-      closeModal()
     }
     
     return {
@@ -1020,10 +953,6 @@ export default {
   flex-direction: column;
 }
 
-.form-group.full-width {
-  grid-column: 1 / -1;
-}
-
 .form-group label {
   margin-bottom: 4px;
   font-weight: 500;
@@ -1032,8 +961,7 @@ export default {
 }
 
 .form-group input,
-.form-group select,
-.form-group textarea {
+.form-group select {
   padding: 12px; /* Larger for touch */
   border: 1px solid #555;
   border-radius: 4px;
@@ -1043,15 +971,8 @@ export default {
   min-height: 44px; /* Touch-friendly */
 }
 
-.form-group textarea {
-  min-height: 80px;
-  resize: vertical;
-  font-family: inherit;
-}
-
 .form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.form-group select:focus {
   outline: none;
   border-color: #4a9eff;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);

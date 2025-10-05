@@ -36,17 +36,17 @@
               <span class="add-icon">+</span>
             </button>
           </div>
-          <router-link to="/statistics" class="nav-btn">
+          <button 
+            class="nav-btn" 
+            :class="{ active: currentCategory === 'statistics' }"
+            @click="$emit('setCategory', 'statistics')"
+          >
             <span class="nav-icon">📊</span>
             <span class="nav-text">Statistics</span>
-          </router-link>
+          </button>
           <router-link to="/calendar" class="nav-btn">
             <span class="nav-icon">📅</span>
             <span class="nav-text">Calendar</span>
-          </router-link>
-          <router-link to="/features" class="nav-btn">
-            <span class="nav-icon">⚡</span>
-            <span class="nav-text">Features</span>
           </router-link>
           <router-link to="/profile" class="nav-btn">
             <span class="nav-icon">👤</span>
@@ -200,9 +200,7 @@ export default {
     'toggle',
     'setCategory',
     'addItem',
-    'navigateToStatistics',
     'navigateToCalendar',
-    'navigateToFeatures',
     'navigateToProfile',
     'togglePlatformFilter',
     'toggleGenreFilter',

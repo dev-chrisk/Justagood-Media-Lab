@@ -29,8 +29,10 @@
           <option value="title_desc">Title Z-A</option>
           <option value="release_asc">Release ↑</option>
           <option value="release_desc">Release ↓</option>
-          <option value="rating_asc">Rating ↑</option>
-          <option value="rating_desc">Rating ↓</option>
+          <option value="api_rating_asc">API Rating ↑</option>
+          <option value="api_rating_desc">API Rating ↓</option>
+          <option value="personal_rating_asc">Personal Rating ↑</option>
+          <option value="personal_rating_desc">Personal Rating ↓</option>
           <option value="airing_desc">Airing first</option>
           <option value="airing_asc">Finished first</option>
         </select>
