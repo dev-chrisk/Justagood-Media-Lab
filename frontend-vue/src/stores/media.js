@@ -212,7 +212,7 @@ export const useMediaStore = defineStore('media', () => {
     error.value = null
   }
 
-  async function addMediaItem(itemData) {
+  async function addMediaItem(itemData, skipReload = false) {
     // Clear any existing error when starting a new save operation
     error.value = null
     
@@ -224,8 +224,19 @@ export const useMediaStore = defineStore('media', () => {
         // For logged in users, save via API only
         try {
           const newItem = await mediaApi.addMediaItem(itemData)
-          // Reload data from API to get the correct ID and data
-          await loadMedia()
+          
+          // Only reload data from API if not in bulk mode
+          if (!skipReload) {
+            await loadMedia()
+          } else {
+            // In bulk mode, just add the item to the local state to keep UI responsive
+            const itemWithId = {
+              ...newItem,
+              __order: mediaData.value.length
+            }
+            mediaData.value.push(itemWithId)
+          }
+          
           return newItem
         } catch (apiError) {
           // Handle duplicate error specifically - don't set error in store

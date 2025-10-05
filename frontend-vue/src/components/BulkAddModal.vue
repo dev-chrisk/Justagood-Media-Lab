@@ -92,7 +92,7 @@
               <div class="current-item-header">
                 <span class="current-item-title">Processing: {{ currentItem?.title || '...' }}</span>
                 <span class="current-item-status" :class="currentItemStatus">
-                  {{ currentItemStatusText }}
+                  <span v-if="isPaused" class="paused-indicator">⏸️ PAUSED - </span>{{ currentItemStatusText }}
                 </span>
               </div>
               <div v-if="currentItem?.description" class="current-item-description">
@@ -206,14 +206,30 @@
         >
           Check All and Add
         </button>
-        <button 
-          v-if="currentStep === 2" 
-          class="btn btn-secondary" 
-          @click="cancelProcessing"
-          :disabled="!canCancel"
-        >
-          Cancel
-        </button>
+        <div v-if="currentStep === 2" class="processing-controls">
+          <button 
+            class="btn btn-secondary" 
+            @click="cancelProcessing"
+            :disabled="!canCancel"
+          >
+            Cancel
+          </button>
+          <button 
+            v-if="!isPaused"
+            class="btn btn-warning" 
+            @click="pauseProcessing"
+            :disabled="!isProcessing"
+          >
+            Pause
+          </button>
+          <button 
+            v-if="isPaused"
+            class="btn btn-primary" 
+            @click="resumeProcessing"
+          >
+            Resume
+          </button>
+        </div>
         <div v-if="currentStep === 3" class="footer-buttons">
           <button 
             v-if="skippedItems.length > 0"
@@ -259,6 +275,7 @@ export default {
     const currentStep = ref(1)
     const isProcessing = ref(false)
     const canCancel = ref(true)
+    const isPaused = ref(false)
     
     // Processing state
     const processedCount = ref(0)
@@ -353,6 +370,7 @@ export default {
       resetProcessing()
       
       const items = getItemList()
+      let reloadCounter = 0 // Counter for when to reload media data
       
       try {
         for (let i = 0; i < items.length; i++) {
@@ -427,8 +445,8 @@ export default {
                 description: item.additionalInfo || null
               }
               
-              // Use the same add method as EditModal
-              await mediaStore.addMediaItem(itemData)
+              // Use the same add method as EditModal with skipReload for bulk operations
+              await mediaStore.addMediaItem(itemData, true)
               
               addedCount.value++
               updateCurrentItem(
@@ -462,18 +480,60 @@ export default {
             // Error occurred during processing
             console.error(`Error processing "${item.searchTerm}":`, error)
             
-            updateCurrentItem(
-              { title: item.searchTerm },
-              'error',
-              'Error occurred'
-            )
-            
-            errorCount.value++
-            addResult(item.searchTerm, 'error', error.message || 'Unknown error')
+            // Handle duplicate errors specifically
+            if (error.isDuplicate || (error.response?.status === 409 && error.response?.data?.duplicate)) {
+              updateCurrentItem(
+                { title: item.searchTerm },
+                'skipped',
+                'Already exists - skipped'
+              )
+              
+              skippedCount.value++
+              addResult(item.searchTerm, 'skipped', 'Item already exists in library')
+            } else {
+              updateCurrentItem(
+                { title: item.searchTerm },
+                'error',
+                'Error occurred'
+              )
+              
+              errorCount.value++
+              addResult(item.searchTerm, 'error', error.message || 'Unknown error')
+            }
           }
           
-          // Small delay to prevent overwhelming the API and show progress
-          await new Promise(resolve => setTimeout(resolve, 500))
+          // Increment reload counter and reload media data every 5 items
+          reloadCounter++
+          if (reloadCounter >= 5) {
+            console.log('🔄 Reloading media data after 5 items...')
+            try {
+              await mediaStore.loadMedia()
+              reloadCounter = 0 // Reset counter
+            } catch (reloadError) {
+              console.warn('Failed to reload media data:', reloadError)
+            }
+          }
+          
+          // Check if processing was cancelled
+          if (!isProcessing.value) {
+            break
+          }
+          
+          // Wait for pause to be lifted if paused
+          while (isPaused.value && isProcessing.value) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
+          
+          // Longer delay to prevent overwhelming the API and show progress
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+        
+        // Final reload at the end
+        console.log('🔄 Final media data reload...')
+        try {
+          await mediaStore.loadMedia()
+        } catch (reloadError) {
+          console.warn('Failed to reload media data at end:', reloadError)
         }
         
         // Processing complete
@@ -492,8 +552,17 @@ export default {
     const cancelProcessing = () => {
       isProcessing.value = false
       canCancel.value = false
+      isPaused.value = false
       currentStep.value = 1
       resetProcessing()
+    }
+    
+    const pauseProcessing = () => {
+      isPaused.value = true
+    }
+    
+    const resumeProcessing = () => {
+      isPaused.value = false
     }
     
     const retrySkippedItems = () => {
@@ -553,6 +622,7 @@ export default {
       currentStep,
       isProcessing,
       canCancel,
+      isPaused,
       processedCount,
       addedCount,
       skippedCount,
@@ -567,6 +637,8 @@ export default {
       progressPercentage,
       startProcessing,
       cancelProcessing,
+      pauseProcessing,
+      resumeProcessing,
       retrySkippedItems,
       closeModal
     }
@@ -1039,6 +1111,17 @@ export default {
   padding: 24px;
   border-top: 1px solid #404040;
   margin-top: 24px;
+}
+
+.processing-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.paused-indicator {
+  color: #ff9800;
+  font-weight: 600;
 }
 
 .btn {
