@@ -11,7 +11,7 @@ function getApiBaseUrl() {
   })
   
   // Check for custom API URL from environment variable FIRST (highest priority)
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null' && import.meta.env.VITE_API_URL !== 'undefined') {
     console.log('📍 Using VITE_API_URL:', import.meta.env.VITE_API_URL)
     return `${import.meta.env.VITE_API_URL}/api`
   }
@@ -28,14 +28,14 @@ function getApiBaseUrl() {
     return 'http://127.0.0.1:8000/api'
   }
   
-  // Default to production
-  console.log('📍 Using production mode (default)')
-  return 'https://teabubble.attrebi.ch/api'
+  // Default to current origin (production)
+  console.log('📍 Using current origin (production)')
+  return `${window.location.origin}/api`
 }
 
 function getBaseUrl() {
   // Check for custom API URL from environment variable FIRST (highest priority)
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null') {
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'null' && import.meta.env.VITE_API_URL !== 'undefined') {
     return import.meta.env.VITE_API_URL
   }
   
@@ -49,8 +49,8 @@ function getBaseUrl() {
     return 'http://127.0.0.1:8000'
   }
   
-  // Default to production
-  return 'https://teabubble.attrebi.ch'
+  // Default to current origin (production)
+  return window.location.origin
 }
 
 export const API_CONFIG = {
