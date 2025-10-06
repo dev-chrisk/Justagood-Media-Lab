@@ -4,11 +4,11 @@
       <h2>Login</h2>
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="username">Username:</label>
+          <label for="email">Email:</label>
           <input 
-            type="text" 
-            id="username"
-            v-model="form.username" 
+            type="email" 
+            id="email"
+            v-model="form.email" 
             required
             :disabled="loading"
           />
@@ -55,7 +55,7 @@ export default {
     const authStore = useAuthStore()
     
     const form = reactive({
-      username: '',
+      email: '',
       password: ''
     })
     
@@ -67,7 +67,7 @@ export default {
       error.value = ''
       
       try {
-        const result = await authStore.login(form.username, form.password)
+        const result = await authStore.login(form.email, form.password)
         
         if (result.success) {
           emit('success', result)

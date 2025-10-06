@@ -16,12 +16,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.is_admin || false)
 
   // Actions
-  async function login(username, password) {
+  async function login(email, password) {
     loading.value = true
     error.value = null
     
     try {
-      const response = await authApi.login(username, password)
+      const response = await authApi.login(email, password)
       
       token.value = response.token
       user.value = response.user

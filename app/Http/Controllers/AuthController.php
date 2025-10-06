@@ -40,14 +40,14 @@ class AuthController extends Controller
         try {
 
             // Simple validation without Laravel validation to avoid issues
-            if (empty($request->username) || empty($request->password)) {
+            if (empty($request->email) || empty($request->password)) {
                 return response()->json([
-                    'error' => 'Username and password are required'
+                    'error' => 'Email and password are required'
                 ], 400);
             }
 
-            // Find user by username
-            $user = User::where('username', $request->username)->first();
+            // Find user by email
+            $user = User::where('email', $request->email)->first();
 
             if (!$user) {
                 return response()->json([
