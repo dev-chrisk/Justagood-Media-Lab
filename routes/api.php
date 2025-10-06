@@ -27,74 +27,7 @@ use App\Http\Controllers\ExportImportController;
 // Public search endpoint (no authentication required)
 Route::get('search', [MediaController::class, 'search']);
 
-// Temporary debug route for batch-add testing (no authentication required)
-Route::post('debug/batch-add-test', function (Request $request) {
-    return response()->json([
-        'message' => 'Debug route reached',
-        'method' => $request->method(),
-        'url' => $request->url(),
-        'has_items' => $request->has('items'),
-        'items_count' => count($request->get('items', [])),
-        'user_agent' => $request->userAgent(),
-        'headers' => $request->headers->all()
-    ]);
-});
 
-// Temporary batch-add route outside auth for testing
-Route::post('media/batch-add-debug', [MediaController::class, 'batchAdd']);
-
-// Move batch-add outside auth temporarily for testing
-Route::post('media/batch-add-test', [MediaController::class, 'batchAdd']);
-
-// Debug endpoint to test basic API functionality
-Route::get('debug/health', function () {
-    try {
-        // Test database connection
-        $dbStatus = 'connected';
-        $userCount = 0;
-        try {
-            $userCount = \App\Models\User::count();
-        } catch (\Exception $e) {
-            $dbStatus = 'error: ' . $e->getMessage();
-        }
-
-        return response()->json([
-            'status' => 'ok',
-            'timestamp' => now()->toISOString(),
-            'environment' => app()->environment(),
-            'debug' => config('app.debug'),
-            'database' => $dbStatus,
-            'user_count' => $userCount,
-            'php_version' => PHP_VERSION,
-            'laravel_version' => app()->version()
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'error' => $e->getMessage(),
-            'timestamp' => now()->toISOString()
-        ], 500);
-    }
-});
-
-// Debug endpoint to list all registered routes
-Route::get('debug/routes', function () {
-    $routes = collect(\Route::getRoutes())->map(function ($route) {
-        return [
-            'method' => implode('|', $route->methods()),
-            'uri' => $route->uri(),
-            'name' => $route->getName(),
-            'action' => $route->getActionName()
-        ];
-    })->filter(function ($route) {
-        return str_contains($route['uri'], 'media') || str_contains($route['uri'], 'batch');
-    });
-    
-    return response()->json([
-        'media_routes' => $routes->values(),
-        'total_routes' => $routes->count()
-    ]);
-});
 
 // Server-Sent Events for real-time updates
 Route::get('events', [MediaController::class, 'events']);
@@ -260,6 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('media', MediaController::class);
     Route::post('media/batch-add', [MediaController::class, 'batchAdd']);
     Route::post('media/batch-delete', [MediaController::class, 'batchDelete']);
+    Route::post('media/check-existing', [MediaController::class, 'checkExistingItems']);
     Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
     Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);
     

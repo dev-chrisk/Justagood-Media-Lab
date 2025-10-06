@@ -137,8 +137,12 @@
                 <span class="stat-label">Successfully Added</span>
               </div>
               <div class="summary-stat warning">
-                <span class="stat-number">{{ skippedCount }}</span>
+                <span class="stat-number">{{ skippedItems.filter(item => item.reason !== 'duplicate').length }}</span>
                 <span class="stat-label">Not Found (Ready for Retry)</span>
+              </div>
+              <div class="summary-stat info">
+                <span class="stat-number">{{ skippedItems.filter(item => item.reason === 'duplicate').length }}</span>
+                <span class="stat-label">Already in Profile</span>
               </div>
               <div class="summary-stat error">
                 <span class="stat-number">{{ errorCount }}</span>
@@ -147,23 +151,31 @@
             </div>
             
             <div v-if="skippedItems.length > 0" class="retry-section">
-              <h4>Items Not Found - Ready for Retry</h4>
+              <h4>Items Ready for Retry</h4>
               <p class="retry-description">
-                The following items were not found in the API. You can edit them and try again:
+                The following items can be edited and tried again:
               </p>
               <div class="retry-list">
                 <div 
                   v-for="(item, index) in skippedItems" 
                   :key="index"
                   class="retry-item"
+                  :class="{ 'duplicate-item': item.reason === 'duplicate' }"
                 >
                   <input 
                     v-model="item.searchTerm"
                     class="retry-input"
                     placeholder="Edit search term..."
+                    :disabled="item.reason === 'duplicate'"
                   />
                   <span v-if="item.additionalInfo" class="retry-additional">
                     | {{ item.additionalInfo }}
+                  </span>
+                  <span v-if="item.reason === 'duplicate'" class="duplicate-badge">
+                    Already in profile
+                  </span>
+                  <span v-else class="retry-badge">
+                    No API data
                   </span>
                 </div>
               </div>
@@ -232,11 +244,11 @@
         </div>
         <div v-if="currentStep === 3" class="footer-buttons">
           <button 
-            v-if="skippedItems.length > 0"
+            v-if="skippedItems.filter(item => item.reason !== 'duplicate').length > 0"
             class="btn btn-warning" 
             @click="retrySkippedItems"
           >
-            Retry {{ skippedItems.length }} Items
+            Retry {{ skippedItems.filter(item => item.reason !== 'duplicate').length }} Items
           </button>
           <button 
             class="btn btn-primary" 
@@ -373,6 +385,32 @@ export default {
       let reloadCounter = 0 // Counter for when to reload media data
       
       try {
+        // Step 1: Check all items for duplicates in one batch (for logged in users)
+        let existingItems = []
+        const token = localStorage.getItem('authToken')
+        const user = localStorage.getItem('currentUser')
+        if (token && user) {
+          try {
+            updateCurrentItem(
+              { title: 'Checking all items...' },
+              'searching',
+              'Checking profile for duplicates...'
+            )
+            
+            const checkData = await mediaApi.checkExistingItems(
+              items.map(item => ({
+                title: item.searchTerm,
+                category: bulkData.value.category
+              }))
+            )
+            
+            existingItems = checkData.existing_items || []
+            console.log(`🔍 Found ${existingItems.length} existing items out of ${items.length} total`)
+          } catch (error) {
+            console.warn('Failed to check existing items, falling back to individual checks:', error)
+          }
+        }
+        
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
           processedCount.value = i + 1
@@ -381,14 +419,57 @@ export default {
           updateCurrentItem(
             { title: item.searchTerm, description: item.additionalInfo },
             'searching',
-            'Searching...'
+            'Processing...'
           )
           
           try {
-            // Step 1: Search for the item
+            // Check if item already exists (from batch check or individual check)
+            let itemExists = false
+            if (token && user && existingItems.length > 0) {
+              itemExists = existingItems.some(existing => 
+                existing.title.toLowerCase().trim() === item.searchTerm.toLowerCase().trim()
+              )
+            } else {
+              // Fallback: individual check for non-logged in users
+              const currentMedia = mediaStore.mediaData || []
+              itemExists = currentMedia.some(mediaItem => 
+                mediaItem.title && 
+                mediaItem.title.toLowerCase().trim() === item.searchTerm.toLowerCase().trim() &&
+                mediaItem.category === bulkData.value.category
+              )
+            }
+            
+            if (itemExists) {
+              // Item already exists in profile - skip API search
+              console.log(`✅ Found exact match in profile for "${item.searchTerm}"`)
+              
+              updateCurrentItem(
+                { title: item.searchTerm },
+                'skipped',
+                'Already exists in profile - skipped'
+              )
+              
+              skippedItems.value.push({
+                searchTerm: item.searchTerm,
+                additionalInfo: item.additionalInfo,
+                reason: 'duplicate'
+              })
+              
+              skippedCount.value++
+              addResult(item.searchTerm, 'skipped', 'Already exists in profile - skipped')
+              continue
+            }
+            
+            // Step 2: Search for the item in API (only if not found in profile)
+            updateCurrentItem(
+              { title: item.searchTerm, description: item.additionalInfo },
+              'searching',
+              'Searching API...'
+            )
+            
             addResult(item.searchTerm, 'searching', 'Searching API...')
             
-            console.log(`🔍 Searching for: "${item.searchTerm}" in category: ${bulkData.value.category}`)
+            console.log(`🔍 Searching API for: "${item.searchTerm}" in category: ${bulkData.value.category}`)
             const searchResults = await mediaApi.searchApi(item.searchTerm, bulkData.value.category, 1)
             console.log(`🔍 Search results for "${item.searchTerm}":`, searchResults)
             
@@ -469,7 +550,8 @@ export default {
               
               skippedItems.value.push({
                 searchTerm: item.searchTerm,
-                additionalInfo: item.additionalInfo
+                additionalInfo: item.additionalInfo,
+                reason: 'no_api_data'
               })
               
               skippedCount.value++
@@ -566,8 +648,17 @@ export default {
     }
     
     const retrySkippedItems = () => {
+      // Filter out duplicate items (those that already exist in profile)
+      const retryItems = skippedItems.value.filter(item => item.reason !== 'duplicate')
+      
+      if (retryItems.length === 0) {
+        // All skipped items were duplicates, just close the modal
+        closeModal()
+        return
+      }
+      
       // Convert skipped items back to text format
-      const retryText = skippedItems.value
+      const retryText = retryItems
         .map(item => {
           if (item.additionalInfo) {
             return `${item.searchTerm} | ${item.additionalInfo}`
@@ -1010,7 +1101,7 @@ export default {
 
 .summary-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 
@@ -1031,6 +1122,10 @@ export default {
 
 .summary-stat.error {
   border-left: 4px solid #f44336;
+}
+
+.summary-stat.info {
+  border-left: 4px solid #2196f3;
 }
 
 .detailed-results h4 {
@@ -1096,6 +1191,31 @@ export default {
   color: #999;
   font-size: 0.9rem;
   font-style: italic;
+}
+
+.duplicate-item {
+  opacity: 0.7;
+  background: #2a2a2a;
+}
+
+.duplicate-badge {
+  background: #ff9800;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.retry-badge {
+  background: #2196f3;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  margin-left: 8px;
 }
 
 .footer-buttons {
@@ -1180,7 +1300,10 @@ export default {
     padding-right: 16px;
   }
   
-  .progress-stats,
+  .progress-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
   .summary-stats {
     grid-template-columns: repeat(2, 1fr);
   }

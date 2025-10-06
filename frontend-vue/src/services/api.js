@@ -329,6 +329,18 @@ export const mediaApi = {
     }
   },
 
+  async checkExistingItems(items) {
+    try {
+      console.log('🔍 DEBUG: Checking existing items:', items)
+      const response = await api.post('/media/check-existing', { items })
+      console.log('🔍 DEBUG: Check existing response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('🔍 DEBUG: Check existing error:', error)
+      throw error
+    }
+  },
+
   async batchAddMediaItems(items) {
     try {
       console.log('🔍 DEBUG: Attempting batch add with items:', items)

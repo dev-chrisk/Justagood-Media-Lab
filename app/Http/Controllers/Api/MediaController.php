@@ -389,6 +389,65 @@ class MediaController extends Controller
     }
 
     /**
+     * Check which items already exist in user's profile
+     */
+    public function checkExistingItems(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'items' => 'required|array|min:1',
+            'items.*.title' => 'required|string|max:255',
+            'items.*.category' => 'required|string|in:game,series,movie,watchlist,buecher',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
+        }
+
+        if (!$request->user()) {
+            return response()->json(['success' => false, 'error' => 'Authentication required'], 401);
+        }
+
+        $userId = $request->user()->id;
+        $items = $request->get('items', []);
+        
+        $existingItems = [];
+        $newItems = [];
+        
+        foreach ($items as $index => $item) {
+            $title = trim($item['title']);
+            $category = $item['category'];
+            
+            // Check for exact title match (case-insensitive)
+            $exists = MediaItem::whereRaw('LOWER(TRIM(title)) = ?', [strtolower($title)])
+                ->where('category', $category)
+                ->where('user_id', $userId)
+                ->exists();
+            
+            if ($exists) {
+                $existingItems[] = [
+                    'index' => $index,
+                    'title' => $title,
+                    'category' => $category
+                ];
+            } else {
+                $newItems[] = [
+                    'index' => $index,
+                    'title' => $title,
+                    'category' => $category
+                ];
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'existing_items' => $existingItems,
+            'new_items' => $newItems,
+            'total_existing' => count($existingItems),
+            'total_new' => count($newItems)
+        ]);
+    }
+
+    /**
      * Add multiple media items in batch
      */
     public function batchAdd(Request $request): JsonResponse
@@ -435,6 +494,7 @@ class MediaController extends Controller
         $stats = [
             'created' => 0,
             'failed' => 0,
+            'skipped' => 0,
             'errors' => []
         ];
         
@@ -444,11 +504,12 @@ class MediaController extends Controller
                 
                 // Check for duplicates before creating
                 if (MediaItem::isDuplicate($itemData['title'], $itemData['category'], $userId)) {
-                    $stats['failed']++;
+                    $stats['skipped']++;
                     $stats['errors'][] = [
                         'index' => $index,
                         'title' => $itemData['title'] ?? 'Unknown',
-                        'error' => 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.'
+                        'error' => 'Ein Eintrag mit diesem Titel und dieser Kategorie existiert bereits.',
+                        'type' => 'duplicate'
                     ];
                     continue;
                 }
@@ -487,7 +548,7 @@ class MediaController extends Controller
         return response()->json([
             'success' => true,
             'stats' => $stats,
-            'message' => "Bulk add completed: {$stats['created']} created, {$stats['failed']} failed"
+            'message' => "Bulk add completed: {$stats['created']} created, {$stats['skipped']} skipped, {$stats['failed']} failed"
         ]);
     }
 
