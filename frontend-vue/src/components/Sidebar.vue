@@ -57,7 +57,17 @@
 
       <!-- Filters Section -->
       <div v-if="isLoggedIn" class="sidebar-section">
-        <h3>Filters</h3>
+        <div class="filters-header">
+          <h3>Filters</h3>
+          <button 
+            class="refresh-btn" 
+            @click="$emit('clearFilters')"
+            title="Clear all filters"
+          >
+            <span class="refresh-icon">🔄</span>
+            <span class="refresh-text">Refresh</span>
+          </button>
+        </div>
         <div class="filter-section">
           <div class="filter-group">
             <h4>Platforms</h4>
@@ -205,6 +215,7 @@ export default {
     'togglePlatformFilter',
     'toggleGenreFilter',
     'toggleAiringFilter',
+    'clearFilters',
     'showLogin',
     'showRegister',
     'logout'
@@ -442,6 +453,68 @@ export default {
 }
 
 /* Filter Section */
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 15px 20px;
+}
+
+.filters-header h3 {
+  margin: 0;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(74, 158, 255, 0.1);
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 4px;
+  color: #4a9eff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-height: 32px;
+}
+
+.refresh-btn:hover {
+  background: rgba(74, 158, 255, 0.2);
+  border-color: rgba(74, 158, 255, 0.5);
+  color: #5ba8ff;
+}
+
+.refresh-icon {
+  font-size: 14px;
+  transition: transform 0.2s;
+}
+
+.refresh-btn:hover .refresh-icon {
+  transform: rotate(180deg);
+}
+
+.refresh-text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar.collapsed .refresh-btn {
+  padding: 6px 8px;
+  min-width: 32px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .refresh-text {
+  display: none;
+}
+
+.sidebar.collapsed .refresh-icon {
+  font-size: 16px;
+}
+
 .filter-section {
   padding: 0 20px;
 }

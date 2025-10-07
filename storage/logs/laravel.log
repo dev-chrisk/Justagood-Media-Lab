@@ -538,3 +538,183 @@
     "user_id": 1,
     "socket": null
 }  
+[2025-10-07 07:18:13] local.INFO: MediaController update request data: {"title":"Wednesday","category":"series","count":1,"release":"2022-11-23","api_rating":8,"genre":"Smart, sarcastic and a little dead inside, Wednesday Addams investigates twisted mysteries while making new friends — and foes — at Nevermore Academy.","path":"https://image.tmdb.org/t/p/w200/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg"} 
+[2025-10-07 07:18:13] local.INFO: MediaController rating value: not set  
+[2025-10-07 07:18:15] local.INFO: Broadcasting [media.updated] on channels [media-updates] with payload:
+{
+    "id": 7,
+    "action": "created",
+    "item": {
+        "id": 7,
+        "category_id": 29,
+        "title": "Wednesday",
+        "category": "series",
+        "watchlist_type": null,
+        "release": "2022-11-23",
+        "rating": null,
+        "count": 1,
+        "platforms": null,
+        "genre": "Smart, sarcastic and a little dead inside, Wednesday Addams investigates twisted mysteries while making new friends \u2014 and foes \u2014 at Nevermore Academy.",
+        "description": null,
+        "link": null,
+        "path": "https:\/\/image.tmdb.org\/t\/p\/w200\/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg",
+        "image_url": "https:\/\/image.tmdb.org\/t\/p\/w200\/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg",
+        "discovered": null,
+        "spielzeit": null,
+        "is_airing": false,
+        "next_season": null,
+        "next_season_release": null,
+        "external_id": null,
+        "created_at": "2025-10-07T07:18:13.000000Z",
+        "updated_at": "2025-10-07T07:18:13.000000Z",
+        "user_id": 3,
+        "category_name": "series"
+    },
+    "timestamp": "2025-10-07T07:18:15.731043Z",
+    "user_id": 3,
+    "socket": null
+}  
+[2025-10-07 10:23:51] local.INFO: MediaController update request data: {"title":"Alien","category":"movie","count":1,"release":"1979-05-25","api_rating":8,"genre":"Horror, Science Fiction, Action, Sci-Fi, War","description":"During its return to the earth, commercial spaceship Nostromo intercepts a distress signal from a distant planet. When a three-member team of the crew discovers a chamber containing thousands of eggs on the planet, a creature inside one of the eggs attacks an explorer. The entire crew is unaware of the impending nightmare set to descend upon them when the alien parasite planted inside its unfortunate host is birthed.","path":"https://image.tmdb.org/t/p/w200/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg"} 
+[2025-10-07 10:23:51] local.INFO: MediaController rating value: not set  
+[2025-10-07 10:23:53] local.INFO: Broadcasting [media.updated] on channels [media-updates] with payload:
+{
+    "id": 8,
+    "action": "created",
+    "item": {
+        "id": 8,
+        "category_id": 30,
+        "title": "Alien",
+        "category": "movie",
+        "watchlist_type": null,
+        "release": "1979-05-25",
+        "rating": null,
+        "count": 1,
+        "platforms": null,
+        "genre": "Horror, Science Fiction, Action, Sci-Fi, War",
+        "description": "During its return to the earth, commercial spaceship Nostromo intercepts a distress signal from a distant planet. When a three-member team of the crew discovers a chamber containing thousands of eggs on the planet, a creature inside one of the eggs attacks an explorer. The entire crew is unaware of the impending nightmare set to descend upon them when the alien parasite planted inside its unfortunate host is birthed.",
+        "link": null,
+        "path": "https:\/\/image.tmdb.org\/t\/p\/w200\/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg",
+        "image_url": "https:\/\/image.tmdb.org\/t\/p\/w200\/vfrQk5IPloGg1v9Rzbh2Eg3VGyM.jpg",
+        "discovered": null,
+        "spielzeit": null,
+        "is_airing": false,
+        "next_season": null,
+        "next_season_release": null,
+        "external_id": null,
+        "created_at": "2025-10-07T10:23:51.000000Z",
+        "updated_at": "2025-10-07T10:23:51.000000Z",
+        "user_id": 3,
+        "category_name": "movie"
+    },
+    "timestamp": "2025-10-07T10:23:52.986220Z",
+    "user_id": 3,
+    "socket": null
+}  
+[2025-10-07 10:24:17] local.INFO: MediaController update request data: {"title":"Alien 2: On Earth","category":"movie","count":1,"release":"1980-04-11","genre":"Horror, Science Fiction, Sci-Fi","description":"A group of cave explorers are confronted in an underground cavern by a mysterious living rock. Little do they know that it bears home to deadly, flesh-eating creatures, intent on wiping out the entire human population. An ultra low-budget, unofficial and unauthorized sequel to the 1979 film Alien, although the plot has little connection to the original film.","path":"https://image.tmdb.org/t/p/w200/3LLfieDmGmfQ0PTJfNIaLR2y69C.jpg"} 
+[2025-10-07 10:24:17] local.INFO: MediaController rating value: not set  
+[2025-10-07 10:24:17] local.INFO: Broadcasting [media.updated] on channels [media-updates] with payload:
+{
+    "id": 9,
+    "action": "created",
+    "item": {
+        "id": 9,
+        "category_id": 30,
+        "title": "Alien 2: On Earth",
+        "category": "movie",
+        "watchlist_type": null,
+        "release": "1980-04-11",
+        "rating": null,
+        "count": 1,
+        "platforms": null,
+        "genre": "Horror, Science Fiction, Sci-Fi",
+        "description": "A group of cave explorers are confronted in an underground cavern by a mysterious living rock. Little do they know that it bears home to deadly, flesh-eating creatures, intent on wiping out the entire human population. An ultra low-budget, unofficial and unauthorized sequel to the 1979 film Alien, although the plot has little connection to the original film.",
+        "link": null,
+        "path": "https:\/\/image.tmdb.org\/t\/p\/w200\/3LLfieDmGmfQ0PTJfNIaLR2y69C.jpg",
+        "image_url": "https:\/\/image.tmdb.org\/t\/p\/w200\/3LLfieDmGmfQ0PTJfNIaLR2y69C.jpg",
+        "discovered": null,
+        "spielzeit": null,
+        "is_airing": false,
+        "next_season": null,
+        "next_season_release": null,
+        "external_id": null,
+        "created_at": "2025-10-07T10:24:17.000000Z",
+        "updated_at": "2025-10-07T10:24:17.000000Z",
+        "user_id": 3,
+        "category_name": "movie"
+    },
+    "timestamp": "2025-10-07T10:24:17.283968Z",
+    "user_id": 3,
+    "socket": null
+}  
+[2025-10-07 10:24:37] local.INFO: MediaController update request data: {"title":"wednesday","category":"movie","count":1,"release":"2025-10-07"} 
+[2025-10-07 10:24:37] local.INFO: MediaController rating value: not set  
+[2025-10-07 10:24:37] local.INFO: Broadcasting [media.updated] on channels [media-updates] with payload:
+{
+    "id": 10,
+    "action": "created",
+    "item": {
+        "id": 10,
+        "category_id": 30,
+        "title": "wednesday",
+        "category": "movie",
+        "watchlist_type": null,
+        "release": "2025-10-07",
+        "rating": null,
+        "count": 1,
+        "platforms": null,
+        "genre": null,
+        "description": null,
+        "link": null,
+        "path": null,
+        "image_url": null,
+        "discovered": null,
+        "spielzeit": null,
+        "is_airing": false,
+        "next_season": null,
+        "next_season_release": null,
+        "external_id": null,
+        "created_at": "2025-10-07T10:24:37.000000Z",
+        "updated_at": "2025-10-07T10:24:37.000000Z",
+        "user_id": 3,
+        "category_name": "movie"
+    },
+    "timestamp": "2025-10-07T10:24:37.076307Z",
+    "user_id": 3,
+    "socket": null
+}  
+[2025-10-07 10:25:02] local.INFO: MediaController update request data: {"title":"Wednesday","category":"series","count":1,"release":"2022-11-23","api_rating":8,"genre":"Sci-Fi & Fantasy, Mystery, Comedy","description":"Smart, sarcastic and a little dead inside, Wednesday Addams investigates twisted mysteries while making new friends — and foes — at Nevermore Academy.","path":"https://image.tmdb.org/t/p/w200/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg"} 
+[2025-10-07 10:25:02] local.INFO: MediaController rating value: not set  
+[2025-10-07 10:25:02] local.INFO: Broadcasting [media.updated] on channels [media-updates] with payload:
+{
+    "id": 11,
+    "action": "created",
+    "item": {
+        "id": 11,
+        "category_id": 29,
+        "title": "Wednesday",
+        "category": "series",
+        "watchlist_type": null,
+        "release": "2022-11-23",
+        "rating": null,
+        "count": 1,
+        "platforms": null,
+        "genre": "Sci-Fi & Fantasy, Mystery, Comedy",
+        "description": "Smart, sarcastic and a little dead inside, Wednesday Addams investigates twisted mysteries while making new friends \u2014 and foes \u2014 at Nevermore Academy.",
+        "link": null,
+        "path": "https:\/\/image.tmdb.org\/t\/p\/w200\/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg",
+        "image_url": "https:\/\/image.tmdb.org\/t\/p\/w200\/36xXlhEpQqVVPuiZhfoQuaY4OlA.jpg",
+        "discovered": null,
+        "spielzeit": null,
+        "is_airing": false,
+        "next_season": null,
+        "next_season_release": null,
+        "external_id": null,
+        "created_at": "2025-10-07T10:25:02.000000Z",
+        "updated_at": "2025-10-07T10:25:02.000000Z",
+        "user_id": 3,
+        "category_name": "series"
+    },
+    "timestamp": "2025-10-07T10:25:02.552901Z",
+    "user_id": 3,
+    "socket": null
+}  

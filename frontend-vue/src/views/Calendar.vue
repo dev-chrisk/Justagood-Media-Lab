@@ -20,6 +20,7 @@
       @navigate-to-profile="navigateToProfile"
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
+      @clear-filters="clearFilters"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
       @logout="logout"
@@ -246,6 +247,10 @@ export default {
       // Not used in calendar view
     }
 
+    const clearFilters = () => {
+      mediaStore.clearFilters()
+    }
+
     const logout = () => {
       authStore.logout()
     }
@@ -381,6 +386,7 @@ export default {
       navigateToProfile,
       togglePlatformFilter,
       toggleGenreFilter,
+      clearFilters,
       logout,
       switchToRegister,
       handleLoginSuccess,

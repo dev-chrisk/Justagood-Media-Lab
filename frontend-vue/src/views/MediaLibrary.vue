@@ -23,6 +23,7 @@
       @toggle-platform-filter="togglePlatformFilter"
       @toggle-genre-filter="toggleGenreFilter"
       @toggle-airing-filter="toggleAiringFilter"
+      @clear-filters="clearFilters"
       @add-item="addItemFromSidebar"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
@@ -409,6 +410,7 @@ export default {
       togglePlatformFilter,
       toggleGenreFilter,
       toggleAiringFilter,
+      clearFilters,
       editItem,
       closeEditModal,
       closeBulkAddModal,

@@ -150,6 +150,19 @@ biem <template>
           </div>
         </div>
         
+        <!-- Description Field -->
+        <div class="form-row">
+          <div class="form-group full-width">
+            <label for="description">Description:</label>
+            <textarea 
+              id="description"
+              v-model="form.description" 
+              placeholder="Enter description..."
+              rows="3"
+            ></textarea>
+          </div>
+        </div>
+        
         <!-- Watchlist Type Selection -->
         <div v-if="form.category === 'watchlist'" class="form-row">
           <div class="form-group">
@@ -387,6 +400,7 @@ export default {
       count: '',
       platforms: '',
       genre: '',
+      description: '',
       link: '',
       path: '',
       discovered: '',
@@ -433,6 +447,9 @@ export default {
         }
         if (newItem.personal_rating !== undefined) {
           form.personalRating = newItem.personal_rating
+        }
+        if (newItem.description !== undefined) {
+          form.description = newItem.description
         }
         if (newItem.image_url !== undefined) {
           form.imageUrl = newItem.image_url
@@ -688,7 +705,8 @@ export default {
               searchResults = results.map(result => ({
                 title: result.title,
                 release: result.release,
-                genre: result.overview || '',
+                genre: result.genre || '',
+                description: result.overview || '',
                 platforms: result.platforms || '',
                 link: result.link || '',
                 imageUrl: result.image || '',
@@ -742,6 +760,7 @@ export default {
       if (result.release) form.release = result.release
       if (result.platforms) form.platforms = result.platforms
       if (result.genre) form.genre = result.genre
+      if (result.description) form.description = result.description
       if (result.link) form.link = result.link
       if (result.rating) form.apiRating = result.rating
       
@@ -761,11 +780,6 @@ export default {
           form.platforms = result.author // Use platforms field for author
         }
         
-        // Add description to genre if available
-        if (result.description) {
-          const currentGenre = form.genre || ''
-          form.genre = currentGenre ? `${currentGenre} | ${result.description.substring(0, 100)}...` : result.description.substring(0, 200)
-        }
         
         // Add publisher info to link if available
         if (result.publisher) {
@@ -1085,10 +1099,27 @@ export default {
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: #4a9eff;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group textarea {
+  padding: 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 16px;
+  background: #3a3a3a;
+  color: #fff;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
 }
 
 .error-message {

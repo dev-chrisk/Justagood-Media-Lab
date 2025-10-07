@@ -477,6 +477,14 @@ export const useMediaStore = defineStore('media', () => {
           await loadMedia()
           return true
         } catch (apiError) {
+          // Handle silent errors (like 404) - don't show error messages for these
+          if (apiError.silent) {
+            console.log('Silent batch delete error (some items may not exist):', apiError.message)
+            // Still reload data to reflect current state
+            await loadMedia()
+            return true
+          }
+          
           console.error('API batch delete failed for logged in user:', apiError)
           throw apiError
         }
@@ -487,7 +495,10 @@ export const useMediaStore = defineStore('media', () => {
         return true
       }
     } catch (err) {
-      error.value = err.message || 'Failed to delete media items'
+      // Only set error if it's not a silent error
+      if (!err.silent) {
+        error.value = err.message || 'Failed to delete media items'
+      }
       throw err
     }
   }

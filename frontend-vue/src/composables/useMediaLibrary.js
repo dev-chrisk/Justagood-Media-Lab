@@ -249,6 +249,10 @@ export function useMediaLibrary() {
     }
   }
 
+  const clearFilters = () => {
+    mediaStore.clearFilters()
+  }
+
   const editItem = (item) => {
     editingItem.value = item
     showEditModal.value = true
@@ -398,7 +402,18 @@ export function useMediaLibrary() {
         messageStore.showSuccess(`Successfully deleted ${itemCount} items from "${categoryName}"`, 'Items Deleted')
       } catch (error) {
         console.error('Error deleting items:', error)
-        messageStore.showError('Error occurred while deleting items. Please try again.', 'Delete Failed')
+        
+        // Handle different types of errors
+        if (error.silent) {
+          // Silent errors (like 404) - still show success but with different message
+          messageStore.showSuccess(`Items deleted from "${categoryName}" (some items may not have existed)`, 'Items Deleted')
+        } else if (error.isNotFound) {
+          // Some items not found - show warning instead of error
+          messageStore.showWarning('Some items were not found and could not be deleted, but the operation completed.', 'Partial Success')
+        } else {
+          // Real errors - show error message
+          messageStore.showError('Error occurred while deleting items. Please try again.', 'Delete Failed')
+        }
       }
     }
   }
@@ -603,6 +618,7 @@ export function useMediaLibrary() {
     togglePlatformFilter,
     toggleGenreFilter,
     toggleAiringFilter,
+    clearFilters,
     editItem,
     closeEditModal,
     closeBulkAddModal,

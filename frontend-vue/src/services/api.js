@@ -358,6 +358,31 @@ export const mediaApi = {
       const response = await api.post('/media/batch-delete', { ids })
       return response.data
     } catch (error) {
+      // Handle 404 - some items might not exist, which is fine for delete operations
+      if (error.response?.status === 404) {
+        const notFoundError = new Error('Some items were not found and could not be deleted')
+        notFoundError.response = error.response
+        notFoundError.isNotFound = true
+        notFoundError.silent = true // Mark as silent error
+        throw notFoundError
+      }
+      
+      // Handle 400 - validation errors (e.g., invalid IDs)
+      if (error.response?.status === 400) {
+        const validationError = new Error('Invalid item IDs provided for deletion')
+        validationError.response = error.response
+        throw validationError
+      }
+      
+      // Handle 403 - permission errors
+      if (error.response?.status === 403) {
+        const forbiddenError = new Error('You do not have permission to delete these items')
+        forbiddenError.response = error.response
+        throw forbiddenError
+      }
+      
+      // Log other errors
+      console.error('Batch delete API error:', error)
       throw error
     }
   },

@@ -523,7 +523,7 @@ export default {
                 count: 1,
                 is_airing: false,
                 spielzeit: 0,
-                description: item.additionalInfo || null
+                description: apiResult.overview || item.additionalInfo || null
               }
               
               // Use the same add method as EditModal with skipReload for bulk operations
