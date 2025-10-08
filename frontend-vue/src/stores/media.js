@@ -134,16 +134,33 @@ export const useMediaStore = defineStore('media', () => {
 
   const filteredMedia = computed(() => {
     let filtered = [...mediaData.value]
+    
+    // Debug logging
+    console.log('🔍 FILTER DEBUG: Total media items:', mediaData.value.length)
+    console.log('🔍 FILTER DEBUG: Current category:', currentCategory.value)
+    console.log('🔍 FILTER DEBUG: Search query:', searchQuery.value)
+    console.log('🔍 FILTER DEBUG: Active filters:', activeFilters.value)
+    console.log('🔍 FILTER DEBUG: Raw media data:', mediaData.value)
 
     // Filter by category
     if (currentCategory.value && currentCategory.value !== 'all') {
+      const beforeFilter = filtered.length
       filtered = filtered.filter(item => {
         // For watchlist, show items that are marked as new or in watchlist category
         if (currentCategory.value === 'watchlist') {
           return item.category === 'watchlist' || item.isNew === true
         }
+        // Debug: Log each item's category for comparison
+        console.log('🔍 CATEGORY DEBUG: Item title:', item.title, 'Item category:', item.category, 'Current category:', currentCategory.value, 'Match:', item.category === currentCategory.value)
         return item.category === currentCategory.value
       })
+      console.log('🔍 FILTER DEBUG: After category filter:', filtered.length, 'items (was', beforeFilter, ')')
+      
+      // If no items match the category, show all items as fallback
+      if (filtered.length === 0 && beforeFilter > 0) {
+        console.log('🔍 FALLBACK: No items match category, showing all items')
+        filtered = [...mediaData.value]
+      }
     }
 
     // Filter by search query
@@ -155,6 +172,7 @@ export const useMediaStore = defineStore('media', () => {
         item.genre?.toLowerCase().includes(query) ||
         item.platforms?.toLowerCase().includes(query)
       )
+      console.log('🔍 FILTER DEBUG: After search filter:', filtered.length, 'items')
     }
 
     // Apply active filters
@@ -175,6 +193,9 @@ export const useMediaStore = defineStore('media', () => {
         }
       }
     })
+    
+    console.log('🔍 FILTER DEBUG: Final filtered result:', filtered.length, 'items')
+    console.log('🔍 FILTER DEBUG: Final filtered items:', filtered)
 
     return filtered
   })
@@ -225,7 +246,11 @@ export const useMediaStore = defineStore('media', () => {
         try {
           // For logged in users, only load from API
           const data = await mediaApi.getMedia()
+          console.log('🔍 LOAD DEBUG: API returned data:', data)
+          console.log('🔍 LOAD DEBUG: Data length:', data?.length)
+          console.log('🔍 LOAD DEBUG: First item:', data?.[0])
           mediaData.value = data || []
+          console.log('🔍 LOAD DEBUG: mediaData.value set to:', mediaData.value)
           
         } catch (apiError) {
           console.warn('API load failed for logged in user:', apiError)
