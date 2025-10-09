@@ -16,7 +16,7 @@ biem <template>
               <option value="buecher">Bücher</option>
             </select>
           </div>
-          
+           
           <div class="form-group title-group">
             <label for="title">Title:</label>
             <div class="search-container">
