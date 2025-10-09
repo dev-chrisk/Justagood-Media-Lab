@@ -11,16 +11,11 @@
       :user-name="userName"
       :current-category="currentCategory"
       :category-counts="categoryCounts"
-      :platforms="platforms"
-      :genres="genres"
       :categories="categories"
       @toggle="sidebarStore.toggleSidebar"
       @set-category="setCategory"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-profile="navigateToProfile"
-      @toggle-platform-filter="togglePlatformFilter"
-      @toggle-genre-filter="toggleGenreFilter"
-      @clear-filters="clearFilters"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
       @logout="logout"
@@ -163,8 +158,6 @@ export default {
     const userName = computed(() => authStore.user?.name || '')
     const currentCategory = computed(() => 'calendar')
     const categoryCounts = computed(() => ({}))
-    const platforms = computed(() => [])
-    const genres = computed(() => [])
     const categories = computed(() => [
       { key: 'game', name: 'Games', icon: '🎮' },
       { key: 'series', name: 'Series', icon: '📺' },
@@ -239,17 +232,6 @@ export default {
       sidebarStore.closeMobileSidebar()
     }
 
-    const togglePlatformFilter = () => {
-      // Not used in calendar view
-    }
-
-    const toggleGenreFilter = () => {
-      // Not used in calendar view
-    }
-
-    const clearFilters = () => {
-      mediaStore.clearFilters()
-    }
 
     const logout = () => {
       authStore.logout()
@@ -371,8 +353,6 @@ export default {
       userName,
       currentCategory,
       categoryCounts,
-      platforms,
-      genres,
       categories,
       currentYear,
       currentMonth,
@@ -384,9 +364,6 @@ export default {
       clearSearch,
       navigateToCalendar,
       navigateToProfile,
-      togglePlatformFilter,
-      toggleGenreFilter,
-      clearFilters,
       logout,
       switchToRegister,
       handleLoginSuccess,

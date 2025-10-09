@@ -1,31 +1,23 @@
 <template>
   <div class="vue-app">
     <!-- Mobile Overlay -->
-    <div class="mobile-overlay" :class="{ show: sidebarStore.mobileOpen }" @click="sidebarStore.closeMobileSidebar"></div>
+    <div class="mobile-overlay" :class="{ show: sidebarStore?.mobileOpen }" @click="sidebarStore?.closeMobileSidebar"></div>
     
     <!-- Sidebar -->
     <Sidebar
-      :collapsed="sidebarStore.collapsed"
-      :mobile-open="sidebarStore.mobileOpen"
+      :collapsed="sidebarStore?.collapsed"
+      :mobile-open="sidebarStore?.mobileOpen"
       :is-logged-in="isLoggedIn"
       :is-admin="isAdmin"
       :user-name="userName"
       :current-category="currentCategory"
       :category-counts="categoryCounts"
-      :platforms="platforms"
-      :genres="genres"
       :categories="categories"
-      :filters-enabled="filtersEnabled"
-      @toggle="sidebarStore.toggleSidebar"
+      @toggle="sidebarStore?.toggleSidebar"
       @set-category="setCategory"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-profile="navigateToProfile"
       @navigate-to-admin="debugNavigateToAdmin"
-      @toggle-platform-filter="togglePlatformFilter"
-      @toggle-genre-filter="toggleGenreFilter"
-      @toggle-airing-filter="toggleAiringFilter"
-      @clear-filters="clearFilters"
-      @toggle-filters="toggleFilters"
       @add-item="addItemFromSidebar"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
@@ -40,7 +32,7 @@
         v-model:search-query="searchQuery"
         v-model:grid-columns="gridColumns"
         v-model:sort-by="sortBy"
-        @toggle-mobile-sidebar="sidebarStore.toggleMobileSidebar"
+        @toggle-mobile-sidebar="sidebarStore?.toggleMobileSidebar"
         @clear-search="clearSearch"
       />
 
@@ -375,6 +367,11 @@ export default {
     const authStore = useAuthStore()
     const sidebarStore = useSidebarStore()
     
+    // Ensure sidebarStore is properly initialized
+    if (!sidebarStore) {
+      console.error('SidebarStore not properly initialized')
+    }
+    
     // Admin setup state
     const adminSetupLoading = ref(false)
     const adminSetupMessage = ref(null)
@@ -403,18 +400,10 @@ export default {
       loading,
       error,
       paginatedMedia,
-      platforms,
-      genres,
-      filtersEnabled,
-      
+
       // Methods
       setCategory,
       clearSearch,
-      togglePlatformFilter,
-      toggleGenreFilter,
-      toggleAiringFilter,
-      clearFilters,
-      toggleFilters,
       editItem,
       closeEditModal,
       closeBulkAddModal,
@@ -715,20 +704,13 @@ export default {
       loading,
       error,
       paginatedMedia,
-      platforms,
-      genres,
-      filtersEnabled,
-      
+
       // Methods
       setCategory,
       clearSearch,
       navigateToCalendar,
       navigateToProfile,
       addItemFromSidebar,
-      togglePlatformFilter,
-      toggleGenreFilter,
-      toggleAiringFilter,
-      toggleFilters,
       editItem,
       switchToRegister,
       showAdminLogin,

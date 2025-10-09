@@ -12,8 +12,6 @@
       :user-name="userName"
       :current-category="'profile'"
       :category-counts="{}"
-      :platforms="[]"
-      :genres="[]"
       :categories="[]"
       @toggle="sidebarStore.toggleSidebar"
       @navigate-to-library="navigateToLibrary"

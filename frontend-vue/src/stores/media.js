@@ -44,32 +44,11 @@ export const useMediaStore = defineStore('media', () => {
     }
   }
 
-  // Load active filters from localStorage
-  const loadActiveFilters = () => {
-    try {
-      const saved = localStorage.getItem('activeFilters')
-      return saved ? JSON.parse(saved) : []
-    } catch (err) {
-      console.error('Failed to load active filters from localStorage:', err)
-      return []
-    }
-  }
-
-  // Save active filters to localStorage
-  const saveActiveFilters = (filters) => {
-    try {
-      localStorage.setItem('activeFilters', JSON.stringify(filters))
-    } catch (err) {
-      console.error('Failed to save active filters to localStorage:', err)
-    }
-  }
 
   // State
   const mediaData = ref(loadMediaFromStorage())
   const currentCategory = ref(loadCurrentCategory())
   const searchQuery = ref(loadSearchQuery())
-  const activeFilters = ref(loadActiveFilters())
-  const filtersEnabled = ref(true) // New state for filter toggle
   const loading = ref(false)
   const error = ref(null)
 
@@ -82,9 +61,6 @@ export const useMediaStore = defineStore('media', () => {
     saveSearchQuery(newValue)
   }, { immediate: false })
 
-  watch(activeFilters, (newValue) => {
-    saveActiveFilters(newValue)
-  }, { immediate: false, deep: true })
 
   // Load media from localStorage on initialization
   function loadMediaFromStorage() {
@@ -135,34 +111,16 @@ export const useMediaStore = defineStore('media', () => {
 
   const filteredMedia = computed(() => {
     let filtered = [...mediaData.value]
-    
-    // Debug logging
-    console.log('🔍 FILTER DEBUG: Total media items:', mediaData.value.length)
-    console.log('🔍 FILTER DEBUG: Current category:', currentCategory.value)
-    console.log('🔍 FILTER DEBUG: Search query:', searchQuery.value)
-    console.log('🔍 FILTER DEBUG: Active filters:', activeFilters.value)
-    console.log('🔍 FILTER DEBUG: Filters enabled:', filtersEnabled.value)
-    console.log('🔍 FILTER DEBUG: Raw media data:', mediaData.value)
 
     // Filter by category
     if (currentCategory.value && currentCategory.value !== 'all') {
-      const beforeFilter = filtered.length
       filtered = filtered.filter(item => {
         // For watchlist, show items that are marked as new or in watchlist category
         if (currentCategory.value === 'watchlist') {
           return item.category === 'watchlist' || item.isNew === true
         }
-        // Debug: Log each item's category for comparison
-        console.log('🔍 CATEGORY DEBUG: Item title:', item.title, 'Item category:', item.category, 'Current category:', currentCategory.value, 'Match:', item.category === currentCategory.value)
         return item.category === currentCategory.value
       })
-      console.log('🔍 FILTER DEBUG: After category filter:', filtered.length, 'items (was', beforeFilter, ')')
-      
-      // If no items match the category, show all items as fallback
-      if (filtered.length === 0 && beforeFilter > 0) {
-        console.log('🔍 FALLBACK: No items match category, showing all items')
-        filtered = [...mediaData.value]
-      }
     }
 
     // Filter by search query
@@ -174,76 +132,11 @@ export const useMediaStore = defineStore('media', () => {
         item.genre?.toLowerCase().includes(query) ||
         item.platforms?.toLowerCase().includes(query)
       )
-      console.log('🔍 FILTER DEBUG: After search filter:', filtered.length, 'items')
     }
-
-    // Apply active filters only if filters are enabled
-    if (filtersEnabled.value) {
-      console.log('🔍 FILTER DEBUG: Applying active filters, count:', activeFilters.value.length)
-      activeFilters.value.forEach(filter => {
-        if (filter.type === 'platform') {
-          const beforeCount = filtered.length
-          filtered = filtered.filter(item => 
-            item.platforms?.toLowerCase().includes(filter.value.toLowerCase())
-          )
-          console.log('🔍 PLATFORM FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
-        } else if (filter.type === 'genre') {
-          const beforeCount = filtered.length
-          filtered = filtered.filter(item => 
-            item.genre?.toLowerCase().includes(filter.value.toLowerCase())
-          )
-          console.log('🔍 GENRE FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
-        } else if (filter.type === 'airing') {
-          const beforeCount = filtered.length
-          if (filter.value === 'airing') {
-            filtered = filtered.filter(item => item.isAiring === true)
-          } else if (filter.value === 'finished') {
-            filtered = filtered.filter(item => item.isAiring === false || item.isAiring === null)
-          }
-          console.log('🔍 AIRING FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
-        }
-      })
-    } else {
-      console.log('🔍 FILTER DEBUG: Filters disabled, skipping active filters')
-    }
-    
-    console.log('🔍 FILTER DEBUG: Final filtered result:', filtered.length, 'items')
-    console.log('🔍 FILTER DEBUG: Final filtered items:', filtered)
 
     return filtered
   })
 
-  // Extract unique platforms from media data
-  const platforms = computed(() => {
-    const platformSet = new Set()
-    mediaData.value.forEach(item => {
-      if (item.platforms) {
-        // Split by common separators and clean up
-        const platformList = item.platforms
-          .split(/[,;|&]/)
-          .map(p => p.trim())
-          .filter(p => p.length > 0)
-        platformList.forEach(platform => platformSet.add(platform))
-      }
-    })
-    return Array.from(platformSet).sort()
-  })
-
-  // Extract unique genres from media data
-  const genres = computed(() => {
-    const genreSet = new Set()
-    mediaData.value.forEach(item => {
-      if (item.genre) {
-        // Split by common separators and clean up
-        const genreList = item.genre
-          .split(/[,;|&]/)
-          .map(g => g.trim())
-          .filter(g => g.length > 0)
-        genreList.forEach(genre => genreSet.add(genre))
-      }
-    })
-    return Array.from(genreSet).sort()
-  })
 
   // Actions
   async function loadMedia() {
@@ -300,30 +193,6 @@ export const useMediaStore = defineStore('media', () => {
     searchQuery.value = query
   }
 
-  function addFilter(filter) {
-    const exists = activeFilters.value.some(f => 
-      f.type === filter.type && f.value === filter.value
-    )
-    if (!exists) {
-      activeFilters.value.push(filter)
-    }
-  }
-
-  function removeFilter(filter) {
-    activeFilters.value = activeFilters.value.filter(f => 
-      !(f.type === filter.type && f.value === filter.value)
-    )
-  }
-
-  function clearFilters() {
-    activeFilters.value = []
-  }
-
-  function toggleFilters() {
-    console.log('🔄 TOGGLE FILTERS: Before toggle, filtersEnabled =', filtersEnabled.value)
-    filtersEnabled.value = !filtersEnabled.value
-    console.log('🔄 TOGGLE FILTERS: After toggle, filtersEnabled =', filtersEnabled.value)
-  }
 
   function clearError() {
     error.value = null
@@ -638,11 +507,9 @@ export const useMediaStore = defineStore('media', () => {
   const resetMediaState = () => {
     currentCategory.value = 'game'
     searchQuery.value = ''
-    activeFilters.value = []
     // Clear from localStorage
     localStorage.removeItem('currentCategory')
     localStorage.removeItem('searchQuery')
-    localStorage.removeItem('activeFilters')
   }
 
   return {
@@ -650,7 +517,6 @@ export const useMediaStore = defineStore('media', () => {
     mediaData,
     currentCategory,
     searchQuery,
-    activeFilters,
     loading,
     error,
     
@@ -658,18 +524,11 @@ export const useMediaStore = defineStore('media', () => {
     totalItems,
     categoryCounts,
     filteredMedia,
-    platforms,
-    genres,
     
     // Actions
     loadMedia,
     setCategory,
     setSearchQuery,
-    addFilter,
-    removeFilter,
-    clearFilters,
-    toggleFilters,
-    filtersEnabled,
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,

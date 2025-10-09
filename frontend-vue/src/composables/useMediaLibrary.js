@@ -178,38 +178,6 @@ export function useMediaLibrary() {
     return sortedMedia.value
   })
 
-  // Extract unique platforms and genres for filters
-  const platforms = computed(() => {
-    try {
-      if (!mediaStore || !mediaStore.mediaData) return []
-      const platformSet = new Set()
-      mediaStore.mediaData.forEach(item => {
-        if (item.platforms) {
-          item.platforms.split(',').forEach(p => platformSet.add(p.trim()))
-        }
-      })
-      return Array.from(platformSet).sort()
-    } catch (error) {
-      console.error('Error in platforms computed:', error)
-      return []
-    }
-  })
-
-  const genres = computed(() => {
-    try {
-      if (!mediaStore || !mediaStore.mediaData) return []
-      const genreSet = new Set()
-      mediaStore.mediaData.forEach(item => {
-        if (item.genre) {
-          item.genre.split(',').forEach(g => genreSet.add(g.trim()))
-        }
-      })
-      return Array.from(genreSet).sort()
-    } catch (error) {
-      console.error('Error in genres computed:', error)
-      return []
-    }
-  })
 
   // Methods
   // Sidebar methods are now managed globally in useSidebarStore
@@ -225,39 +193,6 @@ export function useMediaLibrary() {
     mediaStore.setSearchQuery('')
   }
 
-  const togglePlatformFilter = (platform, checked) => {
-    if (checked) {
-      mediaStore.addFilter({ type: 'platform', value: platform })
-    } else {
-      mediaStore.removeFilter({ type: 'platform', value: platform })
-    }
-  }
-
-  const toggleGenreFilter = (genre, checked) => {
-    if (checked) {
-      mediaStore.addFilter({ type: 'genre', value: genre })
-    } else {
-      mediaStore.removeFilter({ type: 'genre', value: genre })
-    }
-  }
-
-  const toggleAiringFilter = (status, checked) => {
-    if (checked) {
-      mediaStore.addFilter({ type: 'airing', value: status })
-    } else {
-      mediaStore.removeFilter({ type: 'airing', value: status })
-    }
-  }
-
-  const clearFilters = () => {
-    mediaStore.clearFilters()
-  }
-
-  const toggleFilters = () => {
-    console.log('🔄 COMPOSABLE TOGGLE: Calling mediaStore.toggleFilters()')
-    mediaStore.toggleFilters()
-    console.log('🔄 COMPOSABLE TOGGLE: After toggle, filtersEnabled =', mediaStore.filtersEnabled)
-  }
 
   const editItem = (item) => {
     editingItem.value = item
@@ -615,25 +550,10 @@ export function useMediaLibrary() {
     loading,
     error,
     paginatedMedia,
-    platforms,
-    genres,
-    filtersEnabled: computed(() => {
-      try {
-        return mediaStore.filtersEnabled
-      } catch (error) {
-        console.error('Error accessing filtersEnabled:', error)
-        return true
-      }
-    }),
     
     // Methods
     setCategory,
     clearSearch,
-    togglePlatformFilter,
-    toggleGenreFilter,
-    toggleAiringFilter,
-    clearFilters,
-    toggleFilters,
     editItem,
     closeEditModal,
     closeBulkAddModal,

@@ -55,87 +55,6 @@
         </nav>
       </div>
 
-      <!-- Filters Section -->
-      <div v-if="isLoggedIn" class="sidebar-section">
-        <div class="filters-header">
-          <h3>Filters</h3>
-          <div class="filter-controls">
-            <button 
-              class="refresh-btn" 
-              @click="$emit('clearFilters')"
-              title="Clear all filters"
-            >
-              <span class="refresh-icon">🔄</span>
-              <span class="refresh-text">Refresh</span>
-            </button>
-            <button 
-              class="toggle-filters-btn" 
-              :class="{ active: filtersEnabled }"
-              @click="$emit('toggleFilters')"
-              :title="filtersEnabled ? 'Disable all filters' : 'Enable all filters'"
-            >
-              <span class="toggle-icon">{{ filtersEnabled ? '🔍' : '🚫' }}</span>
-              <span class="toggle-text">{{ filtersEnabled ? 'ON' : 'OFF' }}</span>
-            </button>
-          </div>
-        </div>
-        <div class="filter-section">
-          <div class="filter-group">
-            <h4>Platforms</h4>
-            <div class="filter-checkboxes">
-              <label v-for="platform in platforms" :key="platform" class="filter-option">
-                <input 
-                  type="checkbox" 
-                  :value="platform"
-                  @change="$emit('togglePlatformFilter', platform, $event.target.checked)"
-                >
-                <span class="checkmark"></span>
-                <span class="option-text">{{ platform }}</span>
-              </label>
-            </div>
-          </div>
-          <div class="filter-group">
-            <h4>Genres</h4>
-            <div class="filter-checkboxes">
-              <label v-for="genre in genres" :key="genre" class="filter-option">
-                <input 
-                  type="checkbox" 
-                  :value="genre"
-                  @change="$emit('toggleGenreFilter', genre, $event.target.checked)"
-                >
-                <span class="checkmark"></span>
-                <span class="option-text">{{ genre }}</span>
-              </label>
-            </div>
-          </div>
-          <div class="filter-group">
-            <h4>Series Status</h4>
-            <div class="filter-checkboxes">
-              <label class="filter-option">
-                <input 
-                  type="checkbox" 
-                  value="airing"
-                  @change="$emit('toggleAiringFilter', 'airing', $event.target.checked)"
-                >
-                <span class="checkmark"></span>
-                <span class="option-text">
-                  <span class="airing-indicator">●</span>
-                  Airing
-                </span>
-              </label>
-              <label class="filter-option">
-                <input 
-                  type="checkbox" 
-                  value="finished"
-                  @change="$emit('toggleAiringFilter', 'finished', $event.target.checked)"
-                >
-                <span class="checkmark"></span>
-                <span class="option-text">Finished</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
 
 
       <!-- Account Section -->
@@ -198,14 +117,6 @@ export default {
       type: Object,
       default: () => ({})
     },
-    platforms: {
-      type: Array,
-      default: () => []
-    },
-    genres: {
-      type: Array,
-      default: () => []
-    },
     categories: {
       type: Array,
       default: () => [
@@ -216,10 +127,6 @@ export default {
         { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
       ]
     },
-    filtersEnabled: {
-      type: Boolean,
-      default: true
-    }
   },
   emits: [
     'toggle',
@@ -227,11 +134,6 @@ export default {
     'addItem',
     'navigateToCalendar',
     'navigateToProfile',
-    'togglePlatformFilter',
-    'toggleGenreFilter',
-    'toggleAiringFilter',
-    'clearFilters',
-    'toggleFilters',
     'showLogin',
     'showRegister',
     'logout'
@@ -279,9 +181,6 @@ export default {
   display: none;
 }
 
-.sidebar.collapsed .filter-section {
-  display: none;
-}
 
 .sidebar.collapsed .user-profile .profile-details {
   display: none;
@@ -468,211 +367,6 @@ export default {
   line-height: 1;
 }
 
-/* Filter Section */
-.filters-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0 0 15px 20px;
-}
-
-.filter-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.filters-header h3 {
-  margin: 0;
-}
-
-.refresh-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(74, 158, 255, 0.1);
-  border: 1px solid rgba(74, 158, 255, 0.3);
-  border-radius: 4px;
-  color: #4a9eff;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s;
-  min-height: 32px;
-}
-
-.refresh-btn:hover {
-  background: rgba(74, 158, 255, 0.2);
-  border-color: rgba(74, 158, 255, 0.5);
-  color: #5ba8ff;
-}
-
-.refresh-icon {
-  font-size: 14px;
-  transition: transform 0.2s;
-}
-
-.refresh-btn:hover .refresh-icon {
-  transform: rotate(180deg);
-}
-
-.refresh-text {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.sidebar.collapsed .refresh-btn {
-  padding: 6px 8px;
-  min-width: 32px;
-  justify-content: center;
-}
-
-.sidebar.collapsed .refresh-text {
-  display: none;
-}
-
-.sidebar.collapsed .refresh-icon {
-  font-size: 16px;
-}
-
-.toggle-filters-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(102, 102, 102, 0.1);
-  border: 1px solid rgba(102, 102, 102, 0.3);
-  border-radius: 4px;
-  color: #666;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s;
-  min-width: 50px;
-  justify-content: center;
-}
-
-.toggle-filters-btn:hover {
-  background: rgba(102, 102, 102, 0.2);
-  border-color: rgba(102, 102, 102, 0.5);
-  color: #777;
-}
-
-.toggle-filters-btn.active {
-  background: rgba(40, 167, 69, 0.1);
-  border-color: rgba(40, 167, 69, 0.3);
-  color: #28a745;
-}
-
-.toggle-filters-btn.active:hover {
-  background: rgba(40, 167, 69, 0.2);
-  border-color: rgba(40, 167, 69, 0.5);
-  color: #218838;
-}
-
-.toggle-icon {
-  font-size: 14px;
-  transition: transform 0.2s;
-}
-
-.toggle-text {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-}
-
-.sidebar.collapsed .toggle-filters-btn {
-  padding: 6px 8px;
-  min-width: 32px;
-  justify-content: center;
-}
-
-.sidebar.collapsed .toggle-text {
-  display: none;
-}
-
-.sidebar.collapsed .toggle-icon {
-  font-size: 12px;
-}
-
-.filter-section {
-  padding: 0 20px;
-}
-
-.filter-group {
-  margin-bottom: 20px;
-}
-
-.filter-group h4 {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 10px 0;
-  color: #a0a0a0;
-}
-
-.filter-checkboxes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-option {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 13px;
-  color: #d0d0d0;
-  min-height: 44px;
-  padding: 8px 0;
-}
-
-.filter-option input[type="checkbox"] {
-  display: none;
-}
-
-.checkmark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #a0a0a0;
-  border-radius: 3px;
-  margin-right: 12px;
-  position: relative;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.filter-option input[type="checkbox"]:checked + .checkmark {
-  background: #4a9eff;
-  border-color: #4a9eff;
-}
-
-.filter-option input[type="checkbox"]:checked + .checkmark::after {
-  content: '✓';
-  position: absolute;
-  top: -2px;
-  left: 2px;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.option-text {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.airing-indicator {
-  color: #27ae60;
-  font-size: 12px;
-  animation: pulse 2s infinite;
-}
 
 @keyframes pulse {
   0% { opacity: 1; }
