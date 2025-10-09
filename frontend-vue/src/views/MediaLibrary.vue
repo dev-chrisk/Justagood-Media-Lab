@@ -15,6 +15,7 @@
       :platforms="platforms"
       :genres="genres"
       :categories="categories"
+      :filters-enabled="filtersEnabled"
       @toggle="sidebarStore.toggleSidebar"
       @set-category="setCategory"
       @navigate-to-calendar="navigateToCalendar"
@@ -24,6 +25,7 @@
       @toggle-genre-filter="toggleGenreFilter"
       @toggle-airing-filter="toggleAiringFilter"
       @clear-filters="clearFilters"
+      @toggle-filters="toggleFilters"
       @add-item="addItemFromSidebar"
       @show-login="showLoginModal = true"
       @show-register="showRegisterModal = true"
@@ -403,6 +405,7 @@ export default {
       paginatedMedia,
       platforms,
       genres,
+      filtersEnabled,
       
       // Methods
       setCategory,
@@ -411,6 +414,7 @@ export default {
       toggleGenreFilter,
       toggleAiringFilter,
       clearFilters,
+      toggleFilters,
       editItem,
       closeEditModal,
       closeBulkAddModal,
@@ -713,6 +717,7 @@ export default {
       paginatedMedia,
       platforms,
       genres,
+      filtersEnabled,
       
       // Methods
       setCategory,
@@ -723,6 +728,7 @@ export default {
       togglePlatformFilter,
       toggleGenreFilter,
       toggleAiringFilter,
+      toggleFilters,
       editItem,
       switchToRegister,
       showAdminLogin,

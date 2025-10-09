@@ -59,14 +59,25 @@
       <div v-if="isLoggedIn" class="sidebar-section">
         <div class="filters-header">
           <h3>Filters</h3>
-          <button 
-            class="refresh-btn" 
-            @click="$emit('clearFilters')"
-            title="Clear all filters"
-          >
-            <span class="refresh-icon">🔄</span>
-            <span class="refresh-text">Refresh</span>
-          </button>
+          <div class="filter-controls">
+            <button 
+              class="refresh-btn" 
+              @click="$emit('clearFilters')"
+              title="Clear all filters"
+            >
+              <span class="refresh-icon">🔄</span>
+              <span class="refresh-text">Refresh</span>
+            </button>
+            <button 
+              class="toggle-filters-btn" 
+              :class="{ active: filtersEnabled }"
+              @click="$emit('toggleFilters')"
+              :title="filtersEnabled ? 'Disable all filters' : 'Enable all filters'"
+            >
+              <span class="toggle-icon">{{ filtersEnabled ? '🔍' : '🚫' }}</span>
+              <span class="toggle-text">{{ filtersEnabled ? 'ON' : 'OFF' }}</span>
+            </button>
+          </div>
         </div>
         <div class="filter-section">
           <div class="filter-group">
@@ -204,6 +215,10 @@ export default {
         { key: 'buecher', name: 'Bücher', icon: '📚' },
         { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
       ]
+    },
+    filtersEnabled: {
+      type: Boolean,
+      default: true
     }
   },
   emits: [
@@ -216,6 +231,7 @@ export default {
     'toggleGenreFilter',
     'toggleAiringFilter',
     'clearFilters',
+    'toggleFilters',
     'showLogin',
     'showRegister',
     'logout'
@@ -460,6 +476,12 @@ export default {
   margin: 0 0 15px 20px;
 }
 
+.filter-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .filters-header h3 {
   margin: 0;
 }
@@ -513,6 +535,67 @@ export default {
 
 .sidebar.collapsed .refresh-icon {
   font-size: 16px;
+}
+
+.toggle-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(102, 102, 102, 0.1);
+  border: 1px solid rgba(102, 102, 102, 0.3);
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+  min-width: 50px;
+  justify-content: center;
+}
+
+.toggle-filters-btn:hover {
+  background: rgba(102, 102, 102, 0.2);
+  border-color: rgba(102, 102, 102, 0.5);
+  color: #777;
+}
+
+.toggle-filters-btn.active {
+  background: rgba(40, 167, 69, 0.1);
+  border-color: rgba(40, 167, 69, 0.3);
+  color: #28a745;
+}
+
+.toggle-filters-btn.active:hover {
+  background: rgba(40, 167, 69, 0.2);
+  border-color: rgba(40, 167, 69, 0.5);
+  color: #218838;
+}
+
+.toggle-icon {
+  font-size: 14px;
+  transition: transform 0.2s;
+}
+
+.toggle-text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.sidebar.collapsed .toggle-filters-btn {
+  padding: 6px 8px;
+  min-width: 32px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .toggle-text {
+  display: none;
+}
+
+.sidebar.collapsed .toggle-icon {
+  font-size: 12px;
 }
 
 .filter-section {

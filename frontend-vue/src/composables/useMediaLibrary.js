@@ -253,6 +253,12 @@ export function useMediaLibrary() {
     mediaStore.clearFilters()
   }
 
+  const toggleFilters = () => {
+    console.log('🔄 COMPOSABLE TOGGLE: Calling mediaStore.toggleFilters()')
+    mediaStore.toggleFilters()
+    console.log('🔄 COMPOSABLE TOGGLE: After toggle, filtersEnabled =', mediaStore.filtersEnabled)
+  }
+
   const editItem = (item) => {
     editingItem.value = item
     showEditModal.value = true
@@ -611,6 +617,14 @@ export function useMediaLibrary() {
     paginatedMedia,
     platforms,
     genres,
+    filtersEnabled: computed(() => {
+      try {
+        return mediaStore.filtersEnabled
+      } catch (error) {
+        console.error('Error accessing filtersEnabled:', error)
+        return true
+      }
+    }),
     
     // Methods
     setCategory,
@@ -619,6 +633,7 @@ export function useMediaLibrary() {
     toggleGenreFilter,
     toggleAiringFilter,
     clearFilters,
+    toggleFilters,
     editItem,
     closeEditModal,
     closeBulkAddModal,

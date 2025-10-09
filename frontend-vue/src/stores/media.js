@@ -69,6 +69,7 @@ export const useMediaStore = defineStore('media', () => {
   const currentCategory = ref(loadCurrentCategory())
   const searchQuery = ref(loadSearchQuery())
   const activeFilters = ref(loadActiveFilters())
+  const filtersEnabled = ref(true) // New state for filter toggle
   const loading = ref(false)
   const error = ref(null)
 
@@ -140,6 +141,7 @@ export const useMediaStore = defineStore('media', () => {
     console.log('🔍 FILTER DEBUG: Current category:', currentCategory.value)
     console.log('🔍 FILTER DEBUG: Search query:', searchQuery.value)
     console.log('🔍 FILTER DEBUG: Active filters:', activeFilters.value)
+    console.log('🔍 FILTER DEBUG: Filters enabled:', filtersEnabled.value)
     console.log('🔍 FILTER DEBUG: Raw media data:', mediaData.value)
 
     // Filter by category
@@ -175,24 +177,35 @@ export const useMediaStore = defineStore('media', () => {
       console.log('🔍 FILTER DEBUG: After search filter:', filtered.length, 'items')
     }
 
-    // Apply active filters
-    activeFilters.value.forEach(filter => {
-      if (filter.type === 'platform') {
-        filtered = filtered.filter(item => 
-          item.platforms?.toLowerCase().includes(filter.value.toLowerCase())
-        )
-      } else if (filter.type === 'genre') {
-        filtered = filtered.filter(item => 
-          item.genre?.toLowerCase().includes(filter.value.toLowerCase())
-        )
-      } else if (filter.type === 'airing') {
-        if (filter.value === 'airing') {
-          filtered = filtered.filter(item => item.isAiring === true)
-        } else if (filter.value === 'finished') {
-          filtered = filtered.filter(item => item.isAiring === false || item.isAiring === null)
+    // Apply active filters only if filters are enabled
+    if (filtersEnabled.value) {
+      console.log('🔍 FILTER DEBUG: Applying active filters, count:', activeFilters.value.length)
+      activeFilters.value.forEach(filter => {
+        if (filter.type === 'platform') {
+          const beforeCount = filtered.length
+          filtered = filtered.filter(item => 
+            item.platforms?.toLowerCase().includes(filter.value.toLowerCase())
+          )
+          console.log('🔍 PLATFORM FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
+        } else if (filter.type === 'genre') {
+          const beforeCount = filtered.length
+          filtered = filtered.filter(item => 
+            item.genre?.toLowerCase().includes(filter.value.toLowerCase())
+          )
+          console.log('🔍 GENRE FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
+        } else if (filter.type === 'airing') {
+          const beforeCount = filtered.length
+          if (filter.value === 'airing') {
+            filtered = filtered.filter(item => item.isAiring === true)
+          } else if (filter.value === 'finished') {
+            filtered = filtered.filter(item => item.isAiring === false || item.isAiring === null)
+          }
+          console.log('🔍 AIRING FILTER:', filter.value, 'Before:', beforeCount, 'After:', filtered.length)
         }
-      }
-    })
+      })
+    } else {
+      console.log('🔍 FILTER DEBUG: Filters disabled, skipping active filters')
+    }
     
     console.log('🔍 FILTER DEBUG: Final filtered result:', filtered.length, 'items')
     console.log('🔍 FILTER DEBUG: Final filtered items:', filtered)
@@ -304,6 +317,12 @@ export const useMediaStore = defineStore('media', () => {
 
   function clearFilters() {
     activeFilters.value = []
+  }
+
+  function toggleFilters() {
+    console.log('🔄 TOGGLE FILTERS: Before toggle, filtersEnabled =', filtersEnabled.value)
+    filtersEnabled.value = !filtersEnabled.value
+    console.log('🔄 TOGGLE FILTERS: After toggle, filtersEnabled =', filtersEnabled.value)
   }
 
   function clearError() {
@@ -649,6 +668,8 @@ export const useMediaStore = defineStore('media', () => {
     addFilter,
     removeFilter,
     clearFilters,
+    toggleFilters,
+    filtersEnabled,
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,
