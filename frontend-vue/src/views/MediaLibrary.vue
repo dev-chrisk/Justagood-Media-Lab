@@ -13,6 +13,10 @@
       :current-category="currentCategory"
       :category-counts="categoryCounts"
       :categories="categories"
+      :selected-genres="selectedGenres"
+      :genres="genres"
+      :genre-loading="genreLoading"
+      :genre-error="genreError"
       @toggle="safeSidebarStore.toggleSidebar"
       @set-category="setCategory"
       @navigate-to-calendar="navigateToCalendar"
@@ -23,6 +27,9 @@
       @show-register="showRegisterModal = true"
       @show-admin-login="showAdminLogin"
       @logout="logout"
+      @genres-updated="handleGenresUpdated"
+      @genres-cleared="handleGenresCleared"
+      @load-genres="loadGenres"
     />
 
     <!-- Main Content -->
@@ -608,7 +615,7 @@
 </template>
 
 <script>
-import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
+import { onMounted, onUnmounted, ref, computed, reactive, watch } from 'vue'
 import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
@@ -616,6 +623,7 @@ import { useConfirmStore } from '@/stores/confirm'
 import { useInputStore } from '@/stores/input'
 import { useAuthStore } from '@/stores/auth'
 import { useSidebarStore } from '@/stores/sidebar'
+import { mediaApi } from '@/services/api'
 import MediaItem from '@/components/MediaItem.vue'
 import Sidebar from '@/components/Sidebar.vue'
 import MainHeader from '@/components/MainHeader.vue'
@@ -659,14 +667,10 @@ export default {
     const authStore = useAuthStore()
     const sidebarStore = useSidebarStore()
     
-    // Ensure sidebarStore is properly initialized
-    if (!sidebarStore) {
-      console.error('SidebarStore not properly initialized')
-    }
-    
     // Create a safe sidebar store with fallback values
     const safeSidebarStore = computed(() => {
-      if (!sidebarStore) {
+      if (!sidebarStore || typeof sidebarStore !== 'object') {
+        console.warn('SidebarStore not properly initialized, using fallback values')
         return {
           collapsed: false,
           mobileOpen: false,
@@ -773,6 +777,11 @@ export default {
     const currentYear = computed(() => currentDate.value.getFullYear())
     const currentMonth = computed(() => currentDate.value.getMonth())
     const currentMonthName = computed(() => currentDate.value.toLocaleDateString('en-US', { month: 'long' }))
+    
+    // Genre state
+    const genres = ref([])
+    const genreLoading = ref(false)
+    const genreError = ref(null)
     
     const calendarDays = computed(() => {
       const year = currentYear.value
@@ -957,7 +966,6 @@ export default {
       adminSetupMessage.value = null
       
       try {
-        console.log('🔧 Starting admin setup...')
         const result = await authStore.adminSetup()
         
         if (result.success) {
@@ -1101,6 +1109,59 @@ export default {
         reader.readAsDataURL(file)
       }
     }
+
+    // Genre functions
+    const loadGenres = async () => {
+      if (!currentCategory.value || 
+          currentCategory.value === 'statistics' || 
+          currentCategory.value === 'calendar' || 
+          currentCategory.value === 'profile') {
+        genres.value = []
+        return
+      }
+
+      genreLoading.value = true
+      genreError.value = null
+      
+      try {
+        const response = await mediaApi.getGenres(currentCategory.value)
+        if (response.success) {
+          genres.value = response.genres || []
+        } else {
+          throw new Error(response.error || 'Failed to load genres')
+        }
+      } catch (err) {
+        console.error('Failed to load genres:', err)
+        genreError.value = err.message || 'Failed to load genres'
+        genres.value = []
+      } finally {
+        genreLoading.value = false
+      }
+    }
+
+    const handleGenresUpdated = (genres) => {
+      mediaStore.setGenres(genres)
+    }
+
+    const handleGenresCleared = () => {
+      mediaStore.clearGenres()
+    }
+
+    // Watch for category changes to load genres
+    watch(currentCategory, (newCategory) => {
+      if (newCategory && 
+          newCategory !== 'statistics' && 
+          newCategory !== 'calendar' && 
+          newCategory !== 'profile') {
+        loadGenres()
+        // Clear selected genres when category changes
+        mediaStore.clearGenres()
+      } else {
+        // Clear genres for non-media categories
+        genres.value = []
+        mediaStore.clearGenres()
+      }
+    }, { immediate: true })
     
     const exportData = () => {
       const allData = {
@@ -1314,6 +1375,10 @@ export default {
       loading,
       error,
       paginatedMedia,
+      selectedGenres: mediaStore.selectedGenres,
+      genres,
+      genreLoading,
+      genreError,
       
       // Calendar computed
       currentYear,
@@ -1355,6 +1420,9 @@ export default {
       getCategoryDisplayName,
       processTxtContent,
       closeTxtImportResults,
+      handleGenresUpdated,
+      handleGenresCleared,
+      loadGenres,
       
       // Calendar methods
       previousMonth,
@@ -1493,6 +1561,7 @@ export default {
   flex-direction: column;
   overflow: hidden;
 }
+
 
 /* Content Area */
 .content-area {

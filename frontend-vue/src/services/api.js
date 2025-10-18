@@ -34,13 +34,6 @@ export const healthCheck = async () => {
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
   
-  console.log('🔍 API Request Debug:', {
-    url: config.url,
-    method: config.method,
-    hasToken: !!token,
-    tokenPreview: token ? `${token.substring(0, 20)}...` : 'none',
-    headers: config.headers
-  })
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -196,7 +189,7 @@ export const authApi = {
 
 // Media API - using the same endpoints as the original application
 export const mediaApi = {
-  async getMedia() {
+  async getMedia(params = {}) {
     // Check if user is logged in
     const token = localStorage.getItem('authToken')
     const user = localStorage.getItem('currentUser')
@@ -247,11 +240,7 @@ export const mediaApi = {
     
     try {
       // Try API for logged in users
-      const response = await api.get('/media')
-      console.log('API - getMedia response:', response.data)
-      if (response.data && response.data.length > 0) {
-        console.log('API - first item rating:', response.data[0].rating)
-      }
+      const response = await api.get('/media', { params })
       return response.data
     } catch (error) {
       // Don't fallback to demo data for logged in users - throw the error
@@ -331,24 +320,18 @@ export const mediaApi = {
 
   async checkExistingItems(items) {
     try {
-      console.log('🔍 DEBUG: Checking existing items:', items)
       const response = await api.post('/media/check-existing', { items })
-      console.log('🔍 DEBUG: Check existing response:', response.data)
       return response.data
     } catch (error) {
-      console.error('🔍 DEBUG: Check existing error:', error)
       throw error
     }
   },
 
   async batchAddMediaItems(items) {
     try {
-      console.log('🔍 DEBUG: Attempting batch add with items:', items)
       const response = await api.post('/media/batch-add', { items })
-      console.log('🔍 DEBUG: Batch add response:', response.data)
       return response.data
     } catch (error) {
-      console.error('🔍 DEBUG: Batch add error:', error)
       throw error
     }
   },
@@ -383,6 +366,17 @@ export const mediaApi = {
       
       // Log other errors
       console.error('Batch delete API error:', error)
+      throw error
+    }
+  },
+
+  async getGenres(category = null) {
+    try {
+      const params = category ? { category } : {}
+      const response = await api.get('/media/genres', { params })
+      return response.data
+    } catch (error) {
+      console.error('Get genres API error:', error)
       throw error
     }
   },
@@ -439,8 +433,8 @@ export const mediaApi = {
       if (itemData.externalId) {
         transformedData.external_id = itemData.externalId
       }
-      if (itemData.watchlistType) {
-        transformedData.watchlist_type = itemData.watchlistType
+      if (itemData.watchlist_type !== undefined) {
+        transformedData.watchlist_type = itemData.watchlist_type || null
       }
       if (itemData.extra_link) {
         transformedData.extra_link = itemData.extra_link
@@ -515,8 +509,8 @@ export const mediaApi = {
       if (itemData.externalId !== undefined) {
         transformedData.external_id = itemData.externalId
       }
-      if (itemData.watchlistType !== undefined) {
-        transformedData.watchlist_type = itemData.watchlistType
+      if (itemData.watchlist_type !== undefined) {
+        transformedData.watchlist_type = itemData.watchlist_type || null
       }
       if (itemData.imageUrl !== undefined) {
         // Only send image_url if it's not null (null means "don't update this field")
@@ -537,11 +531,7 @@ export const mediaApi = {
         }
       }
       
-      console.log('API - updateMediaItem transformedData:', transformedData)
-      console.log('API - rating in transformedData:', transformedData.rating)
       const response = await api.put(`/media/${id}`, transformedData)
-      console.log('API - update response:', response.data)
-      console.log('API - response data rating:', response.data.data?.rating)
       return response.data
     } catch (error) {
       throw error

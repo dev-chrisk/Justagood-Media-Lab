@@ -127,7 +127,6 @@ export default {
         
         emit('preferences-changed', { ...localPreferences })
         
-        console.log('📚 [ControlPanel] Preferences updated:', localPreferences)
       } catch (error) {
         console.error('Failed to save preferences:', error)
       }

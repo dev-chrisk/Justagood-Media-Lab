@@ -24,7 +24,6 @@ class GoogleBooksApiService {
    */
   async initializeConfig() {
     try {
-      console.log('📚 [GoogleBooks] Initializing configuration...')
       
       // Get base URL based on environment
       const baseUrl = this.getBaseUrl()
@@ -47,7 +46,6 @@ class GoogleBooksApiService {
       this.apiKey = config.api_key
       this.isInitialized = true
 
-      console.log('📚 [GoogleBooks] Configuration loaded:', {
         hasApiKey: !!this.apiKey,
         apiKeyPrefix: this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'MISSING',
         baseUrl: config.base_url
@@ -75,7 +73,6 @@ class GoogleBooksApiService {
    * @returns {Promise<Object>} Search results
    */
   async searchBooks(query, maxResults = 10) {
-    console.log('📚 [GoogleBooks] Searching books:', { query, maxResults })
 
     // Validate input
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -89,7 +86,6 @@ class GoogleBooksApiService {
 
     // Ensure API is initialized
     if (!this.isInitialized) {
-      console.log('📚 [GoogleBooks] API not initialized, attempting to initialize...')
       const initialized = await this.initializeConfig()
       if (!initialized) {
         return {
@@ -114,12 +110,10 @@ class GoogleBooksApiService {
       // Try backend API first
       const backendResult = await this.searchViaBackend(query, maxResults)
       if (backendResult.success) {
-        console.log('📚 [GoogleBooks] Backend search successful')
         return backendResult
       }
 
       // Fallback to direct API call
-      console.log('📚 [GoogleBooks] Backend failed, trying direct API...')
       return await this.searchDirect(query, maxResults)
 
     } catch (error) {
@@ -140,7 +134,6 @@ class GoogleBooksApiService {
       const baseUrl = this.getBaseUrl()
       const url = `${baseUrl}/api/google-books/search?q=${encodeURIComponent(query)}&maxResults=${maxResults}`
       
-      console.log('📚 [GoogleBooks] Backend request:', url)
 
       const response = await fetch(url, {
         method: 'GET',
@@ -183,7 +176,6 @@ class GoogleBooksApiService {
     try {
       const url = `${GOOGLE_BOOKS_CONFIG.BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${this.apiKey}&maxResults=${Math.min(maxResults, GOOGLE_BOOKS_CONFIG.MAX_RESULTS)}`
       
-      console.log('📚 [GoogleBooks] Direct API request:', url.substring(0, 100) + '...')
 
       const response = await fetch(url, {
         method: 'GET',
@@ -328,7 +320,6 @@ class GoogleBooksApiService {
    * Get book details by ID
    */
   async getBookDetails(bookId) {
-    console.log('📚 [GoogleBooks] Getting book details:', bookId)
 
     if (!bookId) {
       return {

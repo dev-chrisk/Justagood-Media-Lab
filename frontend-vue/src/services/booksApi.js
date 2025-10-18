@@ -9,18 +9,9 @@ const booksApi = axios.create({
   }
 })
 
-// Request interceptor for debugging
+// Request interceptor
 booksApi.interceptors.request.use((config) => {
   const token = localStorage.getItem('authToken')
-  
-  console.log('📚 Books API Request:', {
-    url: config.url,
-    method: config.method,
-    baseURL: config.baseURL,
-    fullURL: `${config.baseURL}${config.url}`,
-    data: config.data,
-    token: token ? `${token.substring(0, 20)}...` : 'none'
-  })
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -29,24 +20,12 @@ booksApi.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor for debugging
+// Response interceptor
 booksApi.interceptors.response.use(
   (response) => {
-    console.log('📚 Books API Success:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    })
     return response
   },
   (error) => {
-    console.log('📚 Books API Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    })
     return Promise.reject(error)
   }
 )
@@ -67,8 +46,6 @@ const booksApiFunctions = {
   // Add a new book
   async addBook(bookData) {
     try {
-      console.log('📚 Adding book with data:', bookData)
-      
       // Clean up data
       const cleanData = {
         title: bookData.title,
@@ -89,8 +66,6 @@ const booksApiFunctions = {
         }
       })
       
-      console.log('📚 Cleaned book data:', cleanData)
-      
       const response = await booksApi.post('/books', cleanData)
       return response.data
     } catch (error) {
@@ -102,12 +77,10 @@ const booksApiFunctions = {
   // Update a book
   async updateBook(bookId, bookData) {
     try {
-      console.log('📚 Updating book:', bookId, bookData)
-      
       const response = await booksApi.put(`/books/${bookId}`, bookData)
       return response.data
     } catch (error) {
-      console.error('📚 Update book failed:', error)
+      console.error('Update book failed:', error)
       throw error
     }
   },
@@ -115,12 +88,10 @@ const booksApiFunctions = {
   // Delete a book
   async deleteBook(bookId) {
     try {
-      console.log('📚 Deleting book:', bookId)
-      
       const response = await booksApi.delete(`/books/${bookId}`)
       return response.data
     } catch (error) {
-      console.error('📚 Delete book failed:', error)
+      console.error('Delete book failed:', error)
       throw error
     }
   }

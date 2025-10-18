@@ -405,7 +405,6 @@ export default {
             )
             
             existingItems = checkData.existing_items || []
-            console.log(`🔍 Found ${existingItems.length} existing items out of ${items.length} total`)
           } catch (error) {
             console.warn('Failed to check existing items, falling back to individual checks:', error)
           }
@@ -469,9 +468,7 @@ export default {
             
             addResult(item.searchTerm, 'searching', 'Searching API...')
             
-            console.log(`🔍 Searching API for: "${item.searchTerm}" in category: ${bulkData.value.category}`)
             const searchResults = await mediaApi.searchApi(item.searchTerm, bulkData.value.category, 1)
-            console.log(`🔍 Search results for "${item.searchTerm}":`, searchResults)
             
             // Check if we have real API data (not just empty results)
             const hasRealApiData = searchResults && 

@@ -44,10 +44,7 @@ class UnifiedBooksApiService {
    * @returns {Promise<Object>} Search results
    */
   async searchBooks(query, maxResults = 10) {
-    console.log('📚 [UnifiedBooks] Starting search:', { query, maxResults })
-    
     const preferences = this.getUserPreferences()
-    console.log('📚 [UnifiedBooks] User preferences:', preferences)
 
     // Validate input
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -86,11 +83,6 @@ class UnifiedBooksApiService {
           primarySource = 'wikipedia'
       }
 
-      console.log('📚 [UnifiedBooks] Search completed:', {
-        totalResults: results.length,
-        primarySource,
-        fallbackUsed
-      })
 
       return {
         success: true,
@@ -117,28 +109,23 @@ class UnifiedBooksApiService {
    * @returns {Promise<Array>} Search results
    */
   async searchWithWikipediaFirst(query, maxResults, preferences) {
-    console.log('📚 [UnifiedBooks] Searching Wikipedia first...')
     
     // Try Wikipedia first
     const wikipediaResult = await this.wikipediaService.searchBooks(query, maxResults)
     
     if (wikipediaResult.success && wikipediaResult.data.length > 0) {
-      console.log('📚 [UnifiedBooks] Wikipedia search successful:', wikipediaResult.data.length, 'results')
       return wikipediaResult.data
     }
 
     // If Wikipedia fails and fallback is enabled, try Google Books
     if (preferences.enableGoogleBooksFallback) {
-      console.log('📚 [UnifiedBooks] Wikipedia failed, trying Google Books fallback...')
       const googleResult = await this.googleBooksService.searchBooks(query, maxResults)
       
       if (googleResult.success && googleResult.data.length > 0) {
-        console.log('📚 [UnifiedBooks] Google Books fallback successful:', googleResult.data.length, 'results')
         return googleResult.data
       }
     }
 
-    console.log('📚 [UnifiedBooks] All searches failed')
     return []
   }
 
@@ -150,28 +137,23 @@ class UnifiedBooksApiService {
    * @returns {Promise<Array>} Search results
    */
   async searchWithGoogleBooksFirst(query, maxResults, preferences) {
-    console.log('📚 [UnifiedBooks] Searching Google Books first...')
     
     // Try Google Books first
     const googleResult = await this.googleBooksService.searchBooks(query, maxResults)
     
     if (googleResult.success && googleResult.data.length > 0) {
-      console.log('📚 [UnifiedBooks] Google Books search successful:', googleResult.data.length, 'results')
       return googleResult.data
     }
 
     // If Google Books fails and fallback is enabled, try Wikipedia
     if (preferences.enableGoogleBooksFallback) {
-      console.log('📚 [UnifiedBooks] Google Books failed, trying Wikipedia fallback...')
       const wikipediaResult = await this.wikipediaService.searchBooks(query, maxResults)
       
       if (wikipediaResult.success && wikipediaResult.data.length > 0) {
-        console.log('📚 [UnifiedBooks] Wikipedia fallback successful:', wikipediaResult.data.length, 'results')
         return wikipediaResult.data
       }
     }
 
-    console.log('📚 [UnifiedBooks] All searches failed')
     return []
   }
 
@@ -183,7 +165,6 @@ class UnifiedBooksApiService {
    * @returns {Promise<Array>} Combined search results
    */
   async searchWithBothApis(query, maxResults, preferences) {
-    console.log('📚 [UnifiedBooks] Searching both APIs...')
     
     // Search both APIs in parallel
     const [wikipediaResult, googleResult] = await Promise.allSettled([
@@ -196,13 +177,11 @@ class UnifiedBooksApiService {
     // Add Wikipedia results
     if (wikipediaResult.status === 'fulfilled' && wikipediaResult.value.success) {
       results = results.concat(wikipediaResult.value.data)
-      console.log('📚 [UnifiedBooks] Wikipedia results:', wikipediaResult.value.data.length)
     }
 
     // Add Google Books results
     if (googleResult.status === 'fulfilled' && googleResult.value.success) {
       results = results.concat(googleResult.value.data)
-      console.log('📚 [UnifiedBooks] Google Books results:', googleResult.value.data.length)
     }
 
     // Remove duplicates based on title similarity
@@ -211,7 +190,6 @@ class UnifiedBooksApiService {
     // Limit to maxResults
     results = results.slice(0, maxResults)
 
-    console.log('📚 [UnifiedBooks] Combined results:', results.length)
     return results
   }
 

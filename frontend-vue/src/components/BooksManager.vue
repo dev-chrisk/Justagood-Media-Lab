@@ -180,7 +180,6 @@ export default {
       
       try {
         const response = await booksApi.deleteBook(bookId)
-        console.log('📚 Book deleted:', response)
         
         if (response.success) {
           books.value = books.value.filter(book => book.id !== bookId)
@@ -223,7 +222,6 @@ export default {
 
     // Load books on mount
     onMounted(() => {
-      console.log('📚 BooksManager mounted, loading books...')
       loadBooks()
     })
 

@@ -174,10 +174,6 @@ biem <template>
               <option value="movie">Movie</option>
               <option value="buecher">Bücher</option>
             </select>
-            <!-- Debug info -->
-            <div v-if="form.category === 'watchlist'" class="debug-info" style="font-size: 10px; color: #666; margin-top: 4px;">
-              Debug: watchlistType = "{{ form.watchlistType }}"
-            </div>
             <div v-if="form.category === 'watchlist' && !form.watchlistType" class="field-error">
               Please select a type for watchlist items
             </div>
@@ -442,19 +438,13 @@ export default {
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
       if (newItem) {
-        console.log('EditModal - Loading item data:', newItem)
-        console.log('EditModal - Item rating:', newItem.rating)
-        console.log('EditModal - Item personal_rating:', newItem.personal_rating)
-        
         // Map backend field names to frontend field names FIRST
-        if (newItem.watchlist_type !== undefined && newItem.watchlist_type !== null) {
-          form.watchlistType = newItem.watchlist_type
-          console.log('EditModal - Set watchlistType from watchlist_type:', newItem.watchlist_type)
-        }
-        // Also check for watchlistType field (in case it's already in the correct format)
-        if (newItem.watchlistType !== undefined && newItem.watchlistType !== null) {
-          form.watchlistType = newItem.watchlistType
-          console.log('EditModal - Set watchlistType from watchlistType:', newItem.watchlistType)
+        if (newItem.watchlist_type !== undefined) {
+          form.watchlistType = newItem.watchlist_type || ''
+        } else if (newItem.watchlistType !== undefined) {
+          form.watchlistType = newItem.watchlistType || ''
+        } else {
+          form.watchlistType = ''
         }
         
         // Then map other fields, but skip watchlistType to avoid overwriting
@@ -491,21 +481,12 @@ export default {
         }
         if (newItem.extra_link !== undefined) {
           form.extraLink = newItem.extra_link
-          console.log('EditModal - Set extraLink from extra_link:', newItem.extra_link)
         }
         // Map the main rating field to personal rating (since that's what users edit)
         if (newItem.rating !== undefined && !form.personalRating) {
           form.personalRating = newItem.rating
         }
         
-        console.log('EditModal - Form after initialization:')
-        console.log('EditModal - form.personalRating:', form.personalRating)
-        console.log('EditModal - form.rating:', form.rating)
-        console.log('EditModal - form.watchlistType:', form.watchlistType)
-        console.log('EditModal - form.extraLink:', form.extraLink)
-        console.log('EditModal - newItem.watchlist_type:', newItem.watchlist_type)
-        console.log('EditModal - newItem.watchlistType:', newItem.watchlistType)
-        console.log('EditModal - newItem.extra_link:', newItem.extra_link)
       } else {
         // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
@@ -515,8 +496,8 @@ export default {
             // Set default release date to today for new items
             form[key] = new Date().toISOString().split('T')[0]
           } else if (key === 'watchlistType') {
-            // Don't set a default watchlistType - let user choose
-            form[key] = ''
+            // Set default watchlistType to 'series' for new watchlist items
+            form[key] = props.currentCategory === 'watchlist' ? 'series' : ''
           } else {
             form[key] = ''
           }
@@ -604,8 +585,8 @@ export default {
         }
         
         // Map frontend field names to backend field names
-        if (itemData.watchlistType) {
-          itemData.watchlist_type = itemData.watchlistType
+        if (itemData.watchlistType !== undefined) {
+          itemData.watchlist_type = itemData.watchlistType || null
           delete itemData.watchlistType
         }
         if (itemData.isAiring !== undefined) {
@@ -637,12 +618,6 @@ export default {
           delete itemData.extraLink
         }
         
-        // Debug log to see what data is being sent
-        console.log('EditModal - Saving item data:', itemData)
-        console.log('EditModal - personalRating value:', itemData.personalRating)
-        console.log('EditModal - rating value:', itemData.rating)
-        console.log('EditModal - extraLink value:', itemData.extraLink)
-        console.log('EditModal - extra_link value:', itemData.extra_link)
         
         // Use store methods to ensure proper state updates
         if (isEditing.value && props.item) {
@@ -697,11 +672,6 @@ export default {
       
       searchTimeout.value = setTimeout(async () => {
         try {
-          console.log('🔍 EditModal API Search:', {
-            title: form.title,
-            category: form.category,
-            watchlistType: form.watchlistType
-          })
 
           // For watchlist, use the watchlistType as category for API search
           const searchCategory = form.category === 'watchlist' ? form.watchlistType : form.category
@@ -717,12 +687,9 @@ export default {
 
           // Check if this is a books search
           if (searchCategory === 'buecher') {
-            console.log('📚 Searching Unified Books API for:', form.title)
-            
             const unifiedResult = await unifiedBooksApiService.searchBooks(form.title, 10)
             
             if (unifiedResult.success && unifiedResult.data) {
-              console.log('📚 Unified Books API Success:', unifiedResult.data.length, 'results from', unifiedResult.source)
               
               searchResults = unifiedResult.data.map(book => ({
                 title: book.title,
@@ -741,14 +708,9 @@ export default {
                 isbn13: book.isbn13
               }))
               
-              console.log('📚 Formatted Unified Books results:', searchResults)
-            } else {
-              console.warn('📚 Unified Books API failed:', unifiedResult.error)
             }
           } else {
             // Use existing media API for other categories
-            console.log('🎬 Searching Media API for:', form.title, 'category:', searchCategory)
-            
             results = await mediaApi.searchApi(form.title, searchCategory, 10)
             
             if (results && results.length > 0) {
@@ -768,10 +730,8 @@ export default {
           }
           
           if (searchResults.length > 0) {
-            console.log('✅ API Search Results:', searchResults.length, 'items found')
             apiResults.value = searchResults
           } else {
-            console.log('❌ No API results found')
             // Show a message that API is not available
             apiResults.value = [{
               title: `"${form.title}" - Keine Ergebnisse gefunden`,
@@ -781,7 +741,6 @@ export default {
             }]
           }
         } catch (err) {
-          console.error('❌ API search failed:', err)
           // Show a message that API is not available
           apiResults.value = [{
             title: `"${form.title}" - API nicht verfügbar`,
@@ -800,11 +759,6 @@ export default {
         return
       }
       
-      console.log('📚 Selecting API result:', {
-        title: result.title,
-        apiSource: result.apiSource,
-        author: result.author
-      })
       
       form.title = result.title
       if (result.release) form.release = result.release
@@ -816,14 +770,6 @@ export default {
       
       // Handle Books API specific fields (both Wikipedia and Google Books)
       if (result.apiSource === 'google_books' || result.apiSource === 'wikipedia') {
-        console.log('📚 Filling Books API data:', {
-          apiSource: result.apiSource,
-          author: result.author,
-          description: result.description,
-          publisher: result.publisher,
-          isbn10: result.isbn10,
-          isbn13: result.isbn13
-        })
         
         // For books, we can use the author field in the platforms field
         if (result.author) {
@@ -882,7 +828,6 @@ export default {
       }
       
       if (isNaN(date.getTime())) {
-        console.warn('📚 Invalid date format:', dateString)
         return ''
       }
       
@@ -999,7 +944,6 @@ export default {
     }
     
     const handleImageError = (event) => {
-      console.warn('Image preview failed:', event.target.src)
       event.target.style.display = 'none'
     }
     
@@ -1028,7 +972,6 @@ export default {
     }
     
     const handlePreferencesChanged = (preferences) => {
-      console.log('📚 [EditModal] Preferences changed:', preferences)
       // Clear current API results to force a new search with new preferences
       apiResults.value = []
     }

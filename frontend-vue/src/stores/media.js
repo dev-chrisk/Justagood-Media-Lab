@@ -49,6 +49,8 @@ export const useMediaStore = defineStore('media', () => {
   const mediaData = ref(loadMediaFromStorage())
   const currentCategory = ref(loadCurrentCategory())
   const searchQuery = ref(loadSearchQuery())
+  const selectedGenre = ref(null)
+  const selectedGenres = ref([])
   const loading = ref(false)
   const error = ref(null)
 
@@ -123,6 +125,17 @@ export const useMediaStore = defineStore('media', () => {
       })
     }
 
+    // Filter by genres (support multiple genres)
+    if (selectedGenres.value && selectedGenres.value.length > 0) {
+      filtered = filtered.filter(item => {
+        if (!item.genre) return false
+        const itemGenres = item.genre.split(',').map(g => g.trim().toLowerCase())
+        return selectedGenres.value.some(selectedGenre => 
+          itemGenres.some(itemGenre => itemGenre.includes(selectedGenre.toLowerCase()))
+        )
+      })
+    }
+
     // Filter by search query
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase()
@@ -152,11 +165,7 @@ export const useMediaStore = defineStore('media', () => {
         try {
           // For logged in users, only load from API
           const data = await mediaApi.getMedia()
-          console.log('🔍 LOAD DEBUG: API returned data:', data)
-          console.log('🔍 LOAD DEBUG: Data length:', data?.length)
-          console.log('🔍 LOAD DEBUG: First item:', data?.[0])
           mediaData.value = data || []
-          console.log('🔍 LOAD DEBUG: mediaData.value set to:', mediaData.value)
           
         } catch (apiError) {
           console.warn('API load failed for logged in user:', apiError)
@@ -191,6 +200,22 @@ export const useMediaStore = defineStore('media', () => {
 
   function setSearchQuery(query) {
     searchQuery.value = query
+  }
+
+  function setGenre(genre) {
+    selectedGenre.value = genre
+  }
+
+  function clearGenre() {
+    selectedGenre.value = null
+  }
+
+  function setGenres(genres) {
+    selectedGenres.value = genres
+  }
+
+  function clearGenres() {
+    selectedGenres.value = []
   }
 
 
@@ -517,6 +542,8 @@ export const useMediaStore = defineStore('media', () => {
     mediaData,
     currentCategory,
     searchQuery,
+    selectedGenre,
+    selectedGenres,
     loading,
     error,
     
@@ -529,6 +556,10 @@ export const useMediaStore = defineStore('media', () => {
     loadMedia,
     setCategory,
     setSearchQuery,
+    setGenre,
+    clearGenre,
+    setGenres,
+    clearGenres,
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,

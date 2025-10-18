@@ -65,6 +65,52 @@
 
 
 
+      <!-- Genre Filter Section -->
+      <div v-if="showGenreSection" class="sidebar-section">
+        <h3>Genres</h3>
+        <div v-if="genreLoading" class="genre-loading">
+          <div class="loading-spinner"></div>
+          <span>Loading genres...</span>
+        </div>
+        <div v-else-if="genreError" class="genre-error">
+          <span>Failed to load genres</span>
+          <button @click="loadGenres" class="retry-btn">Retry</button>
+        </div>
+        <div v-else-if="genres.length === 0" class="genre-empty">
+          <span>No genres available</span>
+        </div>
+        <div v-else class="genre-list">
+          <div
+            v-for="genre in genres"
+            :key="genre.name"
+            class="genre-checkbox-item"
+            :title="`${genre.name} (${genre.count} items)`"
+          >
+            <label class="genre-checkbox-label">
+              <input
+                type="checkbox"
+                :value="genre.name"
+                :checked="selectedGenres.includes(genre.name)"
+                @change="toggleGenre(genre.name)"
+                class="genre-checkbox"
+              />
+              <span class="genre-checkbox-text">
+                <span class="genre-name">{{ genre.name }}</span>
+                <span class="genre-count">{{ genre.count }}</span>
+              </span>
+            </label>
+          </div>
+          <button 
+            v-if="selectedGenres.length > 0" 
+            class="clear-genre-btn" 
+            @click="clearGenreFilter"
+            title="Clear all genre filters"
+          >
+            Clear All Filters ({{ selectedGenres.length }})
+          </button>
+        </div>
+      </div>
+
       <!-- Account Section -->
       <div class="sidebar-section">
         <h3>Account</h3>
@@ -135,6 +181,22 @@ export default {
         { key: 'watchlist', name: 'Watchlist', icon: '❤️' }
       ]
     },
+    selectedGenres: {
+      type: Array,
+      default: () => []
+    },
+    genres: {
+      type: Array,
+      default: () => []
+    },
+    genreLoading: {
+      type: Boolean,
+      default: false
+    },
+    genreError: {
+      type: String,
+      default: null
+    },
   },
   emits: [
     'toggle',
@@ -144,9 +206,40 @@ export default {
     'navigateToProfile',
     'showLogin',
     'showRegister',
-    'logout'
+    'logout',
+    'genres-updated',
+    'genres-cleared',
+    'load-genres'
   ],
+  computed: {
+    showGenreSection() {
+      return this.currentCategory && 
+             this.currentCategory !== 'statistics' && 
+             this.currentCategory !== 'calendar' && 
+             this.currentCategory !== 'profile'
+    }
+  },
   methods: {
+    toggleGenre(genreName) {
+      const currentGenres = [...this.selectedGenres]
+      const index = currentGenres.indexOf(genreName)
+      
+      if (index > -1) {
+        // Remove genre if already selected
+        currentGenres.splice(index, 1)
+      } else {
+        // Add genre if not selected
+        currentGenres.push(genreName)
+      }
+      
+      this.$emit('genres-updated', currentGenres)
+    },
+    clearGenreFilter() {
+      this.$emit('genres-cleared')
+    },
+    loadGenres() {
+      this.$emit('load-genres')
+    }
   }
 }
 </script>
@@ -490,6 +583,160 @@ export default {
     padding: 8px 12px;
     height: 44px;
   }
+}
+
+/* Genre Section Styles */
+.genre-loading,
+.genre-error,
+.genre-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #404040;
+  border-top: 2px solid #e8f4fd;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  background: #e8f4fd;
+  color: #1a1a1a;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #d1e7f7;
+}
+
+.genre-list {
+  padding: 8px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Genre Checkbox Styles */
+.genre-checkbox-item {
+  padding: 4px 0;
+}
+
+.genre-checkbox-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 4px;
+  margin: 2px 0;
+}
+
+.genre-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.genre-checkbox {
+  margin: 0;
+  margin-right: 12px;
+  width: 16px;
+  height: 16px;
+  accent-color: #e8f4fd;
+  cursor: pointer;
+}
+
+.genre-checkbox-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  color: #d0d0d0;
+  font-size: 14px;
+}
+
+.genre-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 8px;
+}
+
+.genre-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Selected state for checkbox labels */
+.genre-checkbox:checked + .genre-checkbox-text {
+  color: #e8f4fd;
+  font-weight: 500;
+}
+
+.genre-checkbox:checked + .genre-checkbox-text .genre-count {
+  background: rgba(232, 244, 253, 0.3);
+  color: #e8f4fd;
+}
+
+.clear-genre-btn {
+  width: 100%;
+  padding: 8px 20px;
+  background: #e8f4fd;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px 20px 0;
+  transition: background 0.2s;
+}
+
+.clear-genre-btn:hover {
+  background: #d1e7f7;
+}
+
+/* Scrollbar styling for genre list */
+.genre-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.genre-list::-webkit-scrollbar-track {
+  background: #2d2d2d;
+}
+
+.genre-list::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+.genre-list::-webkit-scrollbar-thumb:hover {
+  background: #777;
 }
 
 /* Touch-specific improvements */

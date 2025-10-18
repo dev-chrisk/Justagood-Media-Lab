@@ -18,7 +18,6 @@ class WikipediaApiService {
    * @returns {Promise<Object>} Search results
    */
   async searchBooks(query, maxResults = 10) {
-    console.log('📚 [Wikipedia] Searching books:', { query, maxResults })
 
     // Validate input
     if (!query || typeof query !== 'string' || query.trim().length === 0) {

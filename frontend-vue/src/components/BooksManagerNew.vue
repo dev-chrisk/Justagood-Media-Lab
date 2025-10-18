@@ -321,7 +321,6 @@ export default {
         return
       }
 
-      console.log('📚 [BooksManager] Searching books:', searchQuery.value)
       searching.value = true
       
       try {
@@ -329,7 +328,6 @@ export default {
         
         if (result.success) {
           searchResults.value = result.data
-          console.log('📚 [BooksManager] Search results:', result.data.length)
         } else {
           console.warn('📚 [BooksManager] Search failed:', result.error)
           searchResults.value = []
@@ -343,7 +341,6 @@ export default {
     }
 
     const selectBook = (book) => {
-      console.log('📚 [BooksManager] Book selected:', book.title)
       
       // Populate form with selected book data
       bookForm.title = book.title
@@ -423,14 +420,12 @@ export default {
         return
       }
 
-      console.log('📚 [BooksManager] Deleting book:', bookId)
       loading.value = true
       
       try {
         const response = await mediaApi.deleteMedia(bookId)
         
         if (response.success) {
-          console.log('📚 [BooksManager] Book deleted successfully')
           await loadBooks()
         } else {
           throw new Error(response.error || 'Failed to delete book')

@@ -27,6 +27,9 @@ use App\Http\Controllers\ExportImportController;
 // Public search endpoint (no authentication required)
 Route::get('search', [MediaController::class, 'search']);
 
+// Public genres endpoint (no authentication required)
+Route::get('media/genres', [MediaController::class, 'getGenres']);
+
 
 
 // Server-Sent Events for real-time updates

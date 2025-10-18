@@ -55,6 +55,12 @@ class MediaController extends Controller
             $query->where('is_airing', $request->boolean('is_airing'));
         }
 
+        // Filter by genre
+        if ($request->has('genre')) {
+            $genre = $request->get('genre');
+            $query->where('genre', 'like', "%{$genre}%");
+        }
+
         // Filter by date (for polling)
         if ($request->has('since')) {
             $since = $request->get('since');
@@ -85,7 +91,7 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'category' => 'required|string|in:game,series,movie,watchlist,buecher',
-            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
+            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher|sometimes',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'nullable|integer|min:0',
@@ -110,10 +116,6 @@ class MediaController extends Controller
 
         $data = $request->all();
         
-        // Debug log to see what data is received
-        \Log::info('MediaController update request data:', $data);
-        \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
-        \Log::info('MediaController extra_link value: ' . ($data['extra_link'] ?? 'not set'));
         
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
@@ -134,6 +136,11 @@ class MediaController extends Controller
         // Set default values for required fields
         $data['is_airing'] = $data['is_airing'] ?? false;
         $data['count'] = $data['count'] ?? 1;
+        
+        // Handle watchlist_type - convert empty strings to null
+        if (isset($data['watchlist_type']) && $data['watchlist_type'] === '') {
+            $data['watchlist_type'] = null;
+        }
         
         // Add user_id if user is authenticated
         if ($request->user()) {
@@ -200,7 +207,7 @@ class MediaController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
             'category' => 'sometimes|string|in:game,series,movie,watchlist,buecher',
-            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher',
+            'watchlist_type' => 'nullable|string|in:game,series,movie,buecher|sometimes',
             'release' => 'nullable|date',
             'rating' => 'nullable|integer|min:0|max:10',
             'count' => 'nullable|integer|min:0',
@@ -225,10 +232,6 @@ class MediaController extends Controller
 
         $data = $request->all();
         
-        // Debug log to see what data is received
-        \Log::info('MediaController update request data:', $data);
-        \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
-        \Log::info('MediaController extra_link value: ' . ($data['extra_link'] ?? 'not set'));
         
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
@@ -250,6 +253,12 @@ class MediaController extends Controller
         if (isset($data['is_airing'])) {
             $data['is_airing'] = $data['is_airing'] ?? false;
         }
+        
+        // Handle watchlist_type - convert empty strings to null
+        if (isset($data['watchlist_type']) && $data['watchlist_type'] === '') {
+            $data['watchlist_type'] = null;
+        }
+        
         
         // Check for duplicates if title or category is being updated
         if ($request->user() && ($request->has('title') || $request->has('category'))) {
@@ -1283,6 +1292,68 @@ class MediaController extends Controller
         }
         
         return array_unique($foundGenres);
+    }
+
+    /**
+     * Get available genres for a specific category
+     */
+    public function getGenres(Request $request): JsonResponse
+    {
+        $query = MediaItem::query();
+
+        // Filter by authenticated user if logged in
+        if ($request->user()) {
+            $query->forUser($request->user()->id);
+        }
+        // If not logged in, return empty genres for now
+        // In a real app, you might want to return public genres or require authentication
+
+        // Filter by category if provided
+        if ($request->has('category')) {
+            $category = $request->category;
+            $query->where(function($q) use ($category) {
+                $q->where('category', $category)
+                  ->orWhereHas('categoryRelation', function($subQ) use ($category) {
+                      $subQ->where('name', $category);
+                  });
+            });
+        }
+
+        // Get all genre strings
+        $genreStrings = $query->whereNotNull('genre')
+            ->where('genre', '!=', '')
+            ->pluck('genre')
+            ->toArray();
+
+        // Parse and collect all unique genres
+        $allGenres = [];
+        foreach ($genreStrings as $genreString) {
+            if (!empty($genreString)) {
+                // Split by comma and clean up
+                $genres = array_map('trim', explode(',', $genreString));
+                $genres = array_filter($genres); // Remove empty strings
+                $allGenres = array_merge($allGenres, $genres);
+            }
+        }
+
+        // Get unique genres with counts
+        $genreCounts = array_count_values($allGenres);
+        arsort($genreCounts); // Sort by count descending
+
+        // Format response
+        $genres = [];
+        foreach ($genreCounts as $genre => $count) {
+            $genres[] = [
+                'name' => $genre,
+                'count' => $count
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'genres' => $genres,
+            'total' => count($genres)
+        ]);
     }
 
     /**

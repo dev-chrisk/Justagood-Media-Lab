@@ -50,7 +50,7 @@ export const config = getEnvironmentConfig()
 
 // Debug logging
 if (config.debug) {
-  console.log('🔧 [Environment] Configuration loaded:', {
+  console.log('🔧 Environment Configuration:', {
     mode,
     isDevelopment,
     isProduction,
