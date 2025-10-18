@@ -540,6 +540,10 @@ export const mediaApi = {
 
   // Image upload functionality
   async uploadImage(file, customPath = null) {
+    console.log('🌐 [DEBUG] API uploadImage called')
+    console.log('🌐 [DEBUG] File:', file.name, 'Size:', file.size, 'Type:', file.type)
+    console.log('🌐 [DEBUG] Custom path:', customPath)
+    
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -547,13 +551,25 @@ export const mediaApi = {
         formData.append('dst', customPath)
       }
       
+      console.log('🌐 [DEBUG] FormData created, sending request to /upload-image')
+      console.log('🌐 [DEBUG] API base URL:', api.defaults.baseURL)
+      
       const response = await api.post('/upload-image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       })
+      
+      console.log('🌐 [DEBUG] Upload response received:', response.data)
+      console.log('🌐 [DEBUG] Response status:', response.status)
+      console.log('🌐 [DEBUG] Response headers:', response.headers)
+      
       return response.data
     } catch (error) {
+      console.log('🌐 [DEBUG] Upload error occurred:', error)
+      console.log('🌐 [DEBUG] Error response:', error.response?.data)
+      console.log('🌐 [DEBUG] Error status:', error.response?.status)
+      console.log('🌐 [DEBUG] Error message:', error.message)
       throw error
     }
   },

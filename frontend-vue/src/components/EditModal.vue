@@ -880,21 +880,35 @@ export default {
     }
     
     const handleImageUpload = async (event) => {
+      console.log('🖼️ [DEBUG] Image upload started')
       const file = event.target.files[0]
-      if (!file) return
+      if (!file) {
+        console.log('❌ [DEBUG] No file selected')
+        return
+      }
+      
+      console.log('📁 [DEBUG] File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified
+      })
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
+        console.log('❌ [DEBUG] Invalid file type:', file.type)
         error.value = 'Please select a valid image file'
         return
       }
       
       // Validate file size (10MB max)
       if (file.size > 10 * 1024 * 1024) {
+        console.log('❌ [DEBUG] File too large:', file.size, 'bytes')
         error.value = 'Image file too large. Maximum size is 10MB'
         return
       }
       
+      console.log('✅ [DEBUG] File validation passed')
       loading.value = true
       error.value = ''
       
@@ -905,41 +919,70 @@ export default {
         const extension = file.name.split('.').pop() || 'jpg'
         const customPath = `images_downloads/uploads/${safeTitle}_${timestamp}.${extension}`
         
+        console.log('🛤️ [DEBUG] Generated path:', customPath)
+        console.log('📤 [DEBUG] Starting upload to API...')
+        
         const result = await mediaApi.uploadImage(file, customPath)
         
+        console.log('📥 [DEBUG] Upload response:', result)
+        
         if (result.success) {
+          console.log('✅ [DEBUG] Upload successful, saved path:', result.saved)
           uploadedImagePath.value = result.saved
           form.path = result.saved
           form.imageUrl = result.saved
+          console.log('🔗 [DEBUG] Image URL set to:', form.imageUrl)
         } else {
+          console.log('❌ [DEBUG] Upload failed:', result.error)
           error.value = result.error || 'Failed to upload image'
         }
       } catch (err) {
+        console.log('💥 [DEBUG] Upload error:', err)
+        console.log('💥 [DEBUG] Error details:', {
+          message: err.message,
+          stack: err.stack,
+          response: err.response?.data
+        })
         error.value = err.message || 'Failed to upload image'
       } finally {
         loading.value = false
+        console.log('🏁 [DEBUG] Upload process completed')
       }
     }
     
     const getImagePreviewUrl = () => {
+      console.log('🔍 [DEBUG] Getting image preview URL...')
+      console.log('🔍 [DEBUG] uploadedImagePath.value:', uploadedImagePath.value)
+      console.log('🔍 [DEBUG] form.imageUrl:', form.imageUrl)
+      
       if (uploadedImagePath.value) {
         // Ensure we don't double-add /storage/ prefix
         if (uploadedImagePath.value.startsWith('storage/')) {
-          return `/${uploadedImagePath.value}`
+          const url = `/${uploadedImagePath.value}`
+          console.log('🔗 [DEBUG] Generated URL (starts with storage/):', url)
+          return url
         }
-        return `/storage/${uploadedImagePath.value}`
+        const url = `/storage/${uploadedImagePath.value}`
+        console.log('🔗 [DEBUG] Generated URL (added /storage/):', url)
+        return url
       }
       if (form.imageUrl) {
         // Handle both URLs and relative paths
         if (form.imageUrl.startsWith('http')) {
+          console.log('🔗 [DEBUG] Using external URL:', form.imageUrl)
           return form.imageUrl
         }
         // Ensure we don't double-add /storage/ prefix
         if (form.imageUrl.startsWith('storage/')) {
-          return `/${form.imageUrl}`
+          const url = `/${form.imageUrl}`
+          console.log('🔗 [DEBUG] Generated URL from form.imageUrl (starts with storage/):', url)
+          return url
         }
-        return `/storage/${form.imageUrl}`
+        const url = `/storage/${form.imageUrl}`
+        console.log('🔗 [DEBUG] Generated URL from form.imageUrl (added /storage/):', url)
+        return url
       }
+      console.log('❌ [DEBUG] No image URL available')
       return ''
     }
     

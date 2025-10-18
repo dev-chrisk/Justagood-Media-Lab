@@ -74,28 +74,58 @@ class ImageController extends Controller
      */
     public function uploadImage(Request $request): JsonResponse
     {
+        \Log::info('🖼️ [DEBUG] Image upload request received');
+        \Log::info('🖼️ [DEBUG] Request data: ' . json_encode($request->all()));
+        
         $validator = Validator::make($request->all(), [
             'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240', // 10MB max
             'dst' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
+            \Log::error('❌ [DEBUG] Validation failed: ' . json_encode($validator->errors()->toArray()));
             return response()->json(['success' => false, 'errors' => $validator->errors()], 400);
         }
 
         $file = $request->file('file');
         $dst = $request->get('dst', 'images_downloads/uploads/' . $file->getClientOriginalName());
+        
+        \Log::info('📁 [DEBUG] File details: ' . json_encode([
+            'original_name' => $file->getClientOriginalName(),
+            'size' => $file->getSize(),
+            'mime_type' => $file->getMimeType(),
+            'destination' => $dst
+        ]));
 
         try {
             // Ensure the directory exists
             $directory = dirname($dst);
+            \Log::info('📂 [DEBUG] Target directory: ' . $directory);
+            
             if (!Storage::disk('public')->exists($directory)) {
+                \Log::info('📂 [DEBUG] Creating directory: ' . $directory);
                 Storage::disk('public')->makeDirectory($directory, 0755, true);
             }
             
             $path = $file->storeAs($directory, basename($dst), 'public');
+            \Log::info('✅ [DEBUG] File stored successfully: ' . $path);
+            
+            // Verify the file exists
+            if (Storage::disk('public')->exists($path)) {
+                $fileSize = Storage::disk('public')->size($path);
+                \Log::info('✅ [DEBUG] File verification successful, size: ' . $fileSize);
+            } else {
+                \Log::error('❌ [DEBUG] File verification failed - file does not exist after storage');
+            }
+            
             return response()->json(['success' => true, 'saved' => $path]);
         } catch (\Exception $e) {
+            \Log::error('💥 [DEBUG] Upload exception: ' . json_encode([
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]));
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
@@ -293,8 +323,11 @@ class ImageController extends Controller
      */
     public function serveImage($path)
     {
+        \Log::info('🖼️ [DEBUG] Serving image request for path: ' . $path);
+        
         // URL decode the path to handle spaces and special characters
         $decodedPath = urldecode($path);
+        \Log::info('🖼️ [DEBUG] Decoded path: ' . $decodedPath);
         
         // Try different possible paths
         $possiblePaths = [
@@ -305,6 +338,8 @@ class ImageController extends Controller
             "images_downloads/{$decodedPath}", // In images_downloads subdirectory (decoded)
             "images_downloads/{$path}", // In images_downloads subdirectory (original)
         ];
+        
+        \Log::info('🖼️ [DEBUG] Will search in these paths: ' . json_encode($possiblePaths));
 
         // For legacy routes (games/, movies/, series/), also try with the appropriate subdirectory
         if (preg_match('/\.(jpg|jpeg|png|webp)$/i', $decodedPath)) {
@@ -321,11 +356,66 @@ class ImageController extends Controller
 
         // First check in storage/app/public
         foreach ($possiblePaths as $testPath) {
+            \Log::info('🔍 [DEBUG] Checking storage path: ' . $testPath);
             if (Storage::disk('public')->exists($testPath)) {
-                return Storage::disk('public')->response($testPath);
+                \Log::info('✅ [DEBUG] Found image in storage: ' . $testPath);
+                $response = Storage::disk('public')->response($testPath);
+                
+                // Set proper headers for image serving
+                $response->headers->set('Cache-Control', 'public, max-age=31536000');
+                $response->headers->set('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+                
+                // Set content type based on file extension
+                $extension = strtolower(pathinfo($testPath, PATHINFO_EXTENSION));
+                $mimeType = match($extension) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    'gif' => 'image/gif',
+                    'svg' => 'image/svg+xml',
+                    default => 'image/jpeg'
+                };
+                $response->headers->set('Content-Type', $mimeType);
+                
+                \Log::info('✅ [DEBUG] Serving image with MIME type: ' . $mimeType);
+                return $response;
+            } else {
+                \Log::info('❌ [DEBUG] Image not found in storage: ' . $testPath);
             }
         }
 
+        // If not found in storage, try to serve directly from filesystem as fallback
+        \Log::info('🔍 [DEBUG] Trying filesystem fallback');
+        $storagePath = storage_path('app/public');
+        \Log::info('🔍 [DEBUG] Storage path: ' . $storagePath);
+        
+        foreach ($possiblePaths as $testPath) {
+            $fullPath = $storagePath . '/' . $testPath;
+            \Log::info('🔍 [DEBUG] Checking filesystem path: ' . $fullPath);
+            if (file_exists($fullPath)) {
+                \Log::info('✅ [DEBUG] Found image in filesystem: ' . $fullPath);
+                $extension = strtolower(pathinfo($testPath, PATHINFO_EXTENSION));
+                $mimeType = match($extension) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'png' => 'image/png',
+                    'webp' => 'image/webp',
+                    'gif' => 'image/gif',
+                    'svg' => 'image/svg+xml',
+                    default => 'image/jpeg'
+                };
+                
+                \Log::info('✅ [DEBUG] Serving image from filesystem with MIME type: ' . $mimeType);
+                return response()->file($fullPath, [
+                    'Content-Type' => $mimeType,
+                    'Cache-Control' => 'public, max-age=31536000',
+                    'Expires' => gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT'
+                ]);
+            } else {
+                \Log::info('❌ [DEBUG] Image not found in filesystem: ' . $fullPath);
+            }
+        }
+
+        \Log::error('❌ [DEBUG] Image not found in any location');
         return response()->json(['error' => 'Image not found', 'searched_paths' => $possiblePaths], 404);
     }
 }
