@@ -88,9 +88,9 @@ export default {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #1a73e8;
+  background: #e8f4fd;
   border: none;
-  color: white;
+  color: #1a1a1a;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;

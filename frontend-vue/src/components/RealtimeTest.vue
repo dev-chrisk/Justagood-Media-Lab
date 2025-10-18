@@ -153,8 +153,8 @@ export default {
 
 .test-actions button {
   padding: 8px 16px;
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -166,7 +166,7 @@ export default {
 }
 
 .test-actions button:hover:not(:disabled) {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 </style>
 

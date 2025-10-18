@@ -498,12 +498,12 @@ export function useMediaLibrary() {
   // Navigation functions
 
   const navigateToCalendar = () => {
-    router.push('/calendar')
+    setCategory('calendar')
   }
 
 
   const navigateToProfile = () => {
-    router.push('/profile')
+    setCategory('profile')
   }
 
   const navigateToAdmin = () => {

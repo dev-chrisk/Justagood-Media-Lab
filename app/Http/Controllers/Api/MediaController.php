@@ -93,6 +93,7 @@ class MediaController extends Controller
             'genre' => 'nullable|string',
             'description' => 'nullable|string',
             'link' => 'nullable|url',
+            'extra_link' => 'nullable|url',
             'path' => 'nullable|string',
             'image_url' => 'nullable|string',
             'discovered' => 'nullable|date',
@@ -112,6 +113,7 @@ class MediaController extends Controller
         // Debug log to see what data is received
         \Log::info('MediaController update request data:', $data);
         \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
+        \Log::info('MediaController extra_link value: ' . ($data['extra_link'] ?? 'not set'));
         
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
@@ -206,6 +208,7 @@ class MediaController extends Controller
             'genre' => 'nullable|string',
             'description' => 'nullable|string',
             'link' => 'nullable|url',
+            'extra_link' => 'nullable|url',
             'path' => 'nullable|string',
             'image_url' => 'nullable|string',
             'discovered' => 'nullable|date',
@@ -225,6 +228,7 @@ class MediaController extends Controller
         // Debug log to see what data is received
         \Log::info('MediaController update request data:', $data);
         \Log::info('MediaController rating value: ' . ($data['rating'] ?? 'not set'));
+        \Log::info('MediaController extra_link value: ' . ($data['extra_link'] ?? 'not set'));
         
         // Normalize date fields - convert years to full dates
         $data = $this->normalizeDateFields($data);
@@ -843,8 +847,23 @@ class MediaController extends Controller
             }
         }
 
-        // Sort by relevance (rating) and limit results
-        usort($results, fn($a, $b) => $b['rating'] <=> $a['rating']);
+        // Sort by relevance (rating) in descending order, with items without ratings at the end
+        usort($results, function($a, $b) {
+            $ratingA = $a['rating'] ?? 0;
+            $ratingB = $b['rating'] ?? 0;
+            
+            // If both have no rating, maintain original order
+            if ($ratingA == 0 && $ratingB == 0) {
+                return 0;
+            }
+            
+            // Items with no rating go to the end
+            if ($ratingA == 0) return 1;
+            if ($ratingB == 0) return -1;
+            
+            // Sort by rating in descending order
+            return $ratingB <=> $ratingA;
+        });
         return response()->json(array_slice($results, 0, $limit));
     }
 

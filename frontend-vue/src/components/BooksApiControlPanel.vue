@@ -258,7 +258,7 @@ export default {
 
 .form-group select:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: #e8f4fd;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
 
@@ -272,7 +272,7 @@ export default {
   margin: 0;
   width: 16px;
   height: 16px;
-  accent-color: #4a9eff;
+  accent-color: #e8f4fd;
 }
 
 .checkbox-label {
@@ -339,8 +339,8 @@ export default {
 }
 
 .test-search-btn {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -350,7 +350,7 @@ export default {
 }
 
 .test-search-btn:hover:not(:disabled) {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 
 .test-search-btn:disabled {

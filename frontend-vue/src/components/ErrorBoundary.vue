@@ -98,17 +98,17 @@ export default {
 }
 
 .retry-btn {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 .retry-btn:hover {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 
 .home-btn {
   background: #6c757d;
-  color: white;
+  color: #1a1a1a;
 }
 
 .home-btn:hover {

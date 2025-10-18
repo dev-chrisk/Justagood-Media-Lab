@@ -151,7 +151,7 @@ export default {
 .simple-add-item button {
   padding: 10px;
   background: #007bff;
-  color: white;
+  color: #1a1a1a;
   border: none;
   border-radius: 3px;
   cursor: pointer;

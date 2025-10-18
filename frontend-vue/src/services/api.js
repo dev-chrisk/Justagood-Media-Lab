@@ -442,6 +442,9 @@ export const mediaApi = {
       if (itemData.watchlistType) {
         transformedData.watchlist_type = itemData.watchlistType
       }
+      if (itemData.extra_link) {
+        transformedData.extra_link = itemData.extra_link
+      }
       
       
       const response = await api.post('/media', transformedData)
@@ -525,6 +528,12 @@ export const mediaApi = {
         // Only send path if it's not null (null means "don't update this field")
         if (itemData.path !== null) {
           transformedData.path = itemData.path
+        }
+      }
+      if (itemData.extra_link !== undefined) {
+        // Only send extra_link if it's not null (null means "don't update this field")
+        if (itemData.extra_link !== null) {
+          transformedData.extra_link = itemData.extra_link
         }
       }
       

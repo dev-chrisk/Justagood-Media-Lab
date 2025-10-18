@@ -35,7 +35,7 @@ export default {
   width: 40px;
   height: 40px;
   border: 4px solid #404040;
-  border-top: 4px solid #4a9eff;
+  border-top: 4px solid #e8f4fd;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;

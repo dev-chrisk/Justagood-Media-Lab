@@ -23,6 +23,7 @@ class MediaItem extends Model
         'genre',
         'description', // New field for storing descriptions separately from genre
         'link',
+        'extra_link', // Extra link field for series
         'path',
         'image_url', // Direct image URL field
         'discovered',

@@ -44,14 +44,22 @@
             <span class="nav-icon">📊</span>
             <span class="nav-text">Statistics</span>
           </button>
-          <router-link to="/calendar" class="nav-btn">
+          <button 
+            class="nav-btn" 
+            :class="{ active: currentCategory === 'calendar' }"
+            @click="$emit('setCategory', 'calendar')"
+          >
             <span class="nav-icon">📅</span>
             <span class="nav-text">Calendar</span>
-          </router-link>
-          <router-link to="/profile" class="nav-btn">
+          </button>
+          <button 
+            class="nav-btn" 
+            :class="{ active: currentCategory === 'profile' }"
+            @click="$emit('setCategory', 'profile')"
+          >
             <span class="nav-icon">👤</span>
             <span class="nav-text">Profile</span>
-          </router-link>
+          </button>
         </nav>
       </div>
 
@@ -306,8 +314,8 @@ export default {
 }
 
 .nav-btn.active, .nav-btn.router-link-active {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 .nav-icon {
@@ -340,10 +348,10 @@ export default {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #4a9eff;
+  background: #e8f4fd;
   border: none;
   border-radius: 50%;
-  color: white;
+  color: #1a1a1a;
   cursor: pointer;
   transition: all 0.2s;
   margin-right: 8px;
@@ -357,7 +365,7 @@ export default {
 }
 
 .add-btn:hover {
-  background: #3a8eef;
+  background: #d1e7f7;
   transform: scale(1.1);
 }
 
@@ -384,9 +392,9 @@ export default {
 
 .auth-btn {
   padding: 12px 16px;
-  border: 1px solid #4a9eff;
+  border: 1px solid #e8f4fd;
   background: transparent;
-  color: #4a9eff;
+  color: #e8f4fd;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -395,8 +403,8 @@ export default {
 }
 
 .auth-btn:hover {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 
@@ -425,7 +433,7 @@ export default {
 .profile-avatar {
   width: 32px;
   height: 32px;
-  background: #4a9eff;
+  background: #e8f4fd;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -441,7 +449,7 @@ export default {
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: white;
+  color: #1a1a1a;
 }
 
 .account-btn {
@@ -457,7 +465,7 @@ export default {
 
 .account-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: white;
+  color: #1a1a1a;
 }
 
 

@@ -87,7 +87,13 @@ class ImageController extends Controller
         $dst = $request->get('dst', 'images_downloads/uploads/' . $file->getClientOriginalName());
 
         try {
-            $path = $file->storeAs('', $dst, 'public');
+            // Ensure the directory exists
+            $directory = dirname($dst);
+            if (!Storage::disk('public')->exists($directory)) {
+                Storage::disk('public')->makeDirectory($directory, 0755, true);
+            }
+            
+            $path = $file->storeAs($directory, basename($dst), 'public');
             return response()->json(['success' => true, 'saved' => $path]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);

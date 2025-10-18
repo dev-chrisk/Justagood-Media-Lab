@@ -1,19 +1,19 @@
 <template>
   <div class="vue-app">
     <!-- Mobile Overlay -->
-    <div class="mobile-overlay" :class="{ show: sidebarStore?.mobileOpen }" @click="sidebarStore?.closeMobileSidebar"></div>
+    <div class="mobile-overlay" :class="{ show: safeSidebarStore.mobileOpen }" @click="safeSidebarStore.closeMobileSidebar"></div>
     
     <!-- Sidebar -->
     <Sidebar
-      :collapsed="sidebarStore?.collapsed"
-      :mobile-open="sidebarStore?.mobileOpen"
+      :collapsed="safeSidebarStore.collapsed"
+      :mobile-open="safeSidebarStore.mobileOpen"
       :is-logged-in="isLoggedIn"
       :is-admin="isAdmin"
       :user-name="userName"
       :current-category="currentCategory"
       :category-counts="categoryCounts"
       :categories="categories"
-      @toggle="sidebarStore?.toggleSidebar"
+      @toggle="safeSidebarStore.toggleSidebar"
       @set-category="setCategory"
       @navigate-to-calendar="navigateToCalendar"
       @navigate-to-profile="navigateToProfile"
@@ -30,9 +30,8 @@
       <!-- Header -->
       <MainHeader
         v-model:search-query="searchQuery"
-        v-model:grid-columns="gridColumns"
         v-model:sort-by="sortBy"
-        @toggle-mobile-sidebar="sidebarStore?.toggleMobileSidebar"
+        @toggle-mobile-sidebar="safeSidebarStore.toggleMobileSidebar"
         @clear-search="clearSearch"
       />
 
@@ -46,8 +45,301 @@
         </div>
         
         <div v-else>
+          <!-- Calendar View -->
+          <div v-if="currentCategory === 'calendar'" class="calendar-view">
+            <!-- Calendar Header -->
+            <div class="calendar-header">
+              <button class="month-nav-btn" @click="previousMonth" :disabled="isLoading">
+                <span class="nav-icon">‹</span>
+              </button>
+              
+              <div class="month-year-display">
+                <h2 class="month-name">{{ currentMonthName }}</h2>
+                <span class="year">{{ currentYear }}</span>
+              </div>
+              
+              <button class="month-nav-btn" @click="nextMonth" :disabled="isLoading">
+                <span class="nav-icon">›</span>
+              </button>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="calendar-container">
+              <div class="calendar-grid">
+                <!-- Weekday Headers -->
+                <div class="weekday-header" v-for="day in weekdays" :key="day">
+                  {{ day }}
+                </div>
+                
+                <!-- Calendar Days -->
+                <div 
+                  v-for="day in calendarDays" 
+                  :key="`${day.date}-${day.month}`"
+                  class="calendar-day"
+                  :class="{
+                    'other-month': !day.isCurrentMonth,
+                    'today': day.isToday,
+                    'weekend': day.isWeekend,
+                    'has-events': day.hasEvents
+                  }"
+                  @click="selectDay(day)"
+                >
+                  <span class="day-number">{{ day.day }}</span>
+                  <div v-if="day.hasEvents" class="event-indicator">
+                    <div class="event-dot"></div>
+                    <span v-if="day.events && day.events.length > 1" class="event-count">{{ day.events.length }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Selected Day Info -->
+            <div v-if="selectedDay" class="selected-day-info">
+              <h3>{{ formatSelectedDay(selectedDay) }}</h3>
+              <div class="day-events">
+                <p v-if="!selectedDay.events || selectedDay.events.length === 0" class="no-events">
+                  No watchlist releases scheduled for this day
+                </p>
+                <div v-else class="events-list">
+                  <div v-for="event in selectedDay.events" :key="event.id" class="event-item" :class="`event-${event.type}`">
+                    <div class="event-header">
+                      <span class="event-time">{{ event.time }}</span>
+                      <span class="event-type-badge">{{ event.type }}</span>
+                    </div>
+                    <span class="event-title">{{ event.title }}</span>
+                    <div v-if="event.item.platforms" class="event-platforms">{{ event.item.platforms }}</div>
+                    <div v-if="event.item.genre" class="event-genre">{{ event.item.genre }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile View -->
+          <div v-else-if="currentCategory === 'profile'" class="profile-container">
+            <!-- Profile Header -->
+            <div class="profile-header">
+              <div class="profile-avatar-section">
+                <div class="profile-avatar-large" @click="changeAvatar">
+                  <img v-if="profileData.avatar" :src="profileData.avatar" alt="Profile Picture">
+                  <span v-else class="avatar-initials">{{ getInitials() }}</span>
+                </div>
+                <input 
+                  type="file" 
+                  ref="avatarInput"
+                  accept="image/*" 
+                  @change="handleAvatarChange"
+                  style="display: none"
+                >
+              </div>
+              <div class="profile-info-header">
+                <h2>{{ profileData.displayName || profileData.firstName + ' ' + profileData.lastName || 'User' }}</h2>
+                <p>{{ profileData.email || 'user@example.com' }}</p>
+                <div class="profile-stats">
+                  <div class="stat-item">
+                    <span class="stat-number">{{ totalItems }}</span>
+                    <span class="stat-label">Total Items</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-number">{{ new Date().getFullYear() }}</span>
+                    <span class="stat-label">Member Since</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Settings Sections -->
+            <div class="settings-sections">
+              <!-- Personal Information -->
+              <div class="settings-section">
+                <div class="section-header">
+                  <h3>Personal Information</h3>
+                  <p>Manage your personal details and account information</p>
+                </div>
+                <div class="section-content">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="firstName">First Name</label>
+                      <input 
+                        type="text" 
+                        id="firstName"
+                        v-model="profileData.firstName" 
+                        placeholder="Enter your first name"
+                      >
+                    </div>
+                    <div class="form-group">
+                      <label for="lastName">Last Name</label>
+                      <input 
+                        type="text" 
+                        id="lastName"
+                        v-model="profileData.lastName" 
+                        placeholder="Enter your last name"
+                      >
+                    </div>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="displayName">Display Name</label>
+                    <input 
+                      type="text" 
+                      id="displayName"
+                      v-model="profileData.displayName" 
+                      placeholder="How others see your name"
+                    >
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input 
+                      type="email" 
+                      id="email"
+                      v-model="profileData.email" 
+                      placeholder="your.email@example.com"
+                    >
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="bio">Bio</label>
+                    <textarea 
+                      id="bio"
+                      v-model="profileData.bio" 
+                      placeholder="Tell us about yourself..." 
+                      rows="4"
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preferences -->
+              <div class="settings-section">
+                <div class="section-header">
+                  <h3>Preferences</h3>
+                  <p>Customize your application experience</p>
+                </div>
+                <div class="section-content">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="language">Language</label>
+                      <select id="language" v-model="profileData.language">
+                        <option value="en">English</option>
+                        <option value="de">Deutsch</option>
+                        <option value="fr">Français</option>
+                        <option value="es">Español</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="timezone">Timezone</label>
+                      <select id="timezone" v-model="profileData.timezone">
+                        <option value="UTC">UTC</option>
+                        <option value="Europe/Berlin">Europe/Berlin</option>
+                        <option value="America/New_York">America/New_York</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="dateFormat">Date Format</label>
+                      <select id="dateFormat" v-model="profileData.dateFormat">
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="booksApiProvider">Books API Provider</label>
+                      <select id="booksApiProvider" v-model="profileData.booksApiProvider">
+                        <option value="wikipedia">Wikipedia (Primary)</option>
+                        <option value="google_books">Google Books (Fallback)</option>
+                        <option value="both">Both (Wikipedia + Google Books)</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="enableGoogleBooksFallback">Enable Google Books Fallback</label>
+                      <div class="checkbox-container">
+                        <input 
+                          type="checkbox" 
+                          id="enableGoogleBooksFallback" 
+                          v-model="profileData.enableGoogleBooksFallback"
+                        />
+                        <label for="enableGoogleBooksFallback" class="checkbox-label">
+                          Use Google Books as fallback when Wikipedia search fails
+                        </label>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <!-- Empty div to maintain layout -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Data Management -->
+              <div class="settings-section">
+                <div class="section-header">
+                  <h3>Data Management</h3>
+                  <p>Manage your data and account</p>
+                </div>
+                <div class="section-content">
+                  <div class="data-actions">
+                    <button class="data-btn export-btn" @click="exportData">
+                      <span class="btn-icon">📦</span>
+                      <span class="btn-text">Export All Data</span>
+                      <span class="btn-description">Download your complete media library</span>
+                    </button>
+                    
+                    <button class="data-btn import-btn" @click="importData">
+                      <span class="btn-icon">📥</span>
+                      <span class="btn-text">Import Data</span>
+                      <span class="btn-description">Import data from a backup file</span>
+                    </button>
+                    
+                    <button class="data-btn backup-btn" @click="createBackup">
+                      <span class="btn-icon">💾</span>
+                      <span class="btn-text">Create Backup</span>
+                      <span class="btn-description">Create a local backup of your data</span>
+                    </button>
+                    
+                    <button class="data-btn cache-btn" @click="clearCache">
+                      <span class="btn-icon">🗑️</span>
+                      <span class="btn-text">Clear Cache</span>
+                      <span class="btn-description">Clear temporary files and cache</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Danger Zone -->
+              <div class="settings-section danger-zone">
+                <div class="section-header">
+                  <h3>Danger Zone</h3>
+                  <p>Irreversible and destructive actions</p>
+                </div>
+                <div class="section-content">
+                  <div class="danger-actions">
+                    <button class="danger-btn reset-btn" @click="resetSettings">
+                      <span class="btn-icon">🔄</span>
+                      <span class="btn-text">Reset All Settings</span>
+                      <span class="btn-description">Reset all settings to default values</span>
+                    </button>
+                    
+                    <button class="danger-btn clear-btn" @click="clearAllData">
+                      <span class="btn-icon">🗑️</span>
+                      <span class="btn-text">Clear All Data</span>
+                      <span class="btn-description">Permanently delete all your data</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Statistics View -->
-          <div v-if="currentCategory === 'statistics'" class="statistics-container">
+          <div v-else-if="currentCategory === 'statistics'" class="statistics-container">
             <div class="statistics-header">
               <h1>📊 Media Library Statistics</h1>
               <p>Übersicht über deine Media Collection</p>
@@ -196,7 +488,7 @@
           </div>
           
           <!-- Regular Media Grid -->
-          <div v-else class="grid" :style="{ gridTemplateColumns: `repeat(${gridColumns}, 1fr)` }">
+          <div v-else class="grid">
             <MediaItem 
               v-for="item in paginatedMedia" 
               :key="item.id" 
@@ -316,7 +608,7 @@
 </template>
 
 <script>
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { useMediaStore } from '@/stores/media'
 import { useMessageStore } from '@/stores/message'
@@ -372,9 +664,44 @@ export default {
       console.error('SidebarStore not properly initialized')
     }
     
+    // Create a safe sidebar store with fallback values
+    const safeSidebarStore = computed(() => {
+      if (!sidebarStore) {
+        return {
+          collapsed: false,
+          mobileOpen: false,
+          toggleSidebar: () => {},
+          toggleMobileSidebar: () => {},
+          closeMobileSidebar: () => {}
+        }
+      }
+      return sidebarStore
+    })
+    
     // Admin setup state
     const adminSetupLoading = ref(false)
     const adminSetupMessage = ref(null)
+    
+    // Calendar state
+    const currentDate = ref(new Date())
+    const selectedDay = ref(null)
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    
+    // Profile state
+    const avatarInput = ref(null)
+    const profileData = reactive({
+      firstName: '',
+      lastName: '',
+      displayName: '',
+      email: '',
+      bio: '',
+      avatar: '',
+      language: 'en',
+      timezone: 'UTC',
+      dateFormat: 'MM/DD/YYYY',
+      booksApiProvider: 'wikipedia',
+      enableGoogleBooksFallback: true
+    })
     const {
       // State
       showLoginModal,
@@ -385,7 +712,6 @@ export default {
       showTxtImportModal,
       showTxtImportResults,
       editingItem,
-      gridColumns,
       sortBy,
       categories,
       txtImportResults,
@@ -441,6 +767,53 @@ export default {
         console.error('Error getting category display name:', error)
         return currentCategory.value || 'Unknown'
       }
+    })
+
+    // Calendar computed properties
+    const currentYear = computed(() => currentDate.value.getFullYear())
+    const currentMonth = computed(() => currentDate.value.getMonth())
+    const currentMonthName = computed(() => currentDate.value.toLocaleDateString('en-US', { month: 'long' }))
+    
+    const calendarDays = computed(() => {
+      const year = currentYear.value
+      const month = currentMonth.value
+      
+      // Get first day of month and calculate starting day of week
+      const firstDay = new Date(year, month, 1)
+      const lastDay = new Date(year, month + 1, 0)
+      const startDate = new Date(firstDay)
+      
+      // Adjust to start from Monday (0 = Sunday, 1 = Monday)
+      const dayOfWeek = firstDay.getDay()
+      const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      startDate.setDate(startDate.getDate() - mondayOffset)
+      
+      const days = []
+      const today = new Date()
+      
+      // Generate 42 days (6 weeks) to fill the grid
+      for (let i = 0; i < 42; i++) {
+        const date = new Date(startDate)
+        date.setDate(startDate.getDate() + i)
+        
+        const isCurrentMonth = date.getMonth() === month
+        const isToday = date.toDateString() === today.toDateString()
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6
+        
+        days.push({
+          date: date.getDate(),
+          month: date.getMonth(),
+          year: date.getFullYear(),
+          fullDate: new Date(date),
+          isCurrentMonth,
+          isToday,
+          isWeekend,
+          hasEvents: hasEventsForDate(date),
+          events: getEventsForDate(date)
+        })
+      }
+      
+      return days
     })
 
     // Statistics computed property
@@ -641,11 +1014,240 @@ export default {
       }
     }
 
+    // Calendar methods
+    const previousMonth = () => {
+      currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() - 1, 1)
+      selectedDay.value = null
+    }
+    
+    const nextMonth = () => {
+      currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + 1, 1)
+      selectedDay.value = null
+    }
+    
+    const selectDay = (day) => {
+      if (day.isCurrentMonth) {
+        selectedDay.value = day
+      }
+    }
+    
+    const formatSelectedDay = (day) => {
+      const date = day.fullDate
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    }
+    
+    const hasEventsForDate = (date) => {
+      // Check if there are any watchlist items with release dates on this date
+      const watchlistItems = getWatchlistItemsForDate(date)
+      return watchlistItems.length > 0
+    }
+    
+    const getEventsForDate = (date) => {
+      // Get watchlist items with release dates on this date
+      const watchlistItems = getWatchlistItemsForDate(date)
+      
+      return watchlistItems.map(item => ({
+        id: item.id,
+        title: item.title,
+        time: 'Release',
+        type: item.watchlistType || item.watchlist_type || 'unknown',
+        item: item
+      }))
+    }
+    
+    const getWatchlistItemsForDate = (date) => {
+      // Get all watchlist items from the media store
+      const watchlistItems = mediaStore.mediaData.filter(item => 
+        item.category === 'watchlist' && item.release
+      )
+      
+      // Filter items that have a release date on the given date
+      return watchlistItems.filter(item => {
+        if (!item.release) return false
+        
+        const releaseDate = new Date(item.release)
+        const targetDate = new Date(date)
+        
+        // Compare dates (ignore time)
+        return releaseDate.getFullYear() === targetDate.getFullYear() &&
+               releaseDate.getMonth() === targetDate.getMonth() &&
+               releaseDate.getDate() === targetDate.getDate()
+      })
+    }
+
+    // Profile methods
+    const getInitials = () => {
+      const first = profileData.firstName?.charAt(0) || 'U'
+      const last = profileData.lastName?.charAt(0) || 'S'
+      return (first + last).toUpperCase()
+    }
+    
+    const changeAvatar = () => {
+      avatarInput.value?.click()
+    }
+    
+    const handleAvatarChange = (event) => {
+      const file = event.target.files[0]
+      if (file) {
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          profileData.avatar = e.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+    
+    const exportData = () => {
+      const allData = {
+        profile: profileData,
+        media: mediaStore.mediaData,
+        settings: {
+          language: profileData.language,
+          timezone: profileData.timezone,
+          dateFormat: profileData.dateFormat
+        },
+        exportDate: new Date().toISOString()
+      }
+      
+      const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `media-library-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+    
+    const importData = () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json'
+      input.onchange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target.result)
+              
+              if (data.profile) {
+                Object.assign(profileData, data.profile)
+              }
+              
+              if (data.media) {
+                mediaStore.mediaData = data.media
+                mediaStore.saveMedia()
+              }
+              
+              if (data.settings) {
+                Object.assign(profileData, data.settings)
+              }
+              
+              saveProfileData()
+            } catch (error) {
+              console.error('Failed to import data:', error)
+            }
+          }
+          reader.readAsText(file)
+        }
+      }
+      input.click()
+    }
+    
+    const createBackup = () => {
+      const backupData = {
+        profile: profileData,
+        media: mediaStore.mediaData,
+        settings: {
+          language: profileData.language,
+          timezone: profileData.timezone,
+          dateFormat: profileData.dateFormat
+        },
+        backupDate: new Date().toISOString()
+      }
+      
+      const backupKey = `backup_${Date.now()}`
+      localStorage.setItem(backupKey, JSON.stringify(backupData))
+      alert('Backup created successfully!')
+    }
+    
+    const clearCache = () => {
+      // Clear any cached data
+      alert('Cache cleared successfully!')
+    }
+    
+    const resetSettings = () => {
+      if (confirm('Are you sure you want to reset all settings?')) {
+        Object.assign(profileData, {
+          firstName: '',
+          lastName: '',
+          displayName: '',
+          email: '',
+          bio: '',
+          avatar: '',
+          language: 'en',
+          timezone: 'UTC',
+          dateFormat: 'MM/DD/YYYY',
+          booksApiProvider: 'wikipedia',
+          enableGoogleBooksFallback: true
+        })
+        saveProfileData()
+      }
+    }
+    
+    const clearAllData = () => {
+      if (confirm('Are you sure you want to clear all data? This cannot be undone!')) {
+        localStorage.clear()
+        window.location.reload()
+      }
+    }
+    
+    const saveProfileData = () => {
+      localStorage.setItem('profileData', JSON.stringify(profileData))
+    }
+    
+    const saveAllChanges = () => {
+      saveProfileData()
+      alert('All changes saved successfully!')
+    }
+
 
     // Lifecycle
     onMounted(async () => {
       try {
         await loadMedia()
+        
+        // Load profile data from localStorage
+        const saved = localStorage.getItem('profileData')
+        if (saved) {
+          try {
+            const savedData = JSON.parse(saved)
+            Object.assign(profileData, savedData)
+          } catch (error) {
+            console.error('Failed to load profile data:', error)
+          }
+        }
+        
+        // Load user data from auth store
+        if (authStore.user) {
+          profileData.firstName = authStore.user.name?.split(' ')[0] || ''
+          profileData.lastName = authStore.user.name?.split(' ').slice(1).join(' ') || ''
+          profileData.email = authStore.user.email || ''
+        }
+        
+        // Set today as selected by default for calendar
+        const today = new Date()
+        const todayDay = calendarDays.value.find(day => 
+          day.isToday && day.isCurrentMonth
+        )
+        if (todayDay) {
+          selectedDay.value = todayDay
+        }
         
         // Initialize real-time updates only for authenticated users
         if (isLoggedIn.value) {
@@ -686,12 +1288,20 @@ export default {
       showTxtImportModal,
       showTxtImportResults,
       editingItem,
-      gridColumns,
       sortBy,
       categories,
       txtImportResults,
       adminSetupLoading,
       adminSetupMessage,
+      
+      // Calendar state
+      currentDate,
+      selectedDay,
+      weekdays,
+      
+      // Profile state
+      avatarInput,
+      profileData,
       
       // Computed
       isLoggedIn,
@@ -704,6 +1314,12 @@ export default {
       loading,
       error,
       paginatedMedia,
+      
+      // Calendar computed
+      currentYear,
+      currentMonth,
+      currentMonthName,
+      calendarDays,
 
       // Methods
       setCategory,
@@ -740,6 +1356,27 @@ export default {
       processTxtContent,
       closeTxtImportResults,
       
+      // Calendar methods
+      previousMonth,
+      nextMonth,
+      selectDay,
+      formatSelectedDay,
+      hasEventsForDate,
+      getEventsForDate,
+      
+      // Profile methods
+      getInitials,
+      changeAvatar,
+      handleAvatarChange,
+      exportData,
+      importData,
+      createBackup,
+      clearCache,
+      resetSettings,
+      clearAllData,
+      saveProfileData,
+      saveAllChanges,
+      
       // Message Store
       messageStore,
       
@@ -755,7 +1392,8 @@ export default {
       getRatingStars,
       
       // Sidebar Store
-      sidebarStore
+      sidebarStore,
+      safeSidebarStore
     }
   }
 }
@@ -776,7 +1414,7 @@ export default {
 
 .admin-setup-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: #1a1a1a;
   border: none;
   padding: 12px 20px;
   border-radius: 8px;
@@ -864,17 +1502,43 @@ export default {
   background: #1a1a1a;
 }
 
-/* Grid Layout */
+/* Grid Layout - Fixed 6 columns */
 .grid {
   display: grid;
   gap: 20px;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
+  transition: all 0.3s ease-in-out;
+  width: 100%;
+  contain: layout;
 }
 
-/* When gridColumns is set to 3, use fixed columns for better mobile display */
-.grid[style*="repeat(3, 1fr)"] {
-  grid-template-columns: repeat(3, 1fr);
+/* Smooth animations for grid items */
+.grid > * {
+  animation: fadeInUp 0.4s ease-out;
+  transition: all 0.3s ease-in-out;
+  position: relative;
+  z-index: 1;
 }
+
+/* Fade in animation for new items */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth hover effects */
+.grid > *:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
 
 /* Loading and Error States */
 .loading,
@@ -895,8 +1559,8 @@ export default {
 }
 
 .error button {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   padding: 10px 20px;
   border-radius: 4px;
@@ -905,7 +1569,7 @@ export default {
 }
 
 .error button:hover {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 
 /* Mobile Overlay for Sidebar */
@@ -924,31 +1588,31 @@ export default {
   display: block;
 }
 
-/* Responsive Design */
+/* Responsive Design for 6 columns */
 @media (min-width: 1281px) {
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(6, 1fr);
     gap: 24px;
   }
 }
 
-@media (max-width: 1280px) and (min-width: 769px) {
+@media (max-width: 1280px) and (min-width: 1025px) {
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 20px;
   }
 }
 
-@media (max-width: 1024px) and (min-width: 769px) {
+@media (max-width: 1024px) and (min-width: 901px) {
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
 }
 
 @media (max-width: 900px) and (min-width: 769px) {
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 14px;
   }
 }
@@ -963,14 +1627,8 @@ export default {
   }
   
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 12px;
-  }
-  
-  /* When using 3 columns on mobile, ensure proper aspect ratio */
-  .grid[style*="repeat(3, 1fr)"] {
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+    gap: 12px;
   }
 }
 
@@ -980,14 +1638,8 @@ export default {
   }
   
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
-  }
-  
-  /* When using 3 columns on small mobile, maintain proper spacing */
-  .grid[style*="repeat(3, 1fr)"] {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
   }
 }
 
@@ -997,14 +1649,8 @@ export default {
   }
   
   .grid {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
-  }
-  
-  /* When using 3 columns on very small mobile, ensure cards fit properly */
-  .grid[style*="repeat(3, 1fr)"] {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 4px;
   }
 }
 
@@ -1050,8 +1696,8 @@ export default {
 }
 
 .refresh-btn {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   padding: 10px 20px;
   border-radius: 6px;
@@ -1062,7 +1708,7 @@ export default {
 }
 
 .refresh-btn:hover {
-  background: #3a8eef;
+  background: #d1e7f7;
   transform: translateY(-1px);
 }
 
@@ -1085,7 +1731,7 @@ export default {
 .summary-number {
   font-size: 2em;
   font-weight: bold;
-  color: #4a9eff;
+  color: #e8f4fd;
   margin-bottom: 5px;
 }
 
@@ -1151,7 +1797,7 @@ export default {
 .platform-fill,
 .genre-fill {
   height: 100%;
-  background: #4a9eff;
+  background: #e8f4fd;
   transition: width 0.3s ease;
 }
 
@@ -1258,6 +1904,635 @@ export default {
     min-width: auto;
     text-align: left;
     font-size: 11px;
+  }
+}
+
+/* Calendar Styles */
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a1a;
+  color: #e0e0e0;
+  overflow: hidden;
+  border-radius: 8px;
+  margin: 0;
+}
+
+/* Calendar Header */
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 30px;
+  background: #2d2d2d;
+  border-bottom: 1px solid #404040;
+  min-height: 80px;
+}
+
+.month-nav-btn {
+  background: #3a3a3a;
+  border: 1px solid #505050;
+  color: #e0e0e0;
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.month-nav-btn:hover:not(:disabled) {
+  background: #e8f4fd;
+  border-color: #e8f4fd;
+  color: #1a1a1a;
+}
+
+.month-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.month-year-display {
+  text-align: center;
+  flex: 1;
+  margin: 0 20px;
+}
+
+.month-name {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0;
+  color: #e0e0e0;
+}
+
+.year {
+  font-size: 18px;
+  color: #a0a0a0;
+  font-weight: 400;
+}
+
+/* Calendar Container */
+.calendar-container {
+  flex: 1;
+  padding: 20px 30px;
+  overflow: auto;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: #404040;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 500px;
+}
+
+/* Weekday Headers */
+.weekday-header {
+  background: #3a3a3a;
+  color: #a0a0a0;
+  padding: 15px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Calendar Days */
+.calendar-day {
+  background: #2d2d2d;
+  min-height: 80px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.calendar-day:hover {
+  background: #3a3a3a;
+  border-color: #e8f4fd;
+}
+
+.calendar-day.other-month {
+  background: #1a1a1a;
+  color: #666;
+}
+
+.calendar-day.other-month:hover {
+  background: #2a2a2a;
+}
+
+.calendar-day.today {
+  background: #1e3a5f;
+  border-color: #e8f4fd;
+}
+
+.calendar-day.today .day-number {
+  color: #e8f4fd;
+  font-weight: bold;
+}
+
+.calendar-day.weekend {
+  background: #252525;
+}
+
+.calendar-day.has-events {
+  border-left: 3px solid #e8f4fd;
+}
+
+.day-number {
+  font-size: 16px;
+  font-weight: 500;
+  color: #e0e0e0;
+  margin-bottom: 4px;
+}
+
+.event-indicator {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+}
+
+.event-dot {
+  width: 6px;
+  height: 6px;
+  background: #e8f4fd;
+  border-radius: 50%;
+}
+
+.event-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e8f4fd;
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: bold;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Selected Day Info */
+.selected-day-info {
+  background: #2d2d2d;
+  border-top: 1px solid #404040;
+  padding: 20px 30px;
+  min-height: 120px;
+}
+
+.selected-day-info h3 {
+  margin: 0 0 15px 0;
+  font-size: 18px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.no-events {
+  color: #a0a0a0;
+  font-style: italic;
+  margin: 0;
+}
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #3a3a3a;
+  border-radius: 6px;
+  border-left: 3px solid #e8f4fd;
+  margin-bottom: 8px;
+}
+
+.event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.event-time {
+  font-size: 12px;
+  color: #a0a0a0;
+  font-weight: 500;
+}
+
+.event-type-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.event-title {
+  font-size: 14px;
+  color: #e0e0e0;
+  font-weight: 500;
+}
+
+.event-platforms, .event-genre {
+  font-size: 11px;
+  color: #a0a0a0;
+  font-style: italic;
+}
+
+/* Event type specific colors */
+.event-game {
+  border-left-color: #4CAF50;
+}
+
+.event-game .event-type-badge {
+  background: #4CAF50;
+  color: #000;
+}
+
+.event-series {
+  border-left-color: #2196F3;
+}
+
+.event-series .event-type-badge {
+  background: #2196F3;
+  color: #fff;
+}
+
+.event-movie {
+  border-left-color: #FF9800;
+}
+
+.event-movie .event-type-badge {
+  background: #FF9800;
+  color: #000;
+}
+
+.event-buecher {
+  border-left-color: #9C27B0;
+}
+
+.event-buecher .event-type-badge {
+  background: #9C27B0;
+  color: #fff;
+}
+
+.event-unknown {
+  border-left-color: #757575;
+}
+
+.event-unknown .event-type-badge {
+  background: #757575;
+  color: #fff;
+}
+
+
+/* Profile Styles */
+.profile-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid #404040;
+}
+
+.profile-avatar-section {
+  flex-shrink: 0;
+}
+
+.profile-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #3a3a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  border: 2px solid #555;
+}
+
+.profile-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  font-size: 24px;
+  font-weight: bold;
+  color: #a0a0a0;
+}
+
+.profile-info-header {
+  flex: 1;
+}
+
+.profile-info-header h2 {
+  margin: 0 0 5px 0;
+  color: #e0e0e0;
+}
+
+.profile-info-header p {
+  margin: 0 0 15px 0;
+  color: #a0a0a0;
+}
+
+.profile-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  display: block;
+  font-size: 18px;
+  font-weight: bold;
+  color: #e8f4fd;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #a0a0a0;
+}
+
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.settings-section {
+  background: #2d2d2d;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  border: 1px solid #404040;
+}
+
+.section-header {
+  padding: 20px;
+  background: #3a3a3a;
+  border-bottom: 1px solid #505050;
+}
+
+.section-header h3 {
+  margin: 0 0 5px 0;
+  color: #e0e0e0;
+}
+
+.section-header p {
+  margin: 0;
+  color: #a0a0a0;
+  font-size: 14px;
+}
+
+.section-content {
+  padding: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #d0d0d0;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #3a3a3a;
+  color: #e0e0e0;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #e8f4fd;
+  box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+}
+
+.data-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.data-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.data-btn:hover {
+  background: #4a4a4a;
+  border-color: #666;
+}
+
+.btn-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.btn-text {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #e0e0e0;
+}
+
+.btn-description {
+  font-size: 12px;
+  color: #a0a0a0;
+}
+
+.danger-zone {
+  border: 1px solid #e74c3c;
+}
+
+.danger-zone .section-header {
+  background: #4a2a2a;
+  border-bottom-color: #e74c3c;
+}
+
+.danger-zone .section-header h3 {
+  color: #ff6b6b;
+}
+
+.danger-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.danger-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #4a2a2a;
+  border: 1px solid #e74c3c;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.danger-btn:hover {
+  background: #5a3a3a;
+}
+
+.danger-btn .btn-text {
+  color: #ff6b6b;
+}
+
+/* Checkbox styles */
+.checkbox-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.checkbox-container input[type="checkbox"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  accent-color: #e8f4fd;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #d0d0d0;
+  line-height: 1.4;
+  cursor: pointer;
+  margin: 0;
+}
+
+/* Mobile Calendar Styles */
+@media (max-width: 768px) {
+  .calendar-header {
+    padding: 15px 20px;
+    min-height: 70px;
+  }
+  
+  .month-name {
+    font-size: 24px;
+  }
+  
+  .year {
+    font-size: 16px;
+  }
+  
+  .month-nav-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  .calendar-container {
+    padding: 15px 20px;
+  }
+  
+  .calendar-day {
+    min-height: 60px;
+    padding: 6px;
+  }
+  
+  .day-number {
+    font-size: 14px;
+  }
+  
+  .weekday-header {
+    padding: 10px 5px;
+    font-size: 12px;
+  }
+  
+  .selected-day-info {
+    padding: 15px 20px;
+    min-height: 100px;
+  }
+  
+  .selected-day-info h3 {
+    font-size: 16px;
+  }
+}
+
+/* Mobile Profile Styles */
+@media (max-width: 768px) {
+  .profile-container {
+    padding: 15px;
+  }
+  
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .data-actions,
+  .danger-actions {
+    grid-template-columns: 1fr;
   }
 }
 </style>

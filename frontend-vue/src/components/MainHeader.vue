@@ -15,12 +15,6 @@
       </div>
     </div>
     <div class="header-right">
-      <div class="grid-count-container">
-        <label class="columns-label">Columns:</label>
-        <select :value="gridColumns" @change="$emit('update:gridColumns', parseInt($event.target.value))">
-          <option v-for="i in 12" :key="i" :value="i">{{ i }}</option>
-        </select>
-      </div>
       <div class="sort-container">
         <select :value="sortBy" @change="$emit('update:sortBy', $event.target.value)">
           <option value="order_asc">Original order ↑</option>
@@ -49,10 +43,6 @@ export default {
       type: String,
       default: ''
     },
-    gridColumns: {
-      type: Number,
-      default: 8
-    },
     sortBy: {
       type: String,
       default: 'order_asc'
@@ -60,7 +50,6 @@ export default {
   },
   emits: [
     'update:searchQuery',
-    'update:gridColumns',
     'update:sortBy',
     'toggleMobileSidebar',
     'clearSearch'
@@ -134,7 +123,7 @@ export default {
 }
 
 .search-container input:focus {
-  border-color: #4a9eff;
+  border-color: #e8f4fd;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
 
@@ -161,7 +150,6 @@ export default {
   flex: 0 0 auto;
 }
 
-.grid-count-container,
 .sort-container {
   display: flex;
   align-items: center;
@@ -170,7 +158,6 @@ export default {
   color: #a0a0a0;
 }
 
-.grid-count-container select,
 .sort-container select {
   padding: 8px 10px;
   border: 1px solid #555;
@@ -295,21 +282,15 @@ export default {
     height: 28px;
   }
   
-  .grid-count-container,
   .sort-container {
     font-size: 12px;
     gap: 4px;
   }
   
-  .grid-count-container select,
   .sort-container select {
     padding: 6px 8px;
     font-size: 12px;
     min-height: 36px;
-  }
-  
-  .columns-label {
-    display: none;
   }
 }
 
@@ -337,21 +318,15 @@ export default {
     gap: 4px;
   }
   
-  .grid-count-container,
   .sort-container {
     font-size: 11px;
     gap: 3px;
   }
   
-  .grid-count-container select,
   .sort-container select {
     font-size: 11px;
     padding: 4px 6px;
     min-height: 32px;
-  }
-  
-  .columns-label {
-    display: none;
   }
 }
 
@@ -379,21 +354,15 @@ export default {
     gap: 2px;
   }
   
-  .grid-count-container,
   .sort-container {
     font-size: 10px;
     gap: 2px;
   }
   
-  .grid-count-container select,
   .sort-container select {
     font-size: 10px;
     padding: 3px 4px;
     min-height: 28px;
-  }
-  
-  .columns-label {
-    display: none;
   }
 }
 

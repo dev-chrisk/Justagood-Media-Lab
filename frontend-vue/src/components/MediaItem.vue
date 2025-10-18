@@ -59,6 +59,12 @@
       </div>
     </div>
     
+    <!-- Series Extra Link Button -->
+    <div v-if="isSeries && item.extra_link" class="series-extra-button" @click.stop="openExtraLink">
+      <span class="extra-link-icon">🔗</span>
+      <span class="extra-link-text">Extra Link</span>
+    </div>
+    
     <!-- Edit indicator -->
     <div class="edit-indicator">
       <span class="edit-icon">✏️</span>
@@ -85,6 +91,11 @@ export default {
     isWatchlistItem() {
       // Check if this is a watchlist item
       return this.item.category === 'watchlist' || this.item.isNew === true
+    },
+    
+    isSeries() {
+      // Check if this is a series item
+      return this.item.category === 'series' || this.item.watchlist_type === 'series'
     }
   },
   methods: {
@@ -104,6 +115,10 @@ export default {
       
       // For uploaded images, they should be accessible via /storage/
       // The path from the database is relative to storage/app/public
+      // Ensure we don't double-add /storage/ prefix
+      if (path.startsWith('storage/')) {
+        return `/${path}`
+      }
       return `/storage/${path}`
     },
     
@@ -120,6 +135,12 @@ export default {
     
     editItem() {
       this.$emit('edit', this.item)
+    },
+    
+    openExtraLink() {
+      if (this.item.extra_link) {
+        window.open(this.item.extra_link, '_blank', 'noopener,noreferrer')
+      }
     },
     
     getWatchlistReleaseStatus() {
@@ -264,11 +285,12 @@ export default {
     },
     
     getCategoryClass() {
-      const category = this.item.category?.toLowerCase()
+      const category = this.item.category?.toLowerCase() || this.item.category_name?.toLowerCase()
       if (category === 'movies' || category === 'movie') return 'category-movies'
-      if (category === 'books' || category === 'buecher') return 'category-books'
-      if (category === 'series' || category === 'tv') return 'category-series'
-      if (category === 'games' || category === 'game') return 'category-games'
+      if (category === 'books' || category === 'buecher' || category === 'book') return 'category-books'
+      if (category === 'series' || category === 'tv' || category === 'serie') return 'category-series'
+      if (category === 'games' || category === 'game' || category === 'spiele') return 'category-games'
+      if (category === 'watchlist') return 'category-watchlist'
       return 'category-default'
     },
     
@@ -305,7 +327,7 @@ export default {
         // Excellent Games - Cyan/Blue Effekte
         return {
           '--game-primary': '#00d4ff',
-          '--game-secondary': '#4a9eff',
+          '--game-secondary': '#e8f4fd',
           '--game-accent': '#00ff88',
           '--game-glow': '0 0 15px rgba(0, 212, 255, 0.5)',
           '--game-border': '3px solid #00d4ff'
@@ -355,20 +377,22 @@ export default {
 <style scoped>
 .media-item {
   position: relative;
-  background: #2d2d2d;
-  border-radius: 8px;
+  background: transparent;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   transition: all 0.3s ease;
   cursor: pointer;
-  border: 1px solid #404040;
+  border: none;
+  aspect-ratio: 16/9;
+  min-height: 120px;
+  width: 100%;
+  contain: layout;
 }
 
 .media-item:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-  border-color: #4a9eff;
-  background: #333333;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
 }
 
 .media-item:active {
@@ -389,31 +413,84 @@ export default {
     transform: scale(0.98);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   }
-}
-
-.media-image {
-  position: relative;
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-}
-
-/* Better aspect ratio for 3-column layout on mobile */
-@media (max-width: 768px) {
-  .media-image {
-    height: 180px;
+  
+  /* Disable category-specific hover effects on touch devices */
+  .category-movies:hover,
+  .category-books:hover,
+  .category-series:hover,
+  .category-games:hover,
+  .category-watchlist:hover,
+  .category-default:hover {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 }
 
+/* Image fills entire card with text overlay */
+.media-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.media-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Responsive behavior for image overlay layout */
+@media (max-width: 768px) {
+  .media-info {
+    padding: 12px;
+  }
+  
+}
+
 @media (max-width: 480px) {
-  .media-image {
-    height: 160px;
+  .media-info {
+    padding: 10px;
+  }
+  
+  .media-title {
+    font-size: 0.9rem;
+  }
+  
+  .media-meta {
+    font-size: 0.8rem;
+  }
+  
+  .no-image-icon {
+    font-size: 1.5rem;
   }
 }
 
 @media (max-width: 360px) {
-  .media-image {
-    height: 140px;
+  .media-info {
+    padding: 8px;
+  }
+  
+  .media-title {
+    font-size: 0.8rem;
+  }
+  
+  .media-meta {
+    font-size: 0.7rem;
+  }
+  
+  .no-image-icon {
+    font-size: 1.2rem;
   }
 }
 
@@ -436,40 +513,19 @@ export default {
   font-size: 48px;
 }
 
-.media-info {
-  padding: 12px;
-}
 
-/* Optimize padding for mobile 3-column layout */
-@media (max-width: 768px) {
-  .media-info {
-    padding: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .media-info {
-    padding: 8px;
-  }
-}
-
-@media (max-width: 360px) {
-  .media-info {
-    padding: 6px;
-  }
-}
 
 .media-title {
   margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #e0e0e0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
   line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: color 0.2s ease;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* Optimize title size for mobile 3-column layout */
@@ -494,17 +550,15 @@ export default {
   }
 }
 
-.media-item:hover .media-title {
-  color: #4a9eff;
-}
 
 .media-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
-  font-size: 12px;
-  color: #a0a0a0;
+  font-size: 13px;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 /* Optimize meta info for mobile 3-column layout */
@@ -535,7 +589,7 @@ export default {
 
 /* Watchlist release status styles */
 .media-release .countdown {
-  color: #4a9eff;
+  color: #e8f4fd;
   font-weight: 600;
 }
 
@@ -557,13 +611,14 @@ export default {
 
 .media-platforms,
 .media-genre {
-  font-size: 11px;
-  color: #a0a0a0;
+  font-size: 12px;
+  color: #ffffff;
   margin-bottom: 4px;
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .media-description {
@@ -628,7 +683,7 @@ export default {
 
 .airing-badge {
   background: #27ae60;
-  color: white;
+  color: #1a1a1a;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
@@ -654,7 +709,7 @@ export default {
 
 .next-season {
   background: #3498db;
-  color: white;
+  color: #1a1a1a;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
@@ -663,7 +718,7 @@ export default {
 
 .countdown {
   background: #e67e22;
-  color: white;
+  color: #1a1a1a;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 10px;
@@ -687,19 +742,19 @@ export default {
 
 .media-item:hover .edit-indicator {
   opacity: 1;
-  background: rgba(74, 158, 255, 0.9);
+  background: rgba(232, 244, 253, 0.9);
 }
 
 .edit-icon {
   font-size: 14px;
-  color: white;
+  color: #1a1a1a;
 }
 
 /* Always show edit indicator on touch devices */
 @media (hover: none) and (pointer: coarse) {
   .edit-indicator {
     opacity: 1;
-    background: rgba(74, 158, 255, 0.8);
+    background: rgba(232, 244, 253, 0.8);
   }
 }
 
@@ -708,6 +763,57 @@ export default {
   margin-top: 8px;
   display: flex;
   justify-content: flex-start;
+}
+
+/* Series Extra Link Button */
+.series-extra-button {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(33, 150, 243, 0.9);
+  color: #1a1a1a;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  z-index: 3;
+  opacity: 0;
+  transform: translateY(-4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.media-item:hover .series-extra-button {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.series-extra-button:hover {
+  background: rgba(33, 150, 243, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.extra-link-icon {
+  font-size: 12px;
+}
+
+.extra-link-text {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Always show series extra button on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .series-extra-button {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .type-tag {
@@ -722,400 +828,76 @@ export default {
 
 .type-game {
   background: #4CAF50;
-  color: white;
+  color: #1a1a1a;
 }
 
 .type-series {
   background: #2196F3;
-  color: white;
+  color: #1a1a1a;
 }
 
 .type-movie {
   background: #FF9800;
-  color: white;
+  color: #1a1a1a;
 }
 
 .type-buecher {
   background: #8B4513;
-  color: white;
+  color: #1a1a1a;
 }
 
 .type-media {
   background: #9C27B0;
-  color: white;
+  color: #1a1a1a;
 }
 
 /* ===========================================
-   CATEGORY-SPECIFIC CARD DESIGNS
+   UNIFIED CATEGORY STYLES
    =========================================== */
 
-/* Movies - DVD Hülle Design */
-.category-movies {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  border: 2px solid #444;
+/* Base category styles - unified approach */
+.category-movies,
+.category-books,
+.category-series,
+.category-games,
+.category-default {
+  position: relative;
   border-radius: 12px;
-  position: relative;
-  overflow: visible;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-/* DVD Plastikrahmen */
-.category-movies::before {
-  content: '';
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  right: -6px;
-  bottom: -6px;
-  background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 50%, #b8b8b8 100%);
-  border-radius: 16px;
-  z-index: -2;
-  box-shadow: 
-    inset 0 2px 4px rgba(255, 255, 255, 0.3),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
-    0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* DVD Innenrahmen mit buntem Gradient */
-.category-movies::after {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
-  border-radius: 14px;
-  z-index: -1;
-  opacity: 0.4;
-}
-
-.category-movies .media-image {
-  border-radius: 8px 8px 0 0;
-  position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* All cards now use transparent background with image overlay */
 
-.category-movies .media-info {
-  background: linear-gradient(135deg, #2a2a2a 0%, #1e1e1e 100%);
-  border-radius: 0 0 8px 8px;
-  position: relative;
-}
+/* Image styling is now handled by the absolute positioning */
 
-.category-movies .media-title {
-  color: #f0f0f0;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-}
+/* Overlay is now handled by the text background gradient */
 
-.category-movies:hover {
-  transform: translateY(-6px) scale(1.03);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5);
-}
+/* Info section styling is now handled by absolute positioning */
 
-/* DVD Hülle Details */
-.category-movies .media-image {
-  position: relative;
-}
+/* All text is now white with shadow for overlay effect */
 
-/* DVD Center Ring Simulation */
-.category-movies .media-image::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  background: radial-gradient(circle, transparent 20px, rgba(0, 0, 0, 0.1) 21px, rgba(0, 0, 0, 0.1) 30px, transparent 31px);
-  opacity: 0.6;
-  pointer-events: none;
-}
+/* All meta text is now white with shadow */
 
-/* DVD Hülle Glanz-Effekt */
-.category-movies .media-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.1) 0%, 
-    transparent 30%, 
-    transparent 70%, 
-    rgba(255, 255, 255, 0.05) 100%);
-  pointer-events: none;
-}
+/* All platform/genre text is now white with shadow */
 
-/* Books - Buch Cover Design */
-.category-books {
-  background: #f8f6f0;
-  border: 3px solid #8B4513;
-  border-radius: 8px;
-  position: relative;
-  box-shadow: 0 6px 20px rgba(139, 69, 19, 0.3);
-  transform-style: preserve-3d;
-}
+/* Unified hover effects for all categories */
 
-.category-books::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, 
-    rgba(139, 69, 19, 0.1) 0%, 
-    transparent 2%, 
-    transparent 98%, 
-    rgba(139, 69, 19, 0.1) 100%);
-  border-radius: 5px;
-  pointer-events: none;
-}
 
-.category-books .media-image {
-  border-radius: 4px 4px 0 0;
-  border-bottom: 2px solid #8B4513;
-  position: relative;
-}
 
-.category-books .media-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, 
-    rgba(255,255,255,0.1) 0%, 
-    transparent 50%, 
-    rgba(0,0,0,0.1) 100%);
-  pointer-events: none;
-}
-
-.category-books .media-info {
-  background: #f8f6f0;
-  border-radius: 0 0 4px 4px;
-  color: #2c1810;
-}
-
-.category-books .media-title {
-  color: #2c1810;
-  font-family: 'Georgia', serif;
-  font-weight: 700;
-}
-
-.category-books .media-meta,
-.category-books .media-platforms,
-.category-books .media-genre {
-  color: #5d4037;
-}
-
-.category-books:hover {
-  transform: translateY(-4px) rotateY(5deg);
-  box-shadow: 0 10px 30px rgba(139, 69, 19, 0.4);
-}
-
-/* Series - TV Design */
-.category-series {
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
-  border: 2px solid #4a9eff;
-  border-radius: 16px;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 8px 25px rgba(74, 158, 255, 0.2);
-}
-
-.category-series::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #4a9eff, #00d4ff, #4a9eff);
-  animation: tvScan 3s linear infinite;
-}
-
-@keyframes tvScan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.category-series .media-image {
-  border-radius: 12px 12px 0 0;
-  position: relative;
-  overflow: hidden;
-}
-
-.category-series .media-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, 
-    rgba(74, 158, 255, 0.1) 0%, 
-    transparent 50%, 
-    rgba(0, 212, 255, 0.1) 100%);
-  pointer-events: none;
-}
-
-.category-series .media-info {
-  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
-  border-radius: 0 0 12px 12px;
-  position: relative;
-}
-
-.category-series .media-title {
-  color: #e0f2ff;
-  text-shadow: 0 0 10px rgba(74, 158, 255, 0.5);
-}
-
-.category-series .media-meta {
-  color: #4a9eff;
-}
-
-.category-series:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(74, 158, 255, 0.3);
-  border-color: #00d4ff;
-}
-
-/* Games - PC Frame Design mit Rating-basierten Effekten */
-.category-games {
-  background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 50%, #1a1a1a 100%);
-  border: var(--game-border, 3px solid #00ff88);
-  border-radius: 8px;
-  position: relative;
-  box-shadow: var(--game-glow, 0 6px 25px rgba(0, 255, 136, 0.2));
-  overflow: hidden; /* Fixed: Verhindert Overflow */
-}
-
-.category-games::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, 
-    var(--game-primary, #00ff88), 
-    var(--game-secondary, #00d4ff), 
-    var(--game-accent, #ff6b6b));
-  border-radius: 5px;
-  z-index: -1;
-  opacity: 0.1;
-  animation: gameGlow 3s ease-in-out infinite alternate;
-}
-
-@keyframes gameGlow {
-  0% { opacity: 0.05; }
-  100% { opacity: 0.15; }
-}
-
-.category-games .media-image {
-  border-radius: 4px 4px 0 0;
-  position: relative;
-  overflow: hidden;
-  border-bottom: 2px solid var(--game-primary, #00ff88);
-}
-
-.category-games .media-image::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, 
-    var(--game-primary, #00ff88) 0%, 
-    transparent 30%, 
-    transparent 70%, 
-    var(--game-secondary, #00d4ff) 100%);
-  opacity: 0.1;
-  pointer-events: none;
-}
-
-.category-games .media-info {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-  border-radius: 0 0 4px 4px;
-  position: relative;
-  overflow: hidden; /* Fixed: Verhindert Overflow */
-}
-
-.category-games .media-info::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, 
-    var(--game-primary, #00ff88), 
-    var(--game-secondary, #00d4ff), 
-    var(--game-accent, #ff6b6b));
-  animation: gameScan 4s linear infinite;
-  opacity: 0.8;
-}
-
-@keyframes gameScan {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.category-games .media-title {
-  color: var(--game-primary, #00ff88);
-  text-shadow: 0 0 8px var(--game-primary, #00ff88);
-  font-family: 'Courier New', monospace;
-  font-weight: 700;
-}
-
-.category-games .media-meta {
-  color: var(--game-secondary, #00d4ff);
-}
-
-.category-games .media-platforms,
-.category-games .media-genre {
-  color: var(--game-accent, #ff6b6b);
-}
-
-.category-games:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: var(--game-glow, 0 12px 35px rgba(0, 255, 136, 0.4));
-}
-
-/* Rating-spezifische Zusatz-Effekte */
+/* Game-specific rating styles (simplified) */
 .category-games[style*="--game-primary: #ffd700"] {
-  /* Legendary Games - Extra Glow */
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.3), var(--game-glow);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.2), var(--game-glow);
 }
 
 .category-games[style*="--game-primary: #00d4ff"] {
-  /* Excellent Games - Cyan Pulse */
-  animation: cyanPulse 2s ease-in-out infinite alternate;
-}
-
-@keyframes cyanPulse {
-  0% { box-shadow: var(--game-glow); }
-  100% { box-shadow: var(--game-glow), 0 0 25px rgba(0, 212, 255, 0.4); }
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.2), var(--game-glow);
 }
 
 .category-games[style*="--game-primary: #9e9e9e"] {
-  /* Unrated Games - Subtle Effect */
-  opacity: 0.8;
-  filter: grayscale(20%);
-}
-
-/* Default Category */
-.category-default {
-  background: #2d2d2d;
-  border: 1px solid #404040;
-  border-radius: 8px;
+  opacity: 0.85;
+  filter: grayscale(10%);
 }
 </style>
 

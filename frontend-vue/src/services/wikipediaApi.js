@@ -1,4 +1,4 @@
-import { APP_CONFIG } from '@/config/environment'
+import { config as APP_CONFIG } from '@/config/environment'
 
 /**
  * Wikipedia API Service for searching books and literature

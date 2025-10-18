@@ -174,6 +174,10 @@ biem <template>
               <option value="movie">Movie</option>
               <option value="buecher">Bücher</option>
             </select>
+            <!-- Debug info -->
+            <div v-if="form.category === 'watchlist'" class="debug-info" style="font-size: 10px; color: #666; margin-top: 4px;">
+              Debug: watchlistType = "{{ form.watchlistType }}"
+            </div>
             <div v-if="form.category === 'watchlist' && !form.watchlistType" class="field-error">
               Please select a type for watchlist items
             </div>
@@ -242,6 +246,20 @@ biem <template>
               min="1"
               placeholder="1"
             />
+          </div>
+        </div>
+        
+        <!-- Extra Link for Series -->
+        <div v-if="isSeries" class="form-row">
+          <div class="form-group full-width">
+            <label for="extraLink">Extra Link:</label>
+            <input 
+              type="url" 
+              id="extraLink"
+              v-model="form.extraLink" 
+              placeholder="https://... (e.g., streaming platform, official website)"
+            />
+            <div class="field-hint">Optional: Additional link for series (e.g., streaming platform, official website)</div>
           </div>
         </div>
         
@@ -362,6 +380,7 @@ biem <template>
 <script>
 import { ref, reactive, computed, watch } from 'vue'
 import { mediaApi } from '@/services/api'
+import { useMediaStore } from '@/stores/media'
 import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
 import { unifiedBooksApiService } from '@/services/unifiedBooksApi'
@@ -384,6 +403,7 @@ export default {
   },
   emits: ['close', 'save', 'delete'],
   setup(props, { emit }) {
+    const mediaStore = useMediaStore()
     const loading = ref(false)
     const error = ref('')
     const apiResults = ref([])
@@ -402,6 +422,7 @@ export default {
       genre: '',
       description: '',
       link: '',
+      extraLink: '',
       path: '',
       discovered: '',
       spielzeit: '',
@@ -425,14 +446,25 @@ export default {
         console.log('EditModal - Item rating:', newItem.rating)
         console.log('EditModal - Item personal_rating:', newItem.personal_rating)
         
+        // Map backend field names to frontend field names FIRST
+        if (newItem.watchlist_type !== undefined && newItem.watchlist_type !== null) {
+          form.watchlistType = newItem.watchlist_type
+          console.log('EditModal - Set watchlistType from watchlist_type:', newItem.watchlist_type)
+        }
+        // Also check for watchlistType field (in case it's already in the correct format)
+        if (newItem.watchlistType !== undefined && newItem.watchlistType !== null) {
+          form.watchlistType = newItem.watchlistType
+          console.log('EditModal - Set watchlistType from watchlistType:', newItem.watchlistType)
+        }
+        
+        // Then map other fields, but skip watchlistType to avoid overwriting
         Object.keys(form).forEach(key => {
-          form[key] = newItem[key] || ''
+          if (key !== 'watchlistType') {
+            form[key] = newItem[key] || ''
+          }
         })
         
-        // Map backend field names to frontend field names
-        if (newItem.watchlist_type !== undefined) {
-          form.watchlistType = newItem.watchlist_type
-        }
+        // Map other backend field names to frontend field names
         if (newItem.is_airing !== undefined) {
           form.isAiring = newItem.is_airing
         }
@@ -457,6 +489,10 @@ export default {
         if (newItem.path !== undefined) {
           form.path = newItem.path
         }
+        if (newItem.extra_link !== undefined) {
+          form.extraLink = newItem.extra_link
+          console.log('EditModal - Set extraLink from extra_link:', newItem.extra_link)
+        }
         // Map the main rating field to personal rating (since that's what users edit)
         if (newItem.rating !== undefined && !form.personalRating) {
           form.personalRating = newItem.rating
@@ -465,6 +501,11 @@ export default {
         console.log('EditModal - Form after initialization:')
         console.log('EditModal - form.personalRating:', form.personalRating)
         console.log('EditModal - form.rating:', form.rating)
+        console.log('EditModal - form.watchlistType:', form.watchlistType)
+        console.log('EditModal - form.extraLink:', form.extraLink)
+        console.log('EditModal - newItem.watchlist_type:', newItem.watchlist_type)
+        console.log('EditModal - newItem.watchlistType:', newItem.watchlistType)
+        console.log('EditModal - newItem.extra_link:', newItem.extra_link)
       } else {
         // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
@@ -473,6 +514,9 @@ export default {
           } else if (key === 'release') {
             // Set default release date to today for new items
             form[key] = new Date().toISOString().split('T')[0]
+          } else if (key === 'watchlistType') {
+            // Don't set a default watchlistType - let user choose
+            form[key] = ''
           } else {
             form[key] = ''
           }
@@ -512,9 +556,9 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
-        // Convert empty strings to null for optional fields (except watchlistType and image fields)
+        // Convert empty strings to null for optional fields (except watchlistType, image fields, and extraLink)
         Object.keys(itemData).forEach(key => {
-          if (itemData[key] === '' && key !== 'watchlistType' && key !== 'imageUrl' && key !== 'path') {
+          if (itemData[key] === '' && key !== 'watchlistType' && key !== 'imageUrl' && key !== 'path' && key !== 'extraLink') {
             itemData[key] = null
           }
         })
@@ -588,17 +632,23 @@ export default {
           itemData.image_url = itemData.imageUrl
           delete itemData.imageUrl
         }
+        if (itemData.extraLink !== undefined) {
+          itemData.extra_link = itemData.extraLink
+          delete itemData.extraLink
+        }
         
         // Debug log to see what data is being sent
         console.log('EditModal - Saving item data:', itemData)
         console.log('EditModal - personalRating value:', itemData.personalRating)
         console.log('EditModal - rating value:', itemData.rating)
+        console.log('EditModal - extraLink value:', itemData.extraLink)
+        console.log('EditModal - extra_link value:', itemData.extra_link)
         
-        // Make API call directly instead of emitting save event
+        // Use store methods to ensure proper state updates
         if (isEditing.value && props.item) {
-          await mediaApi.updateMediaItem(props.item.id, itemData)
+          await mediaStore.updateMediaItem(props.item.id, itemData)
         } else {
-          await mediaApi.addMediaItem(itemData)
+          await mediaStore.addMediaItem(itemData)
         }
         
         // Close modal after successful save
@@ -928,12 +978,20 @@ export default {
     
     const getImagePreviewUrl = () => {
       if (uploadedImagePath.value) {
+        // Ensure we don't double-add /storage/ prefix
+        if (uploadedImagePath.value.startsWith('storage/')) {
+          return `/${uploadedImagePath.value}`
+        }
         return `/storage/${uploadedImagePath.value}`
       }
       if (form.imageUrl) {
         // Handle both URLs and relative paths
         if (form.imageUrl.startsWith('http')) {
           return form.imageUrl
+        }
+        // Ensure we don't double-add /storage/ prefix
+        if (form.imageUrl.startsWith('storage/')) {
+          return `/${form.imageUrl}`
         }
         return `/storage/${form.imageUrl}`
       }
@@ -1021,6 +1079,16 @@ export default {
   z-index: 1000;
   overflow-y: auto;
   padding: 20px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 768px) {
@@ -1035,12 +1103,24 @@ export default {
   background: #2d2d2d;
   padding: 24px;
   border-radius: 12px;
+  animation: slideInUp 0.3s ease-out;
   max-width: 1000px;
   width: 90%;
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid #404040;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {
@@ -1102,7 +1182,7 @@ export default {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: #e8f4fd;
   box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
 }
 
@@ -1150,12 +1230,12 @@ export default {
 }
 
 .modal-buttons button[type="submit"] {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 .modal-buttons button[type="submit"]:hover:not(:disabled) {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 
 .modal-buttons button[type="button"] {
@@ -1170,7 +1250,7 @@ export default {
 
 .modal-buttons .delete-btn {
   background: #e74c3c;
-  color: white;
+  color: #1a1a1a;
   border: 1px solid #c0392b;
 }
 
@@ -1181,7 +1261,7 @@ export default {
 
 .modal-buttons .check-btn {
   background: #27ae60;
-  color: white;
+  color: #1a1a1a;
   border: 1px solid #229954;
   font-size: 18px;
   font-weight: bold;
@@ -1259,8 +1339,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #4a9eff, #6bb6ff);
-  color: white;
+  background: linear-gradient(135deg, #e8f4fd, #6bb6ff);
+  color: #1a1a1a;
   font-weight: bold;
   font-size: 24px;
 }
@@ -1314,7 +1394,7 @@ export default {
 }
 
 .field-hint {
-  color: #4a9eff;
+  color: #e8f4fd;
   font-size: 12px;
   margin-top: 4px;
   font-style: italic;
@@ -1338,8 +1418,8 @@ export default {
 }
 
 .upload-btn {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   padding: 10px 16px;
   border-radius: 4px;
@@ -1350,7 +1430,7 @@ export default {
 }
 
 .upload-btn:hover:not(:disabled) {
-  background: #3a8eef;
+  background: #d1e7f7;
 }
 
 .upload-btn:disabled {
@@ -1374,7 +1454,7 @@ export default {
 
 .remove-uploaded-btn {
   background: #e74c3c;
-  color: white;
+  color: #1a1a1a;
   border: none;
   border-radius: 4px;
   padding: 4px 8px;
@@ -1411,7 +1491,7 @@ export default {
   top: -8px;
   right: -8px;
   background: #e74c3c;
-  color: white;
+  color: #1a1a1a;
   border: none;
   border-radius: 50%;
   width: 24px;

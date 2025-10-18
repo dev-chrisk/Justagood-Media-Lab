@@ -813,8 +813,8 @@ export default {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #1a73e8;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -863,7 +863,7 @@ export default {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #1a73e8;
+  border-color: #e8f4fd;
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
 }
 
@@ -927,7 +927,7 @@ export default {
 
 .progress-fill {
   height: 100%;
-  background: #1a73e8;
+  background: #e8f4fd;
   transition: width 0.3s ease;
 }
 
@@ -941,7 +941,7 @@ export default {
   background: #1a1a1a;
   border-radius: 8px;
   padding: 16px;
-  border-left: 4px solid #1a73e8;
+  border-left: 4px solid #e8f4fd;
 }
 
 .current-item-header {
@@ -965,32 +965,32 @@ export default {
 
 .current-item-status.searching {
   background: #ff9800;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-status.found {
   background: #4caf50;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-status.adding {
   background: #2196f3;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-status.added {
   background: #4caf50;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-status.skipped {
   background: #ff9800;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-status.error {
   background: #f44336;
-  color: white;
+  color: #1a1a1a;
 }
 
 .current-item-description {
@@ -1183,7 +1183,7 @@ export default {
 
 .retry-input:focus {
   outline: none;
-  border-color: #1a73e8;
+  border-color: #e8f4fd;
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
 }
 
@@ -1200,7 +1200,7 @@ export default {
 
 .duplicate-badge {
   background: #ff9800;
-  color: white;
+  color: #1a1a1a;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.7rem;
@@ -1210,7 +1210,7 @@ export default {
 
 .retry-badge {
   background: #2196f3;
-  color: white;
+  color: #1a1a1a;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 0.7rem;
@@ -1270,7 +1270,7 @@ export default {
 }
 
 .btn-primary {
-  background: #1a73e8;
+  background: #e8f4fd;
   color: #ffffff;
 }
 

@@ -262,10 +262,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
 import { mediaApi } from '@/services/api'
+import { useMediaStore } from '@/stores/media'
 
 export default {
   name: 'BooksManagerNew',
   setup() {
+    const mediaStore = useMediaStore()
+    
     // State
     const books = ref([])
     const loading = ref(false)
@@ -378,9 +381,9 @@ export default {
 
         let response
         if (editingBook.value) {
-          response = await mediaApi.updateMediaItem(editingBook.value.id, bookData)
+          response = await mediaStore.updateMediaItem(editingBook.value.id, bookData)
         } else {
-          response = await mediaApi.addMediaItem(bookData)
+          response = await mediaStore.addMediaItem(bookData)
         }
 
         await loadBooks()
@@ -543,8 +546,8 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 12px 20px;
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -553,7 +556,7 @@ export default {
 }
 
 .add-book-btn:hover, .refresh-btn:hover {
-  background: #3a8eef;
+  background: #d1e7f7;
   transform: translateY(-2px);
 }
 
@@ -576,7 +579,7 @@ export default {
   width: 40px;
   height: 40px;
   border: 4px solid #333;
-  border-top: 4px solid #4a9eff;
+  border-top: 4px solid #e8f4fd;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;
@@ -604,8 +607,8 @@ export default {
 
 .retry-btn, .add-first-btn {
   padding: 12px 24px;
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -614,36 +617,97 @@ export default {
 
 .books-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Smooth animations for book cards */
+.books-grid > * {
+  animation: fadeInUp 0.4s ease-out;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Fade in animation for new book items */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth hover effects for book cards */
+.books-grid > *:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive Design for 6 columns */
+@media (max-width: 1200px) {
+  .books-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .books-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .books-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .books-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 }
 
 .book-card {
-  background: #2a2a2a;
+  background: transparent;
   border-radius: 12px;
-  padding: 20px;
+  padding: 0;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid #333;
+  border: none;
   position: relative;
+  aspect-ratio: 16/9;
+  min-height: 120px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .book-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  border-color: #4a9eff;
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
 }
 
+/* Image fills entire card with text overlay */
 .book-cover {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 200px;
-  margin-bottom: 15px;
-  border-radius: 8px;
+  height: 100%;
+  border-radius: 0;
   overflow: hidden;
   background: #333;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
 }
 
 .book-cover img {
@@ -669,21 +733,33 @@ export default {
 }
 
 .book-info {
-  margin-bottom: 15px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
 }
 
 .book-title {
-  color: #e0e0e0;
+  color: #ffffff;
   font-size: 1.2rem;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 8px 0;
   line-height: 1.3;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .book-author {
-  color: #b0b0b0;
+  color: #ffffff;
   margin: 0 0 10px 0;
   font-size: 0.9rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .book-meta {
@@ -691,7 +767,8 @@ export default {
   gap: 15px;
   margin-bottom: 10px;
   font-size: 0.8rem;
-  color: #888;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .book-rating {
@@ -737,13 +814,13 @@ export default {
 }
 
 .action-btn.edit {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 .action-btn.delete {
   background: #ff4757;
-  color: white;
+  color: #1a1a1a;
 }
 
 .action-btn:hover {
@@ -762,6 +839,17 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
   padding: 20px;
 }
 
@@ -773,6 +861,18 @@ export default {
   max-height: 90vh;
   overflow-y: auto;
   border: 1px solid #444;
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-header {
@@ -837,13 +937,13 @@ export default {
 
 .search-input:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: #e8f4fd;
 }
 
 .search-btn {
   padding: 12px 20px;
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -953,7 +1053,7 @@ export default {
 
 .form-input:focus, .form-textarea:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: #e8f4fd;
 }
 
 .form-textarea {
@@ -983,8 +1083,8 @@ export default {
 }
 
 .save-btn {
-  background: #4a9eff;
-  color: white;
+  background: #e8f4fd;
+  color: #1a1a1a;
 }
 
 .save-btn:disabled {
@@ -992,8 +1092,24 @@ export default {
   cursor: not-allowed;
 }
 
-/* Responsive */
+/* Responsive behavior for image overlay layout */
 @media (max-width: 768px) {
+  .book-info {
+    padding: 12px;
+  }
+  
+  .book-title {
+    font-size: 1rem;
+  }
+  
+  .book-author {
+    font-size: 0.8rem;
+  }
+  
+  .no-cover {
+    font-size: 2rem;
+  }
+  
   .books-header {
     flex-direction: column;
     gap: 20px;
@@ -1014,6 +1130,50 @@ export default {
   
   .form-actions {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .book-info {
+    padding: 10px;
+  }
+  
+  .book-title {
+    font-size: 0.9rem;
+  }
+  
+  .book-author {
+    font-size: 0.7rem;
+  }
+  
+  .book-meta {
+    font-size: 0.7rem;
+  }
+  
+  .no-cover {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .book-info {
+    padding: 8px;
+  }
+  
+  .book-title {
+    font-size: 0.8rem;
+  }
+  
+  .book-author {
+    font-size: 0.6rem;
+  }
+  
+  .book-meta {
+    font-size: 0.6rem;
+  }
+  
+  .no-cover {
+    font-size: 1.2rem;
   }
 }
 </style>

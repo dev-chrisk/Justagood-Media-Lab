@@ -97,7 +97,7 @@ export default {
   width: 100%;
   max-width: 500px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-  border-left: 4px solid #1a73e8;
+  border-left: 4px solid #e8f4fd;
 }
 
 .message-success {
@@ -113,7 +113,7 @@ export default {
 }
 
 .message-info {
-  border-left-color: #1a73e8;
+  border-left-color: #e8f4fd;
 }
 
 .message-header {
@@ -198,7 +198,7 @@ export default {
 }
 
 .btn-primary {
-  background: #1a73e8;
+  background: #e8f4fd;
   color: #ffffff;
 }
 

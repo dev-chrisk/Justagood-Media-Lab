@@ -263,7 +263,7 @@ export default {
 
 .add-book-btn {
   background: #007bff;
-  color: white;
+  color: #1a1a1a;
   border: none;
   padding: 10px 20px;
   border-radius: 5px;
@@ -322,7 +322,7 @@ export default {
 
 .form-actions button[type="submit"] {
   background: #28a745;
-  color: white;
+  color: #1a1a1a;
 }
 
 .form-actions button[type="submit"]:disabled {
@@ -332,7 +332,7 @@ export default {
 
 .form-actions button[type="button"] {
   background: #6c757d;
-  color: white;
+  color: #1a1a1a;
 }
 
 .books-grid {
@@ -382,7 +382,7 @@ export default {
 
 .delete-btn {
   background: #dc3545;
-  color: white;
+  color: #1a1a1a;
 }
 
 .loading, .error, .no-books {

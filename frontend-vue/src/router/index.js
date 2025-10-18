@@ -2,26 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 // Lazy load components
 const MediaLibrary = () => import('@/views/MediaLibrary.vue')
-const Profile = () => import('@/views/Profile.vue')
-const Calendar = () => import('@/views/Calendar.vue')
 
 const routes = [
   {
     path: '/',
     name: 'MediaLibrary',
     component: MediaLibrary,
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: Profile,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/calendar',
-    name: 'Calendar',
-    component: Calendar,
     meta: { requiresAuth: false }
   },
   {

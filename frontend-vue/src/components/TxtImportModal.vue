@@ -107,7 +107,7 @@ export default {
 .file-upload-label {
   display: inline-block;
   padding: 40px 20px;
-  border: 2px dashed #4a9eff;
+  border: 2px dashed #e8f4fd;
   border-radius: 8px;
   background: #2d2d2d;
   cursor: pointer;
@@ -116,7 +116,7 @@ export default {
 }
 
 .file-upload-label:hover {
-  border-color: #3a8eef;
+  border-color: #d1e7f7;
   background: #333333;
 }
 
