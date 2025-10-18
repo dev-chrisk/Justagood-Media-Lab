@@ -113,13 +113,14 @@ export default {
         return path
       }
       
-      // For uploaded images, they should be accessible via /storage/
+      // For uploaded images, use the API route instead of storage symlink
       // The path from the database is relative to storage/app/public
-      // Ensure we don't double-add /storage/ prefix
+      // Use the images_downloads API route which handles the serving
       if (path.startsWith('storage/')) {
         return `/${path}`
       }
-      return `/storage/${path}`
+      // path already contains 'images_downloads/uploads/...'
+      return `/${path}`
     },
     
     handleImageError(event) {

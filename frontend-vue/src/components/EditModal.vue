@@ -317,7 +317,7 @@ biem <template>
         </div>
         
         <!-- Image Preview -->
-        <div v-if="form.imageUrl || uploadedImagePath" class="form-row">
+        <div v-if="shouldShowImagePreview" class="form-row">
           <div class="form-group image-preview-group">
             <label>Image Preview:</label>
             <div class="image-preview">
@@ -325,6 +325,9 @@ biem <template>
                 :src="getImagePreviewUrl()" 
                 :alt="form.title"
                 @error="handleImageError"
+                @load="handleImageLoad"
+                @loadstart="handleImageLoadStart"
+                @loadend="handleImageLoadEnd"
               />
               <button 
                 type="button" 
@@ -438,6 +441,7 @@ export default {
     // Initialize form with item data
     watch(() => props.item, (newItem) => {
       if (newItem) {
+        console.log('🔄 [DEBUG] Initializing form with item data:', newItem)
         // Map backend field names to frontend field names FIRST
         if (newItem.watchlist_type !== undefined) {
           form.watchlistType = newItem.watchlist_type || ''
@@ -475,9 +479,11 @@ export default {
         }
         if (newItem.image_url !== undefined) {
           form.imageUrl = newItem.image_url
+          console.log('🖼️ [DEBUG] Set form.imageUrl from item:', newItem.image_url)
         }
         if (newItem.path !== undefined) {
           form.path = newItem.path
+          console.log('🖼️ [DEBUG] Set form.path from item:', newItem.path)
         }
         if (newItem.extra_link !== undefined) {
           form.extraLink = newItem.extra_link
@@ -487,7 +493,13 @@ export default {
           form.personalRating = newItem.rating
         }
         
+        console.log('🔄 [DEBUG] Form initialization completed:')
+        console.log('🔄 [DEBUG] - form.imageUrl:', form.imageUrl)
+        console.log('🔄 [DEBUG] - form.path:', form.path)
+        console.log('🔄 [DEBUG] - uploadedImagePath.value:', uploadedImagePath.value)
+        
       } else {
+        console.log('🔄 [DEBUG] Initializing new item form')
         // Reset form for new item - use current category from sidebar
         Object.keys(form).forEach(key => {
           if (key === 'category') {
@@ -502,6 +514,10 @@ export default {
             form[key] = ''
           }
         })
+        console.log('🔄 [DEBUG] New item form initialized:')
+        console.log('🔄 [DEBUG] - form.imageUrl:', form.imageUrl)
+        console.log('🔄 [DEBUG] - form.path:', form.path)
+        console.log('🔄 [DEBUG] - uploadedImagePath.value:', uploadedImagePath.value)
       }
     }, { immediate: true })
     
@@ -954,19 +970,24 @@ export default {
       console.log('🔍 [DEBUG] Getting image preview URL...')
       console.log('🔍 [DEBUG] uploadedImagePath.value:', uploadedImagePath.value)
       console.log('🔍 [DEBUG] form.imageUrl:', form.imageUrl)
+      console.log('🔍 [DEBUG] Template condition (form.imageUrl || uploadedImagePath):', !!(form.imageUrl || uploadedImagePath.value))
       
       if (uploadedImagePath.value) {
+        console.log('🔍 [DEBUG] Using uploadedImagePath.value for URL generation')
         // Ensure we don't double-add /storage/ prefix
         if (uploadedImagePath.value.startsWith('storage/')) {
           const url = `/${uploadedImagePath.value}`
           console.log('🔗 [DEBUG] Generated URL (starts with storage/):', url)
           return url
         }
-        const url = `/storage/${uploadedImagePath.value}`
-        console.log('🔗 [DEBUG] Generated URL (added /storage/):', url)
+        // Use the API route instead of storage symlink
+        // uploadedImagePath.value already contains 'images_downloads/uploads/...'
+        const url = `/${uploadedImagePath.value}`
+        console.log('🔗 [DEBUG] Generated URL (using API route):', url)
         return url
       }
       if (form.imageUrl) {
+        console.log('🔍 [DEBUG] Using form.imageUrl for URL generation')
         // Handle both URLs and relative paths
         if (form.imageUrl.startsWith('http')) {
           console.log('🔗 [DEBUG] Using external URL:', form.imageUrl)
@@ -978,8 +999,10 @@ export default {
           console.log('🔗 [DEBUG] Generated URL from form.imageUrl (starts with storage/):', url)
           return url
         }
-        const url = `/storage/${form.imageUrl}`
-        console.log('🔗 [DEBUG] Generated URL from form.imageUrl (added /storage/):', url)
+        // Use the API route instead of storage symlink
+        // form.imageUrl already contains 'images_downloads/uploads/...'
+        const url = `/${form.imageUrl}`
+        console.log('🔗 [DEBUG] Generated URL from form.imageUrl (using API route):', url)
         return url
       }
       console.log('❌ [DEBUG] No image URL available')
@@ -987,7 +1010,50 @@ export default {
     }
     
     const handleImageError = (event) => {
+      console.log('❌ [DEBUG] Image load error occurred')
+      console.log('❌ [DEBUG] Error event:', event)
+      console.log('❌ [DEBUG] Error target:', event.target)
+      console.log('❌ [DEBUG] Error target src:', event.target.src)
+      console.log('❌ [DEBUG] Error target alt:', event.target.alt)
+      console.log('❌ [DEBUG] Current image URL:', getImagePreviewUrl())
+      console.log('❌ [DEBUG] uploadedImagePath.value:', uploadedImagePath.value)
+      console.log('❌ [DEBUG] form.imageUrl:', form.imageUrl)
+      
+      // Hide the broken image
       event.target.style.display = 'none'
+      
+      // Show error message
+      error.value = 'Failed to load image: ' + event.target.src
+    }
+    
+    const handleImageLoad = (event) => {
+      console.log('✅ [DEBUG] Image loaded successfully')
+      console.log('✅ [DEBUG] Load event:', event)
+      console.log('✅ [DEBUG] Load target:', event.target)
+      console.log('✅ [DEBUG] Load target src:', event.target.src)
+      console.log('✅ [DEBUG] Load target naturalWidth:', event.target.naturalWidth)
+      console.log('✅ [DEBUG] Load target naturalHeight:', event.target.naturalHeight)
+      console.log('✅ [DEBUG] Load target complete:', event.target.complete)
+      
+      // Clear any previous error
+      if (error.value && error.value.includes('Failed to load image')) {
+        error.value = ''
+      }
+    }
+    
+    const handleImageLoadStart = (event) => {
+      console.log('🔄 [DEBUG] Image load started')
+      console.log('🔄 [DEBUG] Load start event:', event)
+      console.log('🔄 [DEBUG] Load start target src:', event.target.src)
+      console.log('🔄 [DEBUG] Current time:', new Date().toISOString())
+    }
+    
+    const handleImageLoadEnd = (event) => {
+      console.log('🏁 [DEBUG] Image load ended')
+      console.log('🏁 [DEBUG] Load end event:', event)
+      console.log('🏁 [DEBUG] Load end target src:', event.target.src)
+      console.log('🏁 [DEBUG] Load end target complete:', event.target.complete)
+      console.log('🏁 [DEBUG] Current time:', new Date().toISOString())
     }
     
     const clearImage = () => {
@@ -1000,6 +1066,11 @@ export default {
     }
     
     const removeUploadedImage = () => {
+      console.log('🗑️ [DEBUG] Removing uploaded image')
+      console.log('🗑️ [DEBUG] Before removal - uploadedImagePath.value:', uploadedImagePath.value)
+      console.log('🗑️ [DEBUG] Before removal - form.imageUrl:', form.imageUrl)
+      console.log('🗑️ [DEBUG] Before removal - form.path:', form.path)
+      
       uploadedImagePath.value = ''
       // Keep form.imageUrl and form.path as they might contain URL images
       // Only clear them if they match the uploaded image path
@@ -1012,7 +1083,21 @@ export default {
       if (imageUploadRef.value) {
         imageUploadRef.value.value = ''
       }
+      
+      console.log('🗑️ [DEBUG] After removal - uploadedImagePath.value:', uploadedImagePath.value)
+      console.log('🗑️ [DEBUG] After removal - form.imageUrl:', form.imageUrl)
+      console.log('🗑️ [DEBUG] After removal - form.path:', form.path)
     }
+    
+    // Computed property for template condition debugging
+    const shouldShowImagePreview = computed(() => {
+      const shouldShow = !!(form.imageUrl || uploadedImagePath.value)
+      console.log('🎭 [DEBUG] Template condition check:')
+      console.log('🎭 [DEBUG] - form.imageUrl:', form.imageUrl)
+      console.log('🎭 [DEBUG] - uploadedImagePath.value:', uploadedImagePath.value)
+      console.log('🎭 [DEBUG] - shouldShowImagePreview:', shouldShow)
+      return shouldShow
+    })
     
     const handlePreferencesChanged = (preferences) => {
       // Clear current API results to force a new search with new preferences
@@ -1043,8 +1128,12 @@ export default {
       handleImageUpload,
       getImagePreviewUrl,
       handleImageError,
+      handleImageLoad,
+      handleImageLoadStart,
+      handleImageLoadEnd,
       clearImage,
       removeUploadedImage,
+      shouldShowImagePreview,
       handlePreferencesChanged
     }
   }
