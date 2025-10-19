@@ -53,6 +53,7 @@ export const useMediaStore = defineStore('media', () => {
   const selectedGenres = ref([])
   const loading = ref(false)
   const error = ref(null)
+  const editMode = ref(false)
 
   // Watch for changes and persist to localStorage
   watch(currentCategory, (newValue) => {
@@ -218,6 +219,48 @@ export const useMediaStore = defineStore('media', () => {
     selectedGenres.value = []
   }
 
+  function toggleEditMode() {
+    editMode.value = !editMode.value
+  }
+
+  function setEditMode(mode) {
+    editMode.value = mode
+  }
+
+  async function updateItemRating(itemId, rating) {
+    try {
+      const token = localStorage.getItem('authToken')
+      const user = localStorage.getItem('currentUser')
+      
+      if (token && user) {
+        // For logged in users, update via API
+        try {
+          await mediaApi.updateMediaItem(itemId, { personal_rating: rating })
+          // Update local state immediately for better UX
+          const index = mediaData.value.findIndex(item => item.id === itemId)
+          if (index !== -1) {
+            mediaData.value[index].personal_rating = rating
+          }
+          return true
+        } catch (apiError) {
+          console.error('API rating update failed:', apiError)
+          throw apiError
+        }
+      } else {
+        // For non-logged in users, update locally
+        const index = mediaData.value.findIndex(item => item.id === itemId)
+        if (index !== -1) {
+          mediaData.value[index].personal_rating = rating
+          saveMediaToStorage()
+          return true
+        }
+        throw new Error('Media item not found')
+      }
+    } catch (err) {
+      console.error('Failed to update rating:', err)
+      throw err
+    }
+  }
 
   function clearError() {
     error.value = null
@@ -285,6 +328,13 @@ export const useMediaStore = defineStore('media', () => {
     // Clear any existing error when starting a new update operation
     error.value = null
     
+    console.log('DEBUG: updateMediaItem called with:', {
+      id: id,
+      itemData: itemData,
+      is_airing: itemData.is_airing,
+      type: typeof itemData.is_airing
+    })
+    
     try {
       const token = localStorage.getItem('authToken')
       const user = localStorage.getItem('currentUser')
@@ -292,7 +342,9 @@ export const useMediaStore = defineStore('media', () => {
       if (token && user) {
         // For logged in users, update via API only
         try {
+          console.log('DEBUG: Calling API updateMediaItem with:', itemData)
           const updatedItem = await mediaApi.updateMediaItem(id, itemData)
+          console.log('DEBUG: API updateMediaItem returned:', updatedItem)
           // Reload data from API
           await loadMedia()
           return updatedItem
@@ -546,6 +598,7 @@ export const useMediaStore = defineStore('media', () => {
     selectedGenres,
     loading,
     error,
+    editMode,
     
     // Getters
     totalItems,
@@ -560,6 +613,9 @@ export const useMediaStore = defineStore('media', () => {
     clearGenre,
     setGenres,
     clearGenres,
+    toggleEditMode,
+    setEditMode,
+    updateItemRating,
     addMediaItem,
     updateMediaItem,
     deleteMediaItem,

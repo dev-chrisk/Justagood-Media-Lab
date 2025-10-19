@@ -20,7 +20,7 @@ php artisan view:cache
 # Clear application cache
 php artisan cache:clear
 
-# Create storage symlink (this is the key fix for image uploads)
+# Create storage symlink
 php artisan storage:link
 
 # Set proper permissions for storage
@@ -33,4 +33,3 @@ if command -v php &> /dev/null; then
 fi
 
 echo "Deployment completed successfully!"
-echo "Storage symlink created - image uploads should now work."

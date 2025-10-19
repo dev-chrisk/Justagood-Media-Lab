@@ -199,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('media/check-existing', [MediaController::class, 'checkExistingItems']);
     Route::get('media_relative.json', [MediaController::class, 'getMediaRelative']);
     Route::post('media_relative.json', [MediaController::class, 'saveMediaRelative']);
+    Route::post('media/{id}/toggle-watchlist', [MediaController::class, 'toggleSeriesToWatchlist']);
     
     // Collections with user filtering
     Route::apiResource('collections', CollectionController::class);
@@ -232,6 +233,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('tmdb')->group(function () {
     Route::get('movie/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getMovie']);
     Route::get('collection/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getCollection']);
+    Route::get('series/{id}', [App\Http\Controllers\Api\TmdbController::class, 'getSeries']);
+    Route::get('search-series', [App\Http\Controllers\Api\TmdbController::class, 'searchSeries']);
+    Route::get('next-season-info', [App\Http\Controllers\Api\TmdbController::class, 'getNextSeasonInfo']);
 });
 
 // Additional routes

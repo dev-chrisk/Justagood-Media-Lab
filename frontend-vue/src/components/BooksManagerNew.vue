@@ -59,19 +59,6 @@
         
         <div class="book-info">
           <h3 class="book-title">{{ book.title }}</h3>
-          <p class="book-author">{{ book.author }}</p>
-          <div class="book-meta">
-            <span v-if="book.publishedDate" class="book-year">
-              {{ formatYear(book.publishedDate) }}
-            </span>
-            <span v-if="book.pageCount" class="book-pages">
-              {{ book.pageCount }} pages
-            </span>
-          </div>
-          <div v-if="book.averageRating" class="book-rating">
-            <span class="stars">{{ formatRating(book.averageRating) }}</span>
-            <span class="rating-text">{{ book.averageRating }}/5</span>
-          </div>
         </div>
         
         <div class="book-actions">
@@ -738,6 +725,7 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  align-items: flex-start;
   overflow: hidden;
 }
 
@@ -745,41 +733,12 @@ export default {
   color: #ffffff;
   font-size: 1.2rem;
   font-weight: 700;
-  margin: 0 0 8px 0;
+  margin: 0;
   line-height: 1.3;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-align: left;
 }
 
-.book-author {
-  color: #ffffff;
-  margin: 0 0 10px 0;
-  font-size: 0.9rem;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-
-.book-meta {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
-  font-size: 0.8rem;
-  color: #ffffff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-}
-
-.book-rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-}
-
-.stars {
-  color: #ffd700;
-}
-
-.rating-text {
-  color: #b0b0b0;
-}
 
 .book-actions {
   position: absolute;
@@ -1097,9 +1056,6 @@ export default {
     font-size: 1rem;
   }
   
-  .book-author {
-    font-size: 0.8rem;
-  }
   
   .no-cover {
     font-size: 2rem;
@@ -1137,13 +1093,6 @@ export default {
     font-size: 0.9rem;
   }
   
-  .book-author {
-    font-size: 0.7rem;
-  }
-  
-  .book-meta {
-    font-size: 0.7rem;
-  }
   
   .no-cover {
     font-size: 1.5rem;
@@ -1159,13 +1108,6 @@ export default {
     font-size: 0.8rem;
   }
   
-  .book-author {
-    font-size: 0.6rem;
-  }
-  
-  .book-meta {
-    font-size: 0.6rem;
-  }
   
   .no-cover {
     font-size: 1.2rem;

@@ -497,8 +497,38 @@ export const mediaApi = {
       if (itemData.spielzeit !== undefined) {
         transformedData.spielzeit = itemData.spielzeit ? parseInt(itemData.spielzeit) : 0
       }
-      if (itemData.isAiring !== undefined) {
-        transformedData.is_airing = itemData.isAiring
+      if (itemData.is_airing !== undefined) {
+        console.log('DEBUG: API service using is_airing:', {
+          is_airing: itemData.is_airing,
+          type: typeof itemData.is_airing
+        })
+        transformedData.is_airing = itemData.is_airing
+      }
+      
+      // New series fields
+      if (itemData.tmdb_id !== undefined) {
+        transformedData.tmdb_id = itemData.tmdb_id
+      }
+      if (itemData.next_season_name !== undefined) {
+        transformedData.next_season_name = itemData.next_season_name
+      }
+      if (itemData.last_air_date !== undefined) {
+        transformedData.last_air_date = itemData.last_air_date
+      }
+      if (itemData.total_seasons !== undefined) {
+        transformedData.total_seasons = itemData.total_seasons
+      }
+      if (itemData.total_episodes !== undefined) {
+        transformedData.total_episodes = itemData.total_episodes
+      }
+      if (itemData.series_status !== undefined) {
+        transformedData.series_status = itemData.series_status
+      }
+      if (itemData.networks !== undefined) {
+        transformedData.networks = itemData.networks
+      }
+      if (itemData.created_by !== undefined) {
+        transformedData.created_by = itemData.created_by
       }
       if (itemData.nextSeason !== undefined) {
         transformedData.next_season = itemData.nextSeason ? parseInt(itemData.nextSeason) : null
@@ -531,19 +561,58 @@ export const mediaApi = {
         }
       }
       
+      console.log('DEBUG: API service sending data to backend:', {
+        id: id,
+        transformedData: transformedData,
+        is_airing: transformedData.is_airing,
+        tmdb_id: transformedData.tmdb_id,
+        next_season_name: transformedData.next_season_name,
+        last_air_date: transformedData.last_air_date,
+        total_seasons: transformedData.total_seasons,
+        total_episodes: transformedData.total_episodes,
+        series_status: transformedData.series_status,
+        networks: transformedData.networks,
+        created_by: transformedData.created_by
+      })
+      
       const response = await api.put(`/media/${id}`, transformedData)
+      console.log('DEBUG: API service received response:', response.data)
       return response.data
     } catch (error) {
       throw error
     }
   },
 
+  // TMDB Series API
+  async checkSeriesInfo(title) {
+    try {
+      console.log('🌐 API Service: Calling TMDB endpoint with title:', title)
+      const response = await api.get('/tmdb/next-season-info', {
+        params: { title }
+      })
+      console.log('🌐 API Service: Response received:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('🌐 API Service: Error calling TMDB:', error)
+      throw error
+    }
+  },
+
+  // Toggle series to watchlist
+  async toggleSeriesToWatchlist(id) {
+    try {
+      console.log('💖 API Service: Toggling series to watchlist:', id)
+      const response = await api.post(`/media/${id}/toggle-watchlist`)
+      console.log('💖 API Service: Watchlist toggle response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('💖 API Service: Error toggling watchlist:', error)
+      throw error
+    }
+  },
+
   // Image upload functionality
   async uploadImage(file, customPath = null) {
-    console.log('🌐 [DEBUG] API uploadImage called')
-    console.log('🌐 [DEBUG] File:', file.name, 'Size:', file.size, 'Type:', file.type)
-    console.log('🌐 [DEBUG] Custom path:', customPath)
-    
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -551,25 +620,14 @@ export const mediaApi = {
         formData.append('dst', customPath)
       }
       
-      console.log('🌐 [DEBUG] FormData created, sending request to /upload-image')
-      console.log('🌐 [DEBUG] API base URL:', api.defaults.baseURL)
-      
       const response = await api.post('/upload-image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       })
       
-      console.log('🌐 [DEBUG] Upload response received:', response.data)
-      console.log('🌐 [DEBUG] Response status:', response.status)
-      console.log('🌐 [DEBUG] Response headers:', response.headers)
-      
       return response.data
     } catch (error) {
-      console.log('🌐 [DEBUG] Upload error occurred:', error)
-      console.log('🌐 [DEBUG] Error response:', error.response?.data)
-      console.log('🌐 [DEBUG] Error status:', error.response?.status)
-      console.log('🌐 [DEBUG] Error message:', error.message)
       throw error
     }
   },

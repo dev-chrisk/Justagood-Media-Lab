@@ -15,6 +15,17 @@
       </div>
     </div>
     <div class="header-right">
+      <div class="edit-mode-container">
+        <button 
+          class="edit-mode-toggle" 
+          :class="{ active: editMode }"
+          @click="$emit('toggleEditMode')"
+          :title="editMode ? 'Exit Edit Mode' : 'Enter Edit Mode'"
+        >
+          <span class="edit-icon">{{ editMode ? '✓' : '✏️' }}</span>
+          <span class="edit-text">{{ editMode ? 'Done' : 'Edit' }}</span>
+        </button>
+      </div>
       <div class="sort-container">
         <select :value="sortBy" @change="$emit('update:sortBy', $event.target.value)">
           <option value="order_asc">Original order ↑</option>
@@ -46,13 +57,18 @@ export default {
     sortBy: {
       type: String,
       default: 'order_asc'
+    },
+    editMode: {
+      type: Boolean,
+      default: false
     }
   },
   emits: [
     'update:searchQuery',
     'update:sortBy',
     'toggleMobileSidebar',
-    'clearSearch'
+    'clearSearch',
+    'toggleEditMode'
   ]
 }
 </script>
@@ -148,6 +164,56 @@ export default {
   align-items: center;
   gap: 15px;
   flex: 0 0 auto;
+}
+
+.edit-mode-container {
+  display: flex;
+  align-items: center;
+}
+
+.edit-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 6px;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-height: 44px;
+}
+
+.edit-mode-toggle:hover {
+  background: #4a4a4a;
+  border-color: #666;
+  transform: translateY(-1px);
+}
+
+.edit-mode-toggle.active {
+  background: #e8f4fd;
+  border-color: #e8f4fd;
+  color: #1a1a1a;
+}
+
+.edit-mode-toggle.active:hover {
+  background: #d1e7f7;
+  border-color: #d1e7f7;
+}
+
+.edit-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.edit-text {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .sort-container {
@@ -280,6 +346,20 @@ export default {
     padding: 8px 12px;
     min-height: 28px;
     height: 28px;
+  }
+  
+  .edit-mode-toggle {
+    padding: 6px 8px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+  
+  .edit-icon {
+    font-size: 14px;
+  }
+  
+  .edit-text {
+    font-size: 11px;
   }
   
   .sort-container {

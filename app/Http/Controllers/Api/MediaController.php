@@ -108,6 +108,17 @@ class MediaController extends Controller
             'next_season' => 'nullable|integer|min:1',
             'next_season_release' => 'nullable|date',
             'external_id' => 'nullable|string',
+            'tmdb_id' => 'nullable|integer',
+            'next_season_name' => 'nullable|string',
+            'last_air_date' => 'nullable|date',
+            'total_seasons' => 'nullable|integer|min:0',
+            'total_episodes' => 'nullable|integer|min:0',
+            'series_status' => 'nullable|string',
+            'networks' => 'nullable|string',
+            'created_by' => 'nullable|string',
+            'watchlist_series_type' => 'nullable|string|in:new_series,new_season',
+            'watchlist_original_series_id' => 'nullable|integer|exists:media_items,id',
+            'watchlist_season_info' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -203,6 +214,22 @@ class MediaController extends Controller
             return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
         }
 
+        // DEBUG: Log the incoming data
+        \Log::info('MediaController update - Incoming data:', [
+            'id' => $id,
+            'raw_data' => $request->all(),
+            'is_airing_raw' => $request->get('is_airing'),
+            'is_airing_type' => gettype($request->get('is_airing')),
+            'is_airing_boolean' => $request->boolean('is_airing'),
+            'tmdb_id' => $request->get('tmdb_id'),
+            'next_season_name' => $request->get('next_season_name'),
+            'last_air_date' => $request->get('last_air_date'),
+            'total_seasons' => $request->get('total_seasons'),
+            'total_episodes' => $request->get('total_episodes'),
+            'series_status' => $request->get('series_status'),
+            'networks' => $request->get('networks'),
+            'created_by' => $request->get('created_by')
+        ]);
 
         $validator = Validator::make($request->all(), [
             'title' => 'sometimes|string|max:255',
@@ -224,6 +251,17 @@ class MediaController extends Controller
             'next_season' => 'nullable|integer|min:1',
             'next_season_release' => 'nullable|date',
             'external_id' => 'nullable|string',
+            'tmdb_id' => 'nullable|integer',
+            'next_season_name' => 'nullable|string',
+            'last_air_date' => 'nullable|date',
+            'total_seasons' => 'nullable|integer|min:0',
+            'total_episodes' => 'nullable|integer|min:0',
+            'series_status' => 'nullable|string',
+            'networks' => 'nullable|string',
+            'created_by' => 'nullable|string',
+            'watchlist_series_type' => 'nullable|string|in:new_series,new_season',
+            'watchlist_original_series_id' => 'nullable|integer|exists:media_items,id',
+            'watchlist_season_info' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -251,8 +289,27 @@ class MediaController extends Controller
         
         // Set default values for required fields
         if (isset($data['is_airing'])) {
-            $data['is_airing'] = $data['is_airing'] ?? false;
+            // Only set to false if the value is null or undefined, not if it's explicitly false
+            if ($data['is_airing'] === null || $data['is_airing'] === '') {
+                $data['is_airing'] = false;
+            }
         }
+        
+        // DEBUG: Log processed data before update
+        \Log::info('MediaController update - Processed data before update:', [
+            'id' => $id,
+            'processed_data' => $data,
+            'is_airing_processed' => $data['is_airing'] ?? 'not_set',
+            'is_airing_type' => gettype($data['is_airing'] ?? 'not_set'),
+            'tmdb_id' => $data['tmdb_id'] ?? 'not_set',
+            'next_season_name' => $data['next_season_name'] ?? 'not_set',
+            'last_air_date' => $data['last_air_date'] ?? 'not_set',
+            'total_seasons' => $data['total_seasons'] ?? 'not_set',
+            'total_episodes' => $data['total_episodes'] ?? 'not_set',
+            'series_status' => $data['series_status'] ?? 'not_set',
+            'networks' => $data['networks'] ?? 'not_set',
+            'created_by' => $data['created_by'] ?? 'not_set'
+        ]);
         
         // Handle watchlist_type - convert empty strings to null
         if (isset($data['watchlist_type']) && $data['watchlist_type'] === '') {
@@ -275,11 +332,133 @@ class MediaController extends Controller
         }
 
         $mediaItem->update($data);
+        
+        // DEBUG: Log the updated item
+        \Log::info('MediaController update - After update:', [
+            'id' => $id,
+            'updated_item' => $mediaItem->toArray(),
+            'is_airing_final' => $mediaItem->is_airing,
+            'is_airing_type' => gettype($mediaItem->is_airing),
+            'tmdb_id_final' => $mediaItem->tmdb_id,
+            'next_season_name_final' => $mediaItem->next_season_name,
+            'last_air_date_final' => $mediaItem->last_air_date,
+            'total_seasons_final' => $mediaItem->total_seasons,
+            'total_episodes_final' => $mediaItem->total_episodes,
+            'series_status_final' => $mediaItem->series_status,
+            'networks_final' => $mediaItem->networks,
+            'created_by_final' => $mediaItem->created_by
+        ]);
 
         // Dispatch event for real-time updates
         event(new MediaUpdated($mediaItem, 'updated', $request->user()?->id));
 
         return response()->json(['success' => true, 'data' => $mediaItem]);
+    }
+
+    /**
+     * Toggle series to watchlist (heart button)
+     */
+    public function toggleSeriesToWatchlist(Request $request, $id)
+    {
+        try {
+            $mediaItem = MediaItem::where('id', $id)
+                ->where('user_id', $request->user()->id)
+                ->first();
+
+            if (!$mediaItem) {
+                return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
+            }
+
+            if ($mediaItem->category !== 'series' || !$mediaItem->is_airing) {
+                return response()->json(['success' => false, 'error' => 'Only airing series can be added to watchlist'], 400);
+            }
+
+            // Check if already in watchlist
+            $existingWatchlistItem = MediaItem::where('user_id', $request->user()->id)
+                ->where('category', 'watchlist')
+                ->where('watchlist_type', 'series')
+                ->where(function($query) use ($mediaItem) {
+                    $query->where('title', $mediaItem->title)
+                          ->orWhere('tmdb_id', $mediaItem->tmdb_id);
+                })
+                ->first();
+
+            if ($existingWatchlistItem) {
+                // Remove from watchlist
+                $existingWatchlistItem->delete();
+                return response()->json([
+                    'success' => true, 
+                    'action' => 'removed',
+                    'message' => 'Series removed from watchlist'
+                ]);
+            }
+
+            // Determine if it's a new series or new season
+            $watchlistType = 'new_series';
+            $originalSeriesId = null;
+            $seasonInfo = null;
+
+            // Check if there's already a series with the same TMDB ID
+            $existingSeries = MediaItem::where('user_id', $request->user()->id)
+                ->where('category', 'series')
+                ->where('tmdb_id', $mediaItem->tmdb_id)
+                ->where('id', '!=', $id)
+                ->first();
+
+            if ($existingSeries) {
+                $watchlistType = 'new_season';
+                $originalSeriesId = $existingSeries->id;
+                $seasonInfo = "Season {$mediaItem->next_season}";
+                if ($mediaItem->next_season_name) {
+                    $seasonInfo .= " - {$mediaItem->next_season_name}";
+                }
+            }
+
+            // Create watchlist item
+            $watchlistItem = MediaItem::create([
+                'user_id' => $request->user()->id,
+                'category' => 'watchlist',
+                'watchlist_type' => 'series',
+                'watchlist_series_type' => $watchlistType,
+                'watchlist_original_series_id' => $originalSeriesId,
+                'watchlist_season_info' => $seasonInfo,
+                'title' => $mediaItem->title,
+                'release' => $mediaItem->next_season_release ?? $mediaItem->release,
+                'description' => $mediaItem->description,
+                'image_url' => $mediaItem->image_url,
+                'path' => $mediaItem->path,
+                'tmdb_id' => $mediaItem->tmdb_id,
+                'is_airing' => $mediaItem->is_airing,
+                'next_season' => $mediaItem->next_season,
+                'next_season_release' => $mediaItem->next_season_release,
+                'next_season_name' => $mediaItem->next_season_name,
+                'last_air_date' => $mediaItem->last_air_date,
+                'total_seasons' => $mediaItem->total_seasons,
+                'total_episodes' => $mediaItem->total_episodes,
+                'series_status' => $mediaItem->series_status,
+                'networks' => $mediaItem->networks,
+                'created_by' => $mediaItem->created_by,
+                'genre' => $mediaItem->genre,
+                'platforms' => $mediaItem->platforms,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'action' => 'added',
+                'watchlist_type' => $watchlistType,
+                'season_info' => $seasonInfo,
+                'message' => $watchlistType === 'new_series' ? 'New series added to watchlist' : 'New season added to watchlist',
+                'data' => $watchlistItem
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error toggling series to watchlist', [
+                'series_id' => $id,
+                'user_id' => $request->user()->id,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['success' => false, 'error' => 'Failed to toggle series to watchlist'], 500);
+        }
     }
 
     /**

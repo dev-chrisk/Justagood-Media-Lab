@@ -18,6 +18,7 @@ class MediaItem extends Model
         'watchlist_type', // Type für Watchlist-Items (game, series, movie)
         'release',
         'rating',
+        'personal_rating', // User's personal rating (1-10)
         'count',
         'platforms',
         'genre',
@@ -33,16 +34,35 @@ class MediaItem extends Model
         'next_season_release',
         'external_id',
         'user_id',
+        // New series season fields
+        'tmdb_id',
+        'next_season_name',
+        'last_air_date',
+        'total_seasons',
+        'total_episodes',
+        'series_status',
+        'networks',
+        'created_by',
+        // New watchlist series fields
+        'watchlist_series_type',
+        'watchlist_original_series_id',
+        'watchlist_season_info',
     ];
 
     protected $casts = [
         'discovered' => 'date',
         'next_season_release' => 'date',
+        'last_air_date' => 'date',
         'is_airing' => 'boolean',
         'rating' => 'integer',
+        'personal_rating' => 'integer',
         'count' => 'integer',
         'spielzeit' => 'integer',
         'next_season' => 'integer',
+        'tmdb_id' => 'integer',
+        'total_seasons' => 'integer',
+        'total_episodes' => 'integer',
+        'watchlist_original_series_id' => 'integer',
     ];
 
     protected $appends = ['category_name'];

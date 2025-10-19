@@ -38,8 +38,10 @@
       <MainHeader
         v-model:search-query="searchQuery"
         v-model:sort-by="sortBy"
+        :edit-mode="editMode"
         @toggle-mobile-sidebar="safeSidebarStore.toggleMobileSidebar"
         @clear-search="clearSearch"
+        @toggle-edit-mode="toggleEditMode"
       />
 
       <!-- Content Area -->
@@ -495,12 +497,16 @@
           </div>
           
           <!-- Regular Media Grid -->
-          <div v-else class="grid">
+          <div v-else class="grid" :class="{ 'edit-mode': editMode }">
             <MediaItem 
               v-for="item in paginatedMedia" 
               :key="item.id" 
               :item="item"
+              :edit-mode="editMode"
               @edit="editItem"
+              @watchlist-toggled="handleWatchlistToggled"
+              @show-message="showMessage"
+              @rating-changed="handleRatingChanged"
             />
           </div>
         </div>
@@ -762,6 +768,26 @@ export default {
       cleanup,
       router
     } = useMediaLibrary()
+    
+    // Edit Mode functionality
+    const editMode = computed(() => mediaStore.editMode)
+    
+    const toggleEditMode = () => {
+      mediaStore.toggleEditMode()
+    }
+    
+    const handleRatingChanged = async (ratingData) => {
+      try {
+        await mediaStore.updateItemRating(ratingData.itemId, ratingData.rating)
+        console.log('✅ Rating updated successfully:', ratingData)
+      } catch (error) {
+        console.error('❌ Failed to update rating:', error)
+        showMessage({
+          type: 'error',
+          text: 'Failed to update rating. Please try again.'
+        })
+      }
+    }
 
     // Computed property for category display name to ensure it's always available
     const currentCategoryDisplayName = computed(() => {
@@ -1146,6 +1172,92 @@ export default {
     const handleGenresCleared = () => {
       mediaStore.clearGenres()
     }
+    
+    const handleWatchlistToggled = (data) => {
+      console.log('💖 Watchlist toggled:', data)
+      
+      // Show success message
+      if (data.message) {
+        showMessage({
+          type: 'success',
+          text: data.message
+        })
+      }
+      
+      // Add visual feedback for category switch
+      showCategorySwitchAnimation()
+      
+      // Switch to watchlist category to show the newly added item
+      setCategory('watchlist')
+      
+      // Refresh media data to update watchlist status
+      loadMedia()
+    }
+    
+    const showCategorySwitchAnimation = () => {
+      // Create a temporary animation element
+      const animationEl = document.createElement('div')
+      animationEl.innerHTML = '❤️ Switching to Watchlist...'
+      animationEl.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(135deg, #e8f4fd, #d1e7f7);
+        color: #1a1a1a;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: 600;
+        z-index: 10000;
+        animation: categorySwitchPulse 1.2s ease-out;
+        pointer-events: none;
+        box-shadow: 0 8px 25px rgba(232, 244, 253, 0.4);
+        border: 2px solid #e8f4fd;
+      `
+      
+      // Add CSS animation
+      const style = document.createElement('style')
+      style.textContent = `
+        @keyframes categorySwitchPulse {
+          0% { 
+            transform: translate(-50%, -50%) scale(0.8); 
+            opacity: 0; 
+          }
+          20% { 
+            transform: translate(-50%, -50%) scale(1.1); 
+            opacity: 1; 
+          }
+          80% { 
+            transform: translate(-50%, -50%) scale(1); 
+            opacity: 1; 
+          }
+          100% { 
+            transform: translate(-50%, -50%) scale(0.9); 
+            opacity: 0; 
+          }
+        }
+      `
+      document.head.appendChild(style)
+      
+      document.body.appendChild(animationEl)
+      
+      setTimeout(() => {
+        document.body.removeChild(animationEl)
+        document.head.removeChild(style)
+      }, 1200)
+    }
+    
+    const showMessage = (messageData) => {
+      console.log('📢 Message:', messageData.type, messageData.text)
+      
+      // Use the message store for better UX
+      if (messageData.type === 'error') {
+        messageStore.showMessage('Error', messageData.text, 'error')
+      } else {
+        messageStore.showMessage('Success', messageData.text, 'success')
+      }
+    }
 
     // Watch for category changes to load genres
     watch(currentCategory, (newCategory) => {
@@ -1354,6 +1466,7 @@ export default {
       txtImportResults,
       adminSetupLoading,
       adminSetupMessage,
+      editMode,
       
       // Calendar state
       currentDate,
@@ -1375,7 +1488,7 @@ export default {
       loading,
       error,
       paginatedMedia,
-      selectedGenres: mediaStore.selectedGenres,
+      selectedGenres: computed(() => mediaStore.selectedGenres),
       genres,
       genreLoading,
       genreError,
@@ -1423,6 +1536,8 @@ export default {
       handleGenresUpdated,
       handleGenresCleared,
       loadGenres,
+      toggleEditMode,
+      handleRatingChanged,
       
       // Calendar methods
       previousMonth,
@@ -1579,6 +1694,82 @@ export default {
   transition: all 0.3s ease-in-out;
   width: 100%;
   contain: layout;
+}
+
+/* Edit Mode Grid Styles */
+.grid.edit-mode {
+  gap: 16px;
+  animation: editModeEnter 0.5s ease-out;
+}
+
+@keyframes editModeEnter {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.grid.edit-mode .media-item {
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: visible;
+}
+
+.grid.edit-mode .media-item:hover {
+  border-color: #e8f4fd;
+  box-shadow: 0 8px 25px rgba(232, 244, 253, 0.3);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.grid.edit-mode .media-item::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #e8f4fd, #d1e7f7, #e8f4fd);
+  border-radius: 14px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+}
+
+.grid.edit-mode .media-item:hover::before {
+  opacity: 0.1;
+}
+
+/* Edit Mode Indicator */
+.grid.edit-mode::after {
+  content: '✏️ Edit Mode Active';
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  background: rgba(232, 244, 253, 0.95);
+  color: #1a1a1a;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 1000;
+  animation: slideInRight 0.5s ease-out;
+  box-shadow: 0 4px 12px rgba(232, 244, 253, 0.3);
+}
+
+@keyframes slideInRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 /* Smooth animations for grid items */
