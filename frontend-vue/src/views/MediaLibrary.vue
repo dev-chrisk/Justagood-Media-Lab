@@ -1198,8 +1198,10 @@ export default {
       // Add visual feedback for category switch
       showCategorySwitchAnimation()
       
-      // Switch to watchlist category to show the newly added item
-      setCategory('watchlist')
+      // Only switch to watchlist category if item was added, not removed
+      if (data.action === 'added') {
+        setCategory('watchlist')
+      }
       
       // Refresh media data to update watchlist status
       loadMedia()

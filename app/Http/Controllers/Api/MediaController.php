@@ -449,6 +449,17 @@ class MediaController extends Controller
                 return response()->json(['success' => false, 'error' => 'Media item not found'], 404);
             }
 
+            // If this is already a watchlist item, remove it
+            if ($mediaItem->category === 'watchlist') {
+                $mediaItem->delete();
+                return response()->json([
+                    'success' => true, 
+                    'action' => 'removed',
+                    'message' => 'Series removed from watchlist'
+                ]);
+            }
+
+            // Only allow adding series that are airing
             if ($mediaItem->category !== 'series' || !$mediaItem->is_airing) {
                 return response()->json(['success' => false, 'error' => 'Only airing series can be added to watchlist'], 400);
             }
