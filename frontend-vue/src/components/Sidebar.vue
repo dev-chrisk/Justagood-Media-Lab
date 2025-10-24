@@ -488,6 +488,7 @@ export default {
   display: flex;
   align-items: center;
   position: relative;
+  justify-content: space-between;
 }
 
 .nav-btn, .nav-btn:visited {
@@ -550,25 +551,27 @@ export default {
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #e8f4fd;
+  background: none;
   border: none;
-  border-radius: 50%;
-  color: #1a1a1a;
+  border-radius: 4px;
+  color: #a0a0a0;
   cursor: pointer;
   transition: all 0.2s;
   margin-right: 8px;
-  opacity: 0;
-  transform: scale(0.8);
+  opacity: 1;
+  transform: scale(1);
+  flex-shrink: 0;
 }
 
 .nav-item:hover .add-btn {
-  opacity: 1;
-  transform: scale(1);
+  transform: scale(1.05);
+  color: #e0e0e0;
 }
 
 .add-btn:hover {
-  background: #d1e7f7;
+  background: rgba(255, 255, 255, 0.1);
   transform: scale(1.1);
+  color: #e0e0e0;
 }
 
 .add-icon {
@@ -756,14 +759,15 @@ export default {
 /* Genre Checkbox Styles */
 .genre-checkbox-item {
   padding: 8px 12px 8px 20px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 8px;
   margin: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
   border-radius: 6px;
-  justify-content: space-between;
+  position: relative;
 }
 
 .genre-checkbox-item:hover {
@@ -779,18 +783,9 @@ export default {
   transition: all 0.2s;
   border-radius: 4px;
   padding: 2px;
-  flex-shrink: 0;
   width: 20px;
   height: 20px;
   justify-content: center;
-}
-
-.genre-checkbox-label.include-checkbox {
-  margin-right: 4px;
-}
-
-.genre-checkbox-label.exclude-checkbox {
-  margin-right: 8px;
 }
 
 .genre-checkbox-label:hover {
@@ -814,11 +809,9 @@ export default {
 }
 
 .genre-name {
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-right: 8px;
   font-weight: 400;
   color: #d0d0d0;
   font-size: 14px;
@@ -836,8 +829,7 @@ export default {
   font-weight: 500;
   min-width: 24px;
   text-align: center;
-  flex-shrink: 0;
-  margin-left: 8px;
+  justify-self: end;
 }
 
 /* Selected state for checkbox labels */

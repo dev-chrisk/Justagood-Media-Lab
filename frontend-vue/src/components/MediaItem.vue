@@ -15,16 +15,21 @@
     <div class="media-info">
       <!-- Labels Container - All labels in one row above title -->
       <div class="labels-container">
+        <!-- Category Type Tag for Watchlist Items -->
+        <div v-if="isWatchlistItem && getTypeTagText()" class="category-type-tag">
+          {{ getCategoryIcon() }}
+        </div>
+        
         <!-- Watchlist Series Type Tags -->
         <div v-if="isWatchlistItem && item.watchlist_series_type === 'new_season'" class="watchlist-tag new-season">
           📺 {{ item.watchlist_season_info || 'New Season' }}
         </div>
         
-        <!-- Airing Status -->
-        <div v-if="isSeries && item.is_airing" class="status-badge airing">
+        <!-- Airing Status (only for non-watchlist series) -->
+        <div v-if="isSeries && !isWatchlistItem && item.is_airing" class="status-badge airing">
           🔴 Airing
         </div>
-        <div v-else-if="isSeries && item.series_status" class="status-badge finished">
+        <div v-else-if="isSeries && !isWatchlistItem && item.series_status" class="status-badge finished">
           {{ getStatusIcon() }} {{ item.series_status }}
         </div>
         
@@ -484,6 +489,36 @@ export default {
     },
     
     getCategoryIcon() {
+      // For watchlist items, use the watchlist type instead of category
+      if (this.isWatchlistItem) {
+        const watchlistType = this.item.watchlistType || this.item.watchlist_type
+        if (watchlistType) {
+          const type = watchlistType.toLowerCase()
+          if (type === 'movies' || type === 'movie') return '🎬'
+          if (type === 'books' || type === 'buecher') return '📚'
+          if (type === 'series' || type === 'tv') return '📺'
+          if (type === 'games' || type === 'game') return '🎮'
+        }
+        // Fallback to auto-detection if no manual type is set
+        if (this.item.genre) {
+          const genre = this.item.genre.toLowerCase()
+          if (genre.includes('game') || genre.includes('gaming') || this.item.platforms?.toLowerCase().includes('steam') || this.item.platforms?.toLowerCase().includes('ps') || this.item.platforms?.toLowerCase().includes('xbox')) {
+            return '🎮'
+          }
+          if (genre.includes('book') || genre.includes('buecher')) {
+            return '📚'
+          }
+          if (genre.includes('series') || genre.includes('tv') || genre.includes('tv show')) {
+            return '📺'
+          }
+          if (genre.includes('movie') || genre.includes('film')) {
+            return '🎬'
+          }
+        }
+        return '📁' // Default fallback
+      }
+      
+      // For non-watchlist items, use the category
       const category = this.item.category?.toLowerCase()
       if (category === 'movies' || category === 'movie') return '🎬'
       if (category === 'books' || category === 'buecher') return '📚'
@@ -580,12 +615,12 @@ export default {
 }
 
 .media-item:hover {
-  transform: translateY(-4px) scale(1.02);
+  transform: scale(1.05);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
 }
 
 .media-item:active {
-  transform: translateY(-2px) scale(1.01);
+  transform: scale(1.02);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
@@ -1019,6 +1054,28 @@ export default {
 }
 
 /* ===========================================
+   CATEGORY TYPE TAG STYLES
+   =========================================== */
+
+.category-type-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 24px;
+  width: 24px;
+  height: 24px;
+  background: rgba(108, 117, 125, 0.9);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ===========================================
    WATCHLIST TAGS STYLES
    =========================================== */
 
@@ -1140,6 +1197,13 @@ export default {
     margin-bottom: 6px;
   }
   
+  .category-type-tag {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    padding: 2px;
+  }
+  
   .watchlist-tag,
   .status-badge,
   .days-left,
@@ -1162,6 +1226,13 @@ export default {
   .labels-container {
     gap: 2px;
     margin-bottom: 4px;
+  }
+  
+  .category-type-tag {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+    padding: 1px;
   }
   
   .watchlist-tag,
