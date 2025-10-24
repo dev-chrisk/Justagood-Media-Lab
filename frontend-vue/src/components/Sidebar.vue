@@ -749,6 +749,8 @@ export default {
   background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Genre Checkbox Styles */
@@ -861,8 +863,8 @@ export default {
 
 
 .show-more-btn {
-  width: 100%;
-  padding: 6px 20px;
+  width: calc(100% - 40px);
+  padding: 6px 12px;
   background: rgba(255, 255, 255, 0.1);
   color: #e0e0e0;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -872,6 +874,10 @@ export default {
   font-weight: 500;
   margin: 8px 20px 0;
   transition: all 0.2s;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .show-more-btn:hover {
@@ -880,8 +886,8 @@ export default {
 }
 
 .clear-genre-btn {
-  width: 100%;
-  padding: 8px 20px;
+  width: calc(100% - 40px);
+  padding: 8px 12px;
   background: #e8f4fd;
   color: #1a1a1a;
   border: none;
@@ -891,6 +897,10 @@ export default {
   font-weight: 500;
   margin: 8px 20px 0;
   transition: background 0.2s;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .clear-genre-btn:hover {
