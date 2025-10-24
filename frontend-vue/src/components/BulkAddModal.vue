@@ -15,16 +15,31 @@
           </div>
           
           <div class="bulk-add-form">
-            <div class="form-group">
-              <label for="category">Category *</label>
-              <select id="category" v-model="bulkData.category" required>
-                <option value="">Select Category</option>
-                <option value="game">Game</option>
-                <option value="series">Series</option>
-                <option value="movie">Movie</option>
-                <option value="buecher">Bücher</option>
-                <option value="watchlist">Watchlist</option>
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="category">Category *</label>
+                <select id="category" v-model="bulkData.category" required>
+                  <option value="">Select Category</option>
+                  <option value="game">Game</option>
+                  <option value="series">Series</option>
+                  <option value="movie">Movie</option>
+                  <option value="buecher">Bücher</option>
+                  <option value="watchlist">Watchlist</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="default-rating">Default Rating</label>
+                <input 
+                  id="default-rating"
+                  v-model.number="bulkData.defaultRating"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  placeholder="Optional rating for all items"
+                />
+              </div>
             </div>
             
             <div class="form-group">
@@ -33,23 +48,10 @@
                 id="items-text"
                 v-model="bulkData.itemsText"
                 placeholder="Enter items one per line, for example:&#10;The Witcher 3&#10;Cyberpunk 2077&#10;Red Dead Redemption 2"
-                rows="10"
+                rows="6"
                 required
               ></textarea>
               <small class="help-text">Enter one item per line. The system will automatically search and add each item individually.</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="default-rating">Default Rating</label>
-              <input 
-                id="default-rating"
-                v-model.number="bulkData.defaultRating"
-                type="number"
-                min="0"
-                max="10"
-                step="0.1"
-                placeholder="Optional rating for all items"
-              />
             </div>
           </div>
         </div>
@@ -500,7 +502,28 @@ export default {
               
               addResult(item.searchTerm, 'found', `Found: ${apiResult.title} (${apiResult.api_source})`)
               
-              // Step 2: Add the item using the same method as EditModal
+              // Step 2: For series, fetch additional TMDB info
+              let tmdbData = null
+              if (bulkData.value.category === 'series') {
+                updateCurrentItem(
+                  { title: apiResult.title },
+                  'fetching',
+                  'Fetching TMDB series info...'
+                )
+                
+                try {
+                  console.log('🔍 Fetching TMDB info for series:', apiResult.title)
+                  const tmdbResponse = await mediaApi.checkSeriesInfo(apiResult.title)
+                  if (tmdbResponse.success && tmdbResponse.data) {
+                    tmdbData = tmdbResponse.data
+                    console.log('✅ TMDB data received:', tmdbData)
+                  }
+                } catch (tmdbError) {
+                  console.warn('⚠️ Failed to fetch TMDB info:', tmdbError)
+                }
+              }
+              
+              // Step 3: Add the item using the same method as EditModal
               updateCurrentItem(
                 { title: apiResult.title },
                 'adding',
@@ -520,7 +543,21 @@ export default {
                 count: 1,
                 is_airing: false,
                 spielzeit: 0,
-                description: apiResult.overview || item.additionalInfo || null
+                description: apiResult.overview || item.additionalInfo || null,
+                // Add TMDB data for series
+                ...(tmdbData && {
+                  tmdb_id: tmdbData.tmdb_id,
+                  is_airing: tmdbData.is_airing || false,
+                  next_season: tmdbData.next_episode?.season_number || null,
+                  next_season_release: tmdbData.next_episode?.air_date || null,
+                  next_season_name: tmdbData.next_episode?.name || null,
+                  last_air_date: tmdbData.last_air_date || null,
+                  total_seasons: tmdbData.number_of_seasons || null,
+                  total_episodes: tmdbData.number_of_episodes || null,
+                  series_status: tmdbData.status || null,
+                  networks: tmdbData.networks?.join(', ') || null,
+                  created_by: tmdbData.created_by?.join(', ') || null
+                })
               }
               
               // Use the same add method as EditModal with skipReload for bulk operations
@@ -754,18 +791,24 @@ export default {
   border-radius: 12px;
   width: 100%;
   max-width: 700px;
-  max-height: 90vh;
-  overflow-y: auto;
+  height: auto;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+@media (min-width: 769px) {
+  .modal-content {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24px 24px 0;
+  padding: 20px 20px 0;
   border-bottom: 1px solid #404040;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .modal-header h2 {
@@ -792,7 +835,7 @@ export default {
 }
 
 .modal-body {
-  padding: 0 24px;
+  padding: 0 20px;
 }
 
 .step-container {
@@ -803,7 +846,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .step-number {
@@ -829,7 +872,13 @@ export default {
 .bulk-add-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .form-group {
@@ -847,7 +896,7 @@ export default {
 .form-group input,
 .form-group select,
 .form-group textarea {
-  padding: 12px;
+  padding: 8px;
   border: 1px solid #555;
   border-radius: 6px;
   background: #1a1a1a;
@@ -1225,9 +1274,9 @@ export default {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding: 24px;
+  padding: 20px;
   border-top: 1px solid #404040;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .processing-controls {
@@ -1288,6 +1337,7 @@ export default {
   .modal-content {
     margin: 10px;
     max-height: 95vh;
+    overflow-y: auto;
   }
   
   .modal-header,
@@ -1295,6 +1345,11 @@ export default {
   .modal-footer {
     padding-left: 16px;
     padding-right: 16px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
   
   .progress-stats {

@@ -113,6 +113,14 @@ export function useMediaLibrary() {
       return {}
     }
   })
+  const excludedGenres = computed(() => {
+    try {
+      return mediaStore.excludedGenres
+    } catch (error) {
+      console.error('Error accessing mediaStore.excludedGenres:', error)
+      return []
+    }
+  })
   const loading = computed(() => {
     try {
       return mediaStore.loading
@@ -145,8 +153,8 @@ export function useMediaLibrary() {
           bVal = b.__order || 0
         } else if (field === 'airing') {
           // Sort by airing status (airing first, then finished)
-          aVal = a.isAiring ? 1 : 0
-          bVal = b.isAiring ? 1 : 0
+          aVal = a.is_airing ? 1 : 0
+          bVal = b.is_airing ? 1 : 0
         } else if (field === 'api_rating') {
           // Sort by API rating
           aVal = a.api_rating || a.rating || 0
@@ -155,7 +163,19 @@ export function useMediaLibrary() {
           // Sort by personal rating
           aVal = a.personal_rating || 0
           bVal = b.personal_rating || 0
+        } else if (field === 'release') {
+          // Sort by release date - handle different date formats
+          aVal = a.release ? new Date(a.release).getTime() : 0
+          bVal = b.release ? new Date(b.release).getTime() : 0
+        } else if (field === 'title') {
+          // Sort by title - handle null/undefined
+          aVal = a.title || ''
+          bVal = b.title || ''
         }
+        
+        // Handle null/undefined values
+        if (aVal === null || aVal === undefined) aVal = 0
+        if (bVal === null || bVal === undefined) bVal = 0
         
         if (typeof aVal === 'string') {
           aVal = aVal.toLowerCase()
@@ -547,6 +567,7 @@ export function useMediaLibrary() {
     currentCategory,
     searchQuery,
     categoryCounts,
+    excludedGenres,
     loading,
     error,
     paginatedMedia,

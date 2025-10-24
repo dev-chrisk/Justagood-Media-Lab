@@ -66,7 +66,7 @@
 
 
       <!-- Genre Filter Section -->
-      <div v-if="showGenreSection" class="sidebar-section">
+      <div v-if="showGenreSection" class="sidebar-section genre-section">
         <h3>Genres</h3>
         <div v-if="genreLoading" class="genre-loading">
           <div class="loading-spinner"></div>
@@ -79,34 +79,62 @@
         <div v-else-if="genres.length === 0" class="genre-empty">
           <span>No genres available</span>
         </div>
-        <div v-else class="genre-list">
-          <div
-            v-for="genre in genres"
-            :key="genre.name"
-            class="genre-checkbox-item"
-            :title="`${genre.name} (${genre.count} items)`"
-          >
-            <label class="genre-checkbox-label">
+        <div v-else class="genre-list" :class="{ 'loading': genreLoading }">
+          <transition-group name="genre-fade" tag="div">
+            <div
+              v-for="(genre, index) in genreCheckboxStates"
+              :key="genre.name"
+              class="genre-checkbox-item"
+              :title="`${genre.name} (${genre.count} items)`"
+              :style="{ '--animation-delay': `${index * 50}ms` }"
+            >
+            <!-- Genre Name -->
+            <span class="genre-name">{{ genre.name }}</span>
+            
+            <!-- Include Checkbox (Blue) -->
+            <label class="genre-checkbox-label include-checkbox">
               <input
                 type="checkbox"
                 :value="genre.name"
-                :checked="selectedGenres.includes(genre.name)"
-                @change="toggleGenre(genre.name)"
-                class="genre-checkbox"
+                :checked="genre.isIncluded"
+                @change="toggleGenreInclude(genre.name)"
+                class="genre-checkbox include-checkbox-input"
               />
-              <span class="genre-checkbox-text">
-                <span class="genre-name">{{ genre.name }}</span>
-                <span class="genre-count">{{ genre.count }}</span>
-              </span>
             </label>
+            
+            <!-- Exclude Checkbox (Red) -->
+            <label class="genre-checkbox-label exclude-checkbox">
+              <input
+                type="checkbox"
+                :value="genre.name"
+                :checked="genre.isExcluded"
+                @change="toggleGenreExclude(genre.name)"
+                class="genre-checkbox exclude-checkbox-input"
+              />
+            </label>
+            
+            <!-- Genre Count -->
+            <span class="genre-count">{{ genre.count }}</span>
           </div>
+          </transition-group>
+          
+          <!-- Show More/Less Toggle -->
           <button 
-            v-if="selectedGenres.length > 0" 
+            v-if="genres.length > 5" 
+            class="show-more-btn" 
+            @click="toggleShowAllGenres"
+            :title="showAllGenres ? 'Show fewer genres' : 'Show all genres'"
+          >
+            {{ showAllGenres ? 'Show Less' : `Show More (${genres.length - 5})` }}
+          </button>
+          
+          <button 
+            v-if="selectedGenres.length > 0 || excludedGenres.length > 0" 
             class="clear-genre-btn" 
             @click="clearGenreFilter"
             title="Clear all genre filters"
           >
-            Clear All Filters ({{ selectedGenres.length }})
+            Clear All Filters ({{ selectedGenres.length + excludedGenres.length }})
           </button>
         </div>
       </div>
@@ -185,6 +213,10 @@ export default {
       type: Array,
       default: () => []
     },
+    excludedGenres: {
+      type: Array,
+      default: () => []
+    },
     genres: {
       type: Array,
       default: () => []
@@ -208,37 +240,97 @@ export default {
     'showRegister',
     'logout',
     'genres-updated',
+    'genres-excluded',
     'genres-cleared',
     'load-genres'
   ],
+  data() {
+    return {
+      showAllGenres: false
+    }
+  },
   computed: {
     showGenreSection() {
       return this.currentCategory && 
              this.currentCategory !== 'statistics' && 
              this.currentCategory !== 'calendar' && 
              this.currentCategory !== 'profile'
+    },
+    visibleGenres() {
+      if (this.showAllGenres || this.genres.length <= 5) {
+        return this.genres
+      }
+      return this.genres.slice(0, 5)
+    },
+    // Ensure checkbox states are properly synchronized
+    genreCheckboxStates() {
+      return this.visibleGenres.map(genre => ({
+        ...genre,
+        isIncluded: this.selectedGenres.includes(genre.name),
+        isExcluded: this.excludedGenres.includes(genre.name)
+      }))
     }
   },
   methods: {
-    toggleGenre(genreName) {
+    toggleGenreInclude(genreName) {
       const currentGenres = [...this.selectedGenres]
-      const index = currentGenres.indexOf(genreName)
+      const currentExcluded = [...this.excludedGenres]
       
-      if (index > -1) {
-        // Remove genre if already selected
+      // Check if genre is currently included
+      const isIncluded = currentGenres.includes(genreName)
+      
+      if (isIncluded) {
+        // If currently included, remove it (neutral state)
+        const index = currentGenres.indexOf(genreName)
         currentGenres.splice(index, 1)
       } else {
-        // Add genre if not selected
+        // If not included, add it and ALWAYS remove from excluded
         currentGenres.push(genreName)
+        // Force remove from excluded array
+        const excludeIndex = currentExcluded.indexOf(genreName)
+        if (excludeIndex > -1) {
+          currentExcluded.splice(excludeIndex, 1)
+        }
       }
       
+      // Emit both events to ensure state is synchronized
       this.$emit('genres-updated', currentGenres)
+      this.$emit('genres-excluded', currentExcluded)
+    },
+    toggleGenreExclude(genreName) {
+      const currentGenres = [...this.selectedGenres]
+      const currentExcluded = [...this.excludedGenres]
+      
+      // Check if genre is currently excluded
+      const isExcluded = currentExcluded.includes(genreName)
+      
+      if (isExcluded) {
+        // If currently excluded, remove it (neutral state)
+        const index = currentExcluded.indexOf(genreName)
+        currentExcluded.splice(index, 1)
+      } else {
+        // If not excluded, add it and ALWAYS remove from included
+        currentExcluded.push(genreName)
+        // Force remove from included array
+        const includeIndex = currentGenres.indexOf(genreName)
+        if (includeIndex > -1) {
+          currentGenres.splice(includeIndex, 1)
+        }
+      }
+      
+      // Emit both events to ensure state is synchronized
+      this.$emit('genres-updated', currentGenres)
+      this.$emit('genres-excluded', currentExcluded)
     },
     clearGenreFilter() {
       this.$emit('genres-cleared')
+      this.$emit('genres-excluded', [])
     },
     loadGenres() {
       this.$emit('load-genres')
+    },
+    toggleShowAllGenres() {
+      this.showAllGenres = !this.showAllGenres
     }
   }
 }
@@ -282,6 +374,10 @@ export default {
   display: none;
 }
 
+.sidebar.collapsed .genre-section {
+  display: none;
+}
+
 
 .sidebar.collapsed .user-profile .profile-details {
   display: none;
@@ -291,7 +387,20 @@ export default {
   display: none;
 }
 
+.sidebar.collapsed .user-profile {
+  padding: 8px;
+  justify-content: center;
+}
+
+.sidebar.collapsed .profile-avatar {
+  margin-right: 0;
+}
+
 .sidebar.collapsed .auth-buttons {
+  display: none;
+}
+
+.sidebar.collapsed .user-info .auth-btn {
   display: none;
 }
 
@@ -631,25 +740,55 @@ export default {
 }
 
 .genre-list {
-  padding: 8px 0;
+  padding: 12px 0;
+  min-height: 150px; /* Fixed height for 3 genres */
   max-height: 300px;
   overflow-y: auto;
+  overflow-x: hidden;
+  transition: height 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Genre Checkbox Styles */
 .genre-checkbox-item {
-  padding: 4px 0;
+  padding: 8px 12px 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  justify-content: space-between;
+}
+
+.genre-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  transform: translateX(2px);
 }
 
 .genre-checkbox-label {
   display: flex;
   align-items: center;
-  width: 100%;
-  padding: 8px 20px;
   cursor: pointer;
   transition: all 0.2s;
   border-radius: 4px;
-  margin: 2px 0;
+  padding: 2px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  justify-content: center;
+}
+
+.genre-checkbox-label.include-checkbox {
+  margin-right: 4px;
+}
+
+.genre-checkbox-label.exclude-checkbox {
+  margin-right: 8px;
 }
 
 .genre-checkbox-label:hover {
@@ -658,20 +797,18 @@ export default {
 
 .genre-checkbox {
   margin: 0;
-  margin-right: 12px;
   width: 16px;
   height: 16px;
-  accent-color: #e8f4fd;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.genre-checkbox-text {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex: 1;
-  color: #d0d0d0;
-  font-size: 14px;
+.include-checkbox-input {
+  accent-color: #e8f4fd;
+}
+
+.exclude-checkbox-input {
+  accent-color: #ff6b6b;
 }
 
 .genre-name {
@@ -680,27 +817,66 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-right: 8px;
+  font-weight: 400;
+  color: #d0d0d0;
+  font-size: 14px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
 }
 
 .genre-count {
   background: rgba(255, 255, 255, 0.2);
-  padding: 2px 6px;
-  border-radius: 10px;
+  color: #e0e0e0;
+  padding: 2px 8px;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  min-width: 20px;
+  min-width: 24px;
   text-align: center;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 /* Selected state for checkbox labels */
-.genre-checkbox:checked + .genre-checkbox-text {
+.include-checkbox-input:checked ~ .genre-name {
   color: #e8f4fd;
   font-weight: 500;
 }
 
-.genre-checkbox:checked + .genre-checkbox-text .genre-count {
+.include-checkbox-input:checked ~ .genre-count {
   background: rgba(232, 244, 253, 0.3);
   color: #e8f4fd;
+}
+
+.exclude-checkbox-input:checked ~ .genre-name {
+  color: #ff6b6b;
+  font-weight: 500;
+}
+
+.exclude-checkbox-input:checked ~ .genre-count {
+  background: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+
+.show-more-btn {
+  width: 100%;
+  padding: 6px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px 20px 0;
+  transition: all 0.2s;
+}
+
+.show-more-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .clear-genre-btn {
@@ -739,6 +915,53 @@ export default {
   background: #777;
 }
 
+/* Genre transition animations */
+.genre-fade-enter-active {
+  transition: all 0.4s ease-out;
+  transition-delay: var(--animation-delay, 0ms);
+}
+
+.genre-fade-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.genre-fade-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.genre-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+.genre-fade-move {
+  transition: transform 0.3s ease;
+}
+
+/* Loading state for genre list */
+.genre-list.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Fade-in animation for genre items (fallback) */
+.genre-checkbox-item {
+  animation: fadeIn 0.3s ease-in;
+  animation-delay: var(--animation-delay, 0ms);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Touch-specific improvements */
 @media (hover: none) and (pointer: coarse) {
   .nav-btn,
@@ -756,6 +979,35 @@ export default {
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+  }
+  
+}
+
+/* Mobile adjustments for genre items */
+@media (max-width: 768px) {
+  .genre-checkbox-item {
+    gap: 6px;
+    padding: 6px 8px 6px 16px;
+  }
+  
+  .genre-checkbox {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .genre-checkbox-text {
+    font-size: 13px;
+    padding: 2px 4px;
+  }
+  
+  .genre-name {
+    margin-right: 6px;
+  }
+  
+  .genre-count {
+    padding: 2px 6px;
+    font-size: 11px;
+    min-width: 20px;
   }
 }
 </style>

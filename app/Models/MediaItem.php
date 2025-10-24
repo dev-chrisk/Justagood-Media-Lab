@@ -47,6 +47,8 @@ class MediaItem extends Model
         'watchlist_series_type',
         'watchlist_original_series_id',
         'watchlist_season_info',
+        'watchlist_release_date',
+        'watchlist_number',
     ];
 
     protected $casts = [
@@ -63,6 +65,8 @@ class MediaItem extends Model
         'total_seasons' => 'integer',
         'total_episodes' => 'integer',
         'watchlist_original_series_id' => 'integer',
+        'watchlist_release_date' => 'date',
+        'watchlist_number' => 'integer',
     ];
 
     protected $appends = ['category_name'];

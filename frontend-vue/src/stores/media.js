@@ -51,6 +51,7 @@ export const useMediaStore = defineStore('media', () => {
   const searchQuery = ref(loadSearchQuery())
   const selectedGenre = ref(null)
   const selectedGenres = ref([])
+  const excludedGenres = ref([])
   const loading = ref(false)
   const error = ref(null)
   const editMode = ref(false)
@@ -137,6 +138,17 @@ export const useMediaStore = defineStore('media', () => {
       })
     }
 
+    // Filter out excluded genres
+    if (excludedGenres.value && excludedGenres.value.length > 0) {
+      filtered = filtered.filter(item => {
+        if (!item.genre) return true
+        const itemGenres = item.genre.split(',').map(g => g.trim().toLowerCase())
+        return !excludedGenres.value.some(excludedGenre => 
+          itemGenres.some(itemGenre => itemGenre.includes(excludedGenre.toLowerCase()))
+        )
+      })
+    }
+
     // Filter by search query
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase()
@@ -217,6 +229,29 @@ export const useMediaStore = defineStore('media', () => {
 
   function clearGenres() {
     selectedGenres.value = []
+  }
+
+  function setExcludedGenres(genres) {
+    excludedGenres.value = genres
+  }
+
+  function clearExcludedGenres() {
+    excludedGenres.value = []
+  }
+
+  function toggleGenreExclude(genreName) {
+    const currentExcluded = [...excludedGenres.value]
+    const index = currentExcluded.indexOf(genreName)
+    
+    if (index > -1) {
+      // Remove genre if already excluded
+      currentExcluded.splice(index, 1)
+    } else {
+      // Add genre if not excluded
+      currentExcluded.push(genreName)
+    }
+    
+    excludedGenres.value = currentExcluded
   }
 
   function toggleEditMode() {
@@ -328,11 +363,25 @@ export const useMediaStore = defineStore('media', () => {
     // Clear any existing error when starting a new update operation
     error.value = null
     
-    console.log('DEBUG: updateMediaItem called with:', {
+    console.log('🔍 ULTRA DEBUG - Store updateMediaItem called with:', {
       id: id,
-      itemData: itemData,
+      watchlist_release_date: itemData.watchlist_release_date,
+      next_season_release: itemData.next_season_release,
+      watchlist_number: itemData.watchlist_number,
       is_airing: itemData.is_airing,
-      type: typeof itemData.is_airing
+      type_watchlist: typeof itemData.watchlist_release_date,
+      type_next: typeof itemData.next_season_release,
+      type_watchlist_number: typeof itemData.watchlist_number,
+      is_null_watchlist: itemData.watchlist_release_date === null,
+      is_null_next: itemData.next_season_release === null,
+      is_null_watchlist_number: itemData.watchlist_number === null,
+      is_undefined_watchlist: itemData.watchlist_release_date === undefined,
+      is_undefined_next: itemData.next_season_release === undefined,
+      is_undefined_watchlist_number: itemData.watchlist_number === undefined,
+      is_empty_watchlist: itemData.watchlist_release_date === '',
+      is_empty_next: itemData.next_season_release === '',
+      is_empty_watchlist_number: itemData.watchlist_number === '',
+      FULL_ITEM_DATA: itemData
     })
     
     try {
@@ -342,9 +391,24 @@ export const useMediaStore = defineStore('media', () => {
       if (token && user) {
         // For logged in users, update via API only
         try {
-          console.log('DEBUG: Calling API updateMediaItem with:', itemData)
+          console.log('🔍 ULTRA DEBUG - Store calling API updateMediaItem with:', {
+            id: id,
+            watchlist_release_date: itemData.watchlist_release_date,
+            next_season_release: itemData.next_season_release,
+            watchlist_number: itemData.watchlist_number,
+            type_watchlist: typeof itemData.watchlist_release_date,
+            type_next: typeof itemData.next_season_release,
+            type_watchlist_number: typeof itemData.watchlist_number,
+            is_null_watchlist: itemData.watchlist_release_date === null,
+            is_null_next: itemData.next_season_release === null,
+            is_null_watchlist_number: itemData.watchlist_number === null,
+            is_undefined_watchlist: itemData.watchlist_release_date === undefined,
+            is_undefined_next: itemData.next_season_release === undefined,
+            is_undefined_watchlist_number: itemData.watchlist_number === undefined,
+            FULL_ITEM_DATA: itemData
+          })
           const updatedItem = await mediaApi.updateMediaItem(id, itemData)
-          console.log('DEBUG: API updateMediaItem returned:', updatedItem)
+          console.log('🔍 COMPREHENSIVE DEBUG - Store API updateMediaItem returned:', updatedItem)
           // Reload data from API
           await loadMedia()
           return updatedItem
@@ -596,6 +660,7 @@ export const useMediaStore = defineStore('media', () => {
     searchQuery,
     selectedGenre,
     selectedGenres,
+    excludedGenres,
     loading,
     error,
     editMode,
@@ -613,6 +678,9 @@ export const useMediaStore = defineStore('media', () => {
     clearGenre,
     setGenres,
     clearGenres,
+    setExcludedGenres,
+    clearExcludedGenres,
+    toggleGenreExclude,
     toggleEditMode,
     setEditMode,
     updateItemRating,

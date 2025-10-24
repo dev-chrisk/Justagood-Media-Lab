@@ -4,167 +4,234 @@ biem <template>
       <h2>{{ isEditing ? 'Edit Item' : 'Add Item' }}</h2>
       
       <form @submit.prevent="handleSave">
-        <!-- Header Section with Category and Title -->
-        <div class="form-header">
-          <div class="form-group category-group">
-            <label for="category">Category:</label>
-            <select id="category" v-model="form.category" required>
-              <option value="watchlist">Watchlist</option>
-              <option value="game">Game</option>
-              <option value="series">Series</option>
-              <option value="movie">Movie</option>
-              <option value="buecher">Bücher</option>
-            </select>
+        <!-- Top Control Panel -->
+        <div class="top-control-panel">
+          <div class="control-row-1">
+            <div class="form-group category-group">
+              <label for="category">Category:</label>
+              <select id="category" v-model="form.category" required>
+                <option value="watchlist">Watchlist</option>
+                <option value="game">Game</option>
+                <option value="series">Series</option>
+                <option value="movie">Movie</option>
+                <option value="buecher">Bücher</option>
+              </select>
+            </div>
+             
+            <div class="form-group title-group">
+              <label for="title">Title:</label>
+              <div class="search-container">
+                <input 
+                  type="text" 
+                  id="title"
+                  v-model="form.title" 
+                  @input="searchApi"
+                  required
+                  :placeholder="isWatchlist ? 'Enter title (API search + manual input available)' : 'Enter title'"
+                  :disabled="loading"
+                />
+                <div v-if="apiResults.length > 0" class="search-results">
+                  <div 
+                    v-for="result in apiResults" 
+                    :key="result.title"
+                    class="search-result-item"
+                    @click="selectApiResult(result)"
+                  >
+                    <div class="result-thumbnail">
+                      <img v-if="result.imageUrl" :src="ensureHttpsUrl(result.imageUrl)" :alt="result.title" />
+                      <div v-else class="no-image">
+                        <span>{{ result.title.charAt(0).toUpperCase() }}</span>
+                      </div>
+                    </div>
+                    <div class="result-content">
+                      <div class="result-title">{{ result.title }}</div>
+                      <div class="result-meta">
+                        <span v-if="result.release">{{ formatDate(result.release) }}</span>
+                        <span v-if="result.genre">{{ result.genre }}</span>
+                        <span v-if="result.rating" class="rating">⭐ {{ result.rating }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
           </div>
-           
-          <div class="form-group title-group">
-            <label for="title">Title:</label>
-            <div class="search-container">
+          
+          <div class="control-row-2">
+            <div class="form-group">
+              <label for="release">
+                {{ isWatchlist ? 'Release Date:' : 'Release:' }}
+                <span v-if="isWatchlist" class="required">*</span>
+              </label>
               <input 
-                type="text" 
-                id="title"
-                v-model="form.title" 
-                @input="searchApi"
-                required
-                :placeholder="isWatchlist ? 'Enter title (API search + manual input available)' : 'Enter title'"
-                :disabled="loading"
+                type="date" 
+                id="release"
+                v-model="form.release"
+                :required="isWatchlist"
               />
-              <div v-if="apiResults.length > 0" class="search-results">
-                <div 
-                  v-for="result in apiResults" 
-                  :key="result.title"
-                  class="search-result-item"
-                  @click="selectApiResult(result)"
-                >
-                  <div class="result-thumbnail">
-                    <img v-if="result.imageUrl" :src="ensureHttpsUrl(result.imageUrl)" :alt="result.title" />
-                    <div v-else class="no-image">
-                      <span>{{ result.title.charAt(0).toUpperCase() }}</span>
-                    </div>
-                  </div>
-                  <div class="result-content">
-                    <div class="result-title">{{ result.title }}</div>
-                    <div class="result-meta">
-                      <span v-if="result.release">{{ formatDate(result.release) }}</span>
-                      <span v-if="result.genre">{{ result.genre }}</span>
-                      <span v-if="result.rating" class="rating">⭐ {{ result.rating }}</span>
-                    </div>
-                  </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="personalRating">Personal Rating:</label>
+              <input 
+                type="number" 
+                id="personalRating"
+                v-model="form.personalRating" 
+                step="0.1" 
+                min="0" 
+                max="10"
+                placeholder="0-10"
+              />
+            </div>
+            
+            <div v-if="isSeries" class="form-group">
+              <label for="isAiring">Status:</label>
+              <select id="isAiring" v-model="form.isAiring">
+                <option :value="false">Finished</option>
+                <option :value="true">Airing</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="apiRating">API Rating:</label>
+              <input 
+                type="number" 
+                id="apiRating"
+                v-model="form.apiRating" 
+                step="0.1" 
+                min="0" 
+                max="10"
+                placeholder="0-10"
+                readonly
+              />
+            </div>
+          </div>
+          
+          <!-- Button Row -->
+          <div class="control-row-3">
+            <div class="control-buttons">
+              <button type="submit" :disabled="loading" class="save-btn">
+                {{ loading ? 'Saving...' : '💾 Save' }}
+              </button>
+              <button type="button" @click="closeModal" :disabled="loading" class="cancel-btn">
+                ✕ Cancel
+              </button>
+              <button 
+                v-if="isEditing" 
+                type="button" 
+                @click="deleteItem" 
+                :disabled="loading"
+                class="delete-btn"
+              >
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Main Form Area (Fixed, Non-scrollable) -->
+        <div class="main-form-area">
+          <div class="form-columns">
+            <div class="form-column-left">
+              <div class="form-group">
+                <label for="views">Views:</label>
+                <input 
+                  type="number" 
+                  id="views"
+                  v-model="form.count" 
+                  min="0"
+                  placeholder="0"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="discovered">Discovered:</label>
+                <input 
+                  type="date" 
+                  id="discovered"
+                  v-model="form.discovered"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="platforms">Platforms:</label>
+                <input 
+                  type="text" 
+                  id="platforms"
+                  v-model="form.platforms" 
+                  placeholder="PC, PS5, Xbox"
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="genre">Genre:</label>
+                <input 
+                  type="text" 
+                  id="genre"
+                  v-model="form.genre" 
+                  placeholder="Action, Adventure, RPG"
+                />
+              </div>
+            </div>
+            
+            <div class="form-column-right">
+              <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea 
+                  id="description"
+                  v-model="form.description" 
+                  placeholder="Enter description..."
+                  rows="3"
+                ></textarea>
+              </div>
+              
+              <div class="form-group">
+                <label for="link">Link:</label>
+                <input 
+                  type="url" 
+                  id="link"
+                  v-model="form.link" 
+                  placeholder="https://..."
+                />
+              </div>
+              
+              <div class="form-group">
+                <label for="imageUrl">Image URL:</label>
+                <div class="image-input-group">
+                  <input 
+                    type="text" 
+                    id="imageUrl"
+                    v-model="form.imageUrl" 
+                    placeholder="https://... or leave empty for API images"
+                  />
+                  <button 
+                    type="button" 
+                    @click="triggerImageUpload"
+                    class="upload-btn"
+                    :disabled="loading"
+                  >
+                    📁 Upload
+                  </button>
+                </div>
+                <div v-if="uploadedImagePath" class="upload-success">
+                  ✅ Image uploaded: {{ uploadedImagePath }}
+                  <button 
+                    type="button" 
+                    @click="removeUploadedImage"
+                    class="remove-uploaded-btn"
+                    title="Remove uploaded image to enable API search"
+                  >
+                    ✕ Remove
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
         
-        <div class="form-row">
-          <div class="form-group">
-            <label for="release">
-              {{ isWatchlist ? 'Release Date:' : 'Release:' }}
-              <span v-if="isWatchlist" class="required">*</span>
-            </label>
-            <input 
-              type="date" 
-              id="release"
-              v-model="form.release"
-              :required="isWatchlist"
-            />
-            <div v-if="isWatchlist" class="field-hint">
-              📅 Set the release date to track countdown or status
-            </div>
-            <div v-if="isWatchlist && form.release" class="release-preview">
-              <strong>Preview:</strong> {{ getReleasePreview() }}
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="apiRating">API Rating:</label>
-            <input 
-              type="number" 
-              id="apiRating"
-              v-model="form.apiRating" 
-              step="0.1" 
-              min="0" 
-              max="10"
-              placeholder="0-10"
-              readonly
-            />
-            <div class="field-hint">From API - read only</div>
-          </div>
-          
-          <div class="form-group">
-            <label for="personalRating">Personal Rating:</label>
-            <input 
-              type="number" 
-              id="personalRating"
-              v-model="form.personalRating" 
-              step="0.1" 
-              min="0" 
-              max="10"
-              placeholder="0-10"
-            />
-            <div class="field-hint">Your personal rating</div>
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label for="views">Views:</label>
-            <input 
-              type="number" 
-              id="views"
-              v-model="form.count" 
-              min="0"
-              placeholder="0"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="discovered">Discovered:</label>
-            <input 
-              type="date" 
-              id="discovered"
-              v-model="form.discovered"
-            />
-          </div>
-        </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label for="platforms">Platforms:</label>
-            <input 
-              type="text" 
-              id="platforms"
-              v-model="form.platforms" 
-              placeholder="PC, PS5, Xbox"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="genre">Genre:</label>
-            <input 
-              type="text" 
-              id="genre"
-              v-model="form.genre" 
-              placeholder="Action, Adventure, RPG"
-            />
-          </div>
-        </div>
-        
-        <!-- Description Field -->
-        <div class="form-row">
-          <div class="form-group full-width">
-            <label for="description">Description:</label>
-            <textarea 
-              id="description"
-              v-model="form.description" 
-              placeholder="Enter description..."
-              rows="3"
-            ></textarea>
-          </div>
-        </div>
-        
-        <!-- Watchlist Type Selection -->
-        <div v-if="form.category === 'watchlist'" class="form-row">
+        <!-- Watchlist Fields (Inline when category is watchlist) -->
+        <div v-if="form.category === 'watchlist'" class="watchlist-fields">
           <div class="form-group">
             <label for="watchlistType">Type: <span class="required">*</span></label>
             <select id="watchlistType" v-model="form.watchlistType">
@@ -178,39 +245,42 @@ biem <template>
               Please select a type for watchlist items
             </div>
           </div>
-        </div>
-        
-        <!-- Books API Control Panel -->
-        <BooksApiControlPanel 
-          v-if="(form.category === 'buecher' || form.watchlistType === 'buecher')"
-          :expanded="false"
-          @preferences-changed="handlePreferencesChanged"
-        />
-        
-        <div class="form-row">
+          
           <div class="form-group">
-            <label for="link">Link:</label>
-            <input 
-              type="url" 
-              id="link"
-              v-model="form.link" 
-              placeholder="https://..."
+            <label for="watchlistReleaseDate">Watchlist Release Date</label>
+            <input
+              type="date"
+              id="watchlistReleaseDate"
+              v-model="form.watchlistReleaseDate"
+              placeholder="When does this release?"
             />
           </div>
           
           <div class="form-group">
-            <label for="path">Image Path:</label>
-            <input 
-              type="text" 
-              id="path"
-              v-model="form.path" 
-              placeholder="images/movies/filename.jpg"
+            <label for="watchlistNumber">Watchlist Number</label>
+            <input
+              type="number"
+              id="watchlistNumber"
+              v-model="form.watchlistNumber"
+              placeholder="Enter a number"
+              min="1"
             />
+          </div>
+          
+          <div class="form-group">
+            <label for="extraLink">Extra Link:</label>
+            <input 
+              type="url" 
+              id="extraLink"
+              v-model="form.extraLink" 
+              placeholder="https://... (e.g., streaming platform, official website)"
+            />
+            <div class="field-hint">Optional: Additional link for watchlist items (e.g., streaming platform, official website)</div>
           </div>
         </div>
         
-        <!-- Game-specific fields -->
-        <div v-if="isGame" class="form-row">
+        <!-- Game Fields (Inline when category is game) -->
+        <div v-if="isGame" class="game-fields">
           <div class="form-group">
             <label for="playtime">Playtime (Minutes):</label>
             <input 
@@ -223,258 +293,159 @@ biem <template>
           </div>
         </div>
         
-        <!-- Series-specific fields -->
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group">
-            <label for="isAiring">Status:</label>
-            <select id="isAiring" v-model="form.isAiring">
-              <option :value="false">Finished</option>
-              <option :value="true">Airing</option>
-            </select>
-          </div>
-          
-          <div v-if="form.isAiring" class="form-group">
-            <label for="nextSeason">Next Season:</label>
-            <input 
-              type="number" 
-              id="nextSeason"
-              v-model="form.nextSeason" 
-              min="1"
-              placeholder="1"
-            />
-          </div>
-        </div>
-        
-        <!-- Series API Check Button -->
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group full-width">
-            <label>TMDB Series Information:</label>
-            <div class="api-check-container">
-              <button 
-                type="button" 
-                @click="checkSeriesAPI" 
-                :disabled="loading || !form.title"
-                class="api-check-btn"
-              >
-                <span v-if="apiLoading">🔍 Checking...</span>
-                <span v-else>🔍 Check Series Info</span>
-              </button>
-              <div v-if="apiError" class="api-error">
-                {{ apiError }}
+        <!-- Collapsible Sections -->
+        <div class="collapsible-sections">
+          <!-- Series Details Section -->
+          <div v-if="isSeries" class="collapsible-section">
+            <button 
+              type="button" 
+              @click="toggleSeriesDetails" 
+              class="collapsible-header"
+              :class="{ 'expanded': seriesDetailsExpanded }"
+            >
+              📺 Series Details {{ seriesDetailsExpanded ? '▼' : '▶' }}
+            </button>
+            <div v-if="seriesDetailsExpanded" class="collapsible-content">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="nextSeasonName">Next Season Name:</label>
+                  <input 
+                    type="text" 
+                    id="nextSeasonName"
+                    v-model="form.nextSeasonName" 
+                    placeholder="e.g., The Final Season"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="lastAirDate">Last Air Date:</label>
+                  <input 
+                    type="date" 
+                    id="lastAirDate"
+                    v-model="form.lastAirDate"
+                  />
+                </div>
               </div>
-              <div v-if="apiSuccess" class="api-success">
-                ✅ Series information updated from TMDB
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="totalSeasons">Total Seasons:</label>
+                  <input 
+                    type="number" 
+                    id="totalSeasons"
+                    v-model="form.totalSeasons" 
+                    min="0"
+                    placeholder="0"
+                  />
+                </div>
+                
+                <div class="form-group">
+                  <label for="totalEpisodes">Total Episodes:</label>
+                  <input 
+                    type="number" 
+                    id="totalEpisodes"
+                    v-model="form.totalEpisodes" 
+                    min="0"
+                    placeholder="0"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Additional Series Fields -->
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group">
-            <label for="nextSeasonName">Next Season Name:</label>
-            <input 
-              type="text" 
-              id="nextSeasonName"
-              v-model="form.nextSeasonName" 
-              placeholder="e.g., The Final Season"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="lastAirDate">Last Air Date:</label>
-            <input 
-              type="date" 
-              id="lastAirDate"
-              v-model="form.lastAirDate"
-            />
-          </div>
-        </div>
-        
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group">
-            <label for="totalSeasons">Total Seasons:</label>
-            <input 
-              type="number" 
-              id="totalSeasons"
-              v-model="form.totalSeasons" 
-              min="0"
-              placeholder="0"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="totalEpisodes">Total Episodes:</label>
-            <input 
-              type="number" 
-              id="totalEpisodes"
-              v-model="form.totalEpisodes" 
-              min="0"
-              placeholder="0"
-            />
-          </div>
-        </div>
-        
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group">
-            <label for="seriesStatus">Series Status:</label>
-            <select id="seriesStatus" v-model="form.seriesStatus">
-              <option value="">Select Status</option>
-              <option value="Returning Series">Returning Series</option>
-              <option value="Ended">Ended</option>
-              <option value="In Production">In Production</option>
-              <option value="Canceled">Canceled</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="networks">Networks:</label>
-            <input 
-              type="text" 
-              id="networks"
-              v-model="form.networks" 
-              placeholder="e.g., Netflix, HBO"
-            />
-          </div>
-        </div>
-        
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group full-width">
-            <label for="createdBy">Created By:</label>
-            <input 
-              type="text" 
-              id="createdBy"
-              v-model="form.createdBy" 
-              placeholder="e.g., The Duffer Brothers"
-            />
-          </div>
-        </div>
-        
-        <!-- Extra Link for Series -->
-        <div v-if="isSeries" class="form-row">
-          <div class="form-group full-width">
-            <label for="extraLink">Extra Link:</label>
-            <input 
-              type="url" 
-              id="extraLink"
-              v-model="form.extraLink" 
-              placeholder="https://... (e.g., streaming platform, official website)"
-            />
-            <div class="field-hint">Optional: Additional link for series (e.g., streaming platform, official website)</div>
-          </div>
-        </div>
-        
-        <div v-if="form.isAiring" class="form-row">
-          <div class="form-group">
-            <label for="nextSeasonRelease">Next Season Release:</label>
-            <input 
-              type="date" 
-              id="nextSeasonRelease"
-              v-model="form.nextSeasonRelease"
-            />
-          </div>
-        </div>
-        
-        <!-- Image Section -->
-        <div class="form-row">
-          <div class="form-group">
-            <label for="imageUrl">Image URL (optional):</label>
-            <input 
-              type="text" 
-              id="imageUrl"
-              v-model="form.imageUrl" 
-              placeholder="https://... or leave empty for API images"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="imageUpload">Upload Image:</label>
-            <div class="image-upload-container">
-              <input 
-                type="file" 
-                id="imageUpload"
-                ref="imageUploadRef"
-                @change="handleImageUpload"
-                accept="image/*"
-                style="display: none"
-              />
-              <button 
-                type="button" 
-                @click="triggerImageUpload"
-                class="upload-btn"
-                :disabled="loading"
-              >
-                📁 Choose Image
-              </button>
-              <div v-if="uploadedImagePath" class="upload-success">
-                ✅ Image uploaded: {{ uploadedImagePath }}
-                <button 
-                  type="button" 
-                  @click="removeUploadedImage"
-                  class="remove-uploaded-btn"
-                  title="Remove uploaded image to enable API search"
-                >
-                  ✕ Remove
-                </button>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="seriesStatus">Series Status:</label>
+                  <select id="seriesStatus" v-model="form.seriesStatus">
+                    <option value="">Select Status</option>
+                    <option value="Returning Series">Returning Series</option>
+                    <option value="Ended">Ended</option>
+                    <option value="In Production">In Production</option>
+                    <option value="Canceled">Canceled</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="networks">Networks:</label>
+                  <input 
+                    type="text" 
+                    id="networks"
+                    v-model="form.networks" 
+                    placeholder="e.g., Netflix, HBO"
+                  />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group full-width">
+                  <label for="createdBy">Created By:</label>
+                  <input 
+                    type="text" 
+                    id="createdBy"
+                    v-model="form.createdBy" 
+                    placeholder="e.g., The Duffer Brothers"
+                  />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group full-width">
+                  <label for="extraLink">Extra Link:</label>
+                  <input 
+                    type="url" 
+                    id="extraLink"
+                    v-model="form.extraLink" 
+                    placeholder="https://... (e.g., streaming platform, official website)"
+                  />
+                  <div class="field-hint">Optional: Additional link for series (e.g., streaming platform, official website)</div>
+                </div>
+              </div>
+              
+              <div v-if="form.isAiring" class="form-row">
+                <div class="form-group">
+                  <label for="nextSeasonRelease">Next Season Release:</label>
+                  <input 
+                    type="date" 
+                    id="nextSeasonRelease"
+                    v-model="form.nextSeasonRelease"
+                  />
+                </div>
+              </div>
+              
+              <!-- Series API Check Button -->
+              <div class="form-row">
+                <div class="form-group full-width">
+                  <label>TMDB Series Information:</label>
+                  <div class="api-check-container">
+                    <button 
+                      type="button" 
+                      @click="checkSeriesAPI" 
+                      :disabled="loading || !form.title"
+                      class="api-check-btn"
+                    >
+                      <span v-if="apiLoading">🔍 Checking...</span>
+                      <span v-else>🔍 Check Series Info</span>
+                    </button>
+                    <div v-if="apiError" class="api-error">
+                      {{ apiError }}
+                    </div>
+                    <div v-if="apiSuccess" class="api-success">
+                      ✅ Series information updated from TMDB
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
         
-        <!-- Image Preview -->
-        <div v-if="shouldShowImagePreview" class="form-row">
-          <div class="form-group image-preview-group">
-            <label>Image Preview:</label>
-            <div class="image-preview">
-              <img 
-                :src="getImagePreviewUrl()" 
-                :alt="form.title"
-                @error="handleImageError"
-                @load="handleImageLoad"
-                @loadstart="handleImageLoadStart"
-                @loadend="handleImageLoadEnd"
-              />
-              <button 
-                type="button" 
-                @click="clearImage"
-                class="clear-image-btn"
-                title="Remove image"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
+        <!-- Books API Control Panel -->
+        <BooksApiControlPanel 
+          v-if="(form.category === 'buecher' || form.watchlistType === 'buecher')"
+          :expanded="false"
+          @preferences-changed="handlePreferencesChanged"
+        />
         
         <div v-if="error" class="error-message">
           {{ error }}
-        </div>
-        
-        <div class="modal-buttons">
-          <button type="submit" :disabled="loading">
-            {{ loading ? 'Saving...' : 'Save' }}
-          </button>
-          <button type="button" @click="closeModal" :disabled="loading">
-            Cancel
-          </button>
-          <button 
-            v-if="isEditing" 
-            type="button" 
-            @click="deleteItem" 
-            :disabled="loading"
-            class="delete-btn"
-          >
-            Delete
-          </button>
-          <button 
-            type="button" 
-            @click="handleSave" 
-            :disabled="loading"
-            class="check-btn"
-            title="Add to list"
-          >
-            ✓
-          </button>
         </div>
       </form>
     </div>
@@ -520,6 +491,9 @@ export default {
     const apiError = ref('')
     const apiSuccess = ref(false)
     
+    // Collapsible sections state
+    const seriesDetailsExpanded = ref(false)
+    
     const form = reactive({
       category: 'watchlist',
       title: '',
@@ -540,6 +514,8 @@ export default {
       nextSeasonRelease: '',
       imageUrl: '',
       watchlistType: '',
+      watchlistReleaseDate: '',
+      watchlistNumber: '',
       imageCleared: false,
       // New series fields
       tmdbId: '',
@@ -569,9 +545,33 @@ export default {
           form.watchlistType = ''
         }
         
-        // Then map other fields, but skip watchlistType to avoid overwriting
+        if (newItem.watchlist_release_date !== undefined) {
+          // Convert date to YYYY-MM-DD format for input field
+          const date = newItem.watchlist_release_date
+          if (date instanceof Date) {
+            form.watchlistReleaseDate = date.toISOString().split('T')[0]
+          } else if (typeof date === 'string' && date.includes('T')) {
+            form.watchlistReleaseDate = date.split('T')[0]
+          } else {
+            form.watchlistReleaseDate = date || ''
+          }
+        } else if (newItem.watchlistReleaseDate !== undefined) {
+          form.watchlistReleaseDate = newItem.watchlistReleaseDate || ''
+        } else {
+          form.watchlistReleaseDate = ''
+        }
+        
+        if (newItem.watchlist_number !== undefined) {
+          form.watchlistNumber = newItem.watchlist_number || ''
+        } else if (newItem.watchlistNumber !== undefined) {
+          form.watchlistNumber = newItem.watchlistNumber || ''
+        } else {
+          form.watchlistNumber = ''
+        }
+        
+        // Then map other fields, but skip watchlistType, watchlistReleaseDate, and watchlistNumber to avoid overwriting
         Object.keys(form).forEach(key => {
-          if (key !== 'watchlistType') {
+          if (key !== 'watchlistType' && key !== 'watchlistReleaseDate' && key !== 'watchlistNumber') {
             form[key] = newItem[key] || ''
           }
         })
@@ -616,7 +616,15 @@ export default {
           form.nextSeason = newItem.next_season
         }
         if (newItem.next_season_release !== undefined) {
-          form.nextSeasonRelease = newItem.next_season_release
+          // Convert date to YYYY-MM-DD format for input field
+          const date = newItem.next_season_release
+          if (date instanceof Date) {
+            form.nextSeasonRelease = date.toISOString().split('T')[0]
+          } else if (typeof date === 'string' && date.includes('T')) {
+            form.nextSeasonRelease = date.split('T')[0]
+          } else {
+            form.nextSeasonRelease = date || ''
+          }
         }
         if (newItem.api_rating !== undefined) {
           form.apiRating = newItem.api_rating
@@ -691,11 +699,59 @@ export default {
         // Clean up form data
         const itemData = { ...form }
         
-        // Convert empty strings to null for optional fields (except watchlistType, image fields, and extraLink)
+        console.log('🔍 ULTRA DEBUG - Form data before processing:', {
+          watchlistReleaseDate: form.watchlistReleaseDate,
+          nextSeasonRelease: form.nextSeasonRelease,
+          watchlistNumber: form.watchlistNumber,
+          extraLink: form.extraLink,
+          type_watchlist: typeof form.watchlistReleaseDate,
+          type_next: typeof form.nextSeasonRelease,
+          type_watchlist_number: typeof form.watchlistNumber,
+          type_extraLink: typeof form.extraLink,
+          is_empty_watchlist: form.watchlistReleaseDate === '',
+          is_empty_next: form.nextSeasonRelease === '',
+          is_empty_watchlist_number: form.watchlistNumber === '',
+          is_empty_extraLink: form.extraLink === '',
+          is_null_watchlist: form.watchlistReleaseDate === null,
+          is_null_next: form.nextSeasonRelease === null,
+          is_null_watchlist_number: form.watchlistNumber === null,
+          is_null_extraLink: form.extraLink === null,
+          is_undefined_watchlist: form.watchlistReleaseDate === undefined,
+          is_undefined_next: form.nextSeasonRelease === undefined,
+          is_undefined_watchlist_number: form.watchlistNumber === undefined,
+          is_undefined_extraLink: form.extraLink === undefined,
+          ALL_FORM_DATA: form
+        })
+        
+        // Convert empty strings to null for optional fields (except watchlistType, image fields, extraLink, and date fields)
         Object.keys(itemData).forEach(key => {
-          if (itemData[key] === '' && key !== 'watchlistType' && key !== 'imageUrl' && key !== 'path' && key !== 'extraLink') {
+          if (itemData[key] === '' && key !== 'watchlistType' && key !== 'imageUrl' && key !== 'path' && key !== 'extraLink' && key !== 'watchlistReleaseDate' && key !== 'nextSeasonRelease' && key !== 'lastAirDate' && key !== 'watchlistNumber') {
             itemData[key] = null
           }
+        })
+        
+        // Handle extraLink separately - convert empty string to null
+        if (itemData.extraLink === '') {
+          itemData.extraLink = null
+        }
+        
+        console.log('🔍 ULTRA DEBUG - Form data after null conversion:', {
+          watchlistReleaseDate: itemData.watchlistReleaseDate,
+          nextSeasonRelease: itemData.nextSeasonRelease,
+          watchlistNumber: itemData.watchlistNumber,
+          type_watchlist: typeof itemData.watchlistReleaseDate,
+          type_next: typeof itemData.nextSeasonRelease,
+          type_watchlist_number: typeof itemData.watchlistNumber,
+          is_empty_watchlist: itemData.watchlistReleaseDate === '',
+          is_empty_next: itemData.nextSeasonRelease === '',
+          is_empty_watchlist_number: itemData.watchlistNumber === '',
+          is_null_watchlist: itemData.watchlistReleaseDate === null,
+          is_null_next: itemData.nextSeasonRelease === null,
+          is_null_watchlist_number: itemData.watchlistNumber === null,
+          is_undefined_watchlist: itemData.watchlistReleaseDate === undefined,
+          is_undefined_next: itemData.nextSeasonRelease === undefined,
+          is_undefined_watchlist_number: itemData.watchlistNumber === undefined,
+          ALL_ITEM_DATA: itemData
         })
         
         // Process image URL - prioritize uploaded image over URL
@@ -743,14 +799,50 @@ export default {
           itemData.watchlist_type = itemData.watchlistType || null
           delete itemData.watchlistType
         }
-        if (itemData.isAiring !== undefined) {
-          console.log('DEBUG: Saving isAiring to backend:', {
-            form_isAiring: form.isAiring,
-            itemData_isAiring: itemData.isAiring,
-            type: typeof itemData.isAiring
+        if (itemData.watchlistReleaseDate !== undefined) {
+          console.log('🔍 ULTRA DEBUG - watchlistReleaseDate mapping:', {
+            original: itemData.watchlistReleaseDate,
+            type: typeof itemData.watchlistReleaseDate,
+            is_empty: itemData.watchlistReleaseDate === '',
+            is_null: itemData.watchlistReleaseDate === null,
+            is_undefined: itemData.watchlistReleaseDate === undefined,
+            mapped: itemData.watchlistReleaseDate === '' ? null : itemData.watchlistReleaseDate,
+            FINAL_VALUE: itemData.watchlistReleaseDate === '' ? null : itemData.watchlistReleaseDate,
+            BEFORE_DELETE: itemData.watchlistReleaseDate
           })
+          // Convert empty string to null for proper database storage
+          itemData.watchlist_release_date = itemData.watchlistReleaseDate === '' ? null : itemData.watchlistReleaseDate
+          console.log('🔍 ULTRA DEBUG - watchlistReleaseDate after mapping:', {
+            watchlist_release_date: itemData.watchlist_release_date,
+            type: typeof itemData.watchlist_release_date,
+            is_null: itemData.watchlist_release_date === null,
+            is_undefined: itemData.watchlist_release_date === undefined
+          })
+          delete itemData.watchlistReleaseDate
+        }
+        if (itemData.watchlistNumber !== undefined) {
+          console.log('🔍 ULTRA DEBUG - watchlistNumber mapping:', {
+            original: itemData.watchlistNumber,
+            type: typeof itemData.watchlistNumber,
+            is_empty: itemData.watchlistNumber === '',
+            is_null: itemData.watchlistNumber === null,
+            is_undefined: itemData.watchlistNumber === undefined,
+            mapped: itemData.watchlistNumber === '' ? null : itemData.watchlistNumber,
+            FINAL_VALUE: itemData.watchlistNumber === '' ? null : itemData.watchlistNumber,
+            BEFORE_DELETE: itemData.watchlistNumber
+          })
+          // Convert empty string to null for proper database storage
+          itemData.watchlist_number = itemData.watchlistNumber === '' ? null : itemData.watchlistNumber
+          console.log('🔍 ULTRA DEBUG - watchlistNumber after mapping:', {
+            watchlist_number: itemData.watchlist_number,
+            type: typeof itemData.watchlist_number,
+            is_null: itemData.watchlist_number === null,
+            is_undefined: itemData.watchlist_number === undefined
+          })
+          delete itemData.watchlistNumber
+        }
+        if (itemData.isAiring !== undefined) {
           itemData.is_airing = itemData.isAiring
-          console.log('DEBUG: itemData.is_airing after mapping:', itemData.is_airing)
           delete itemData.isAiring
         }
         
@@ -786,12 +878,29 @@ export default {
           itemData.created_by = itemData.createdBy
           delete itemData.createdBy
         }
-        if (itemData.nextSeason) {
-          itemData.next_season = itemData.nextSeason
+        if (itemData.nextSeason !== undefined) {
+          itemData.next_season = itemData.nextSeason || null
           delete itemData.nextSeason
         }
-        if (itemData.nextSeasonRelease) {
-          itemData.next_season_release = itemData.nextSeasonRelease
+        if (itemData.nextSeasonRelease !== undefined) {
+          console.log('🔍 ULTRA DEBUG - nextSeasonRelease mapping:', {
+            original: itemData.nextSeasonRelease,
+            type: typeof itemData.nextSeasonRelease,
+            is_empty: itemData.nextSeasonRelease === '',
+            is_null: itemData.nextSeasonRelease === null,
+            is_undefined: itemData.nextSeasonRelease === undefined,
+            mapped: itemData.nextSeasonRelease === '' ? null : itemData.nextSeasonRelease,
+            FINAL_VALUE: itemData.nextSeasonRelease === '' ? null : itemData.nextSeasonRelease,
+            BEFORE_DELETE: itemData.nextSeasonRelease
+          })
+          // Convert empty string to null for proper database storage
+          itemData.next_season_release = itemData.nextSeasonRelease === '' ? null : itemData.nextSeasonRelease
+          console.log('🔍 ULTRA DEBUG - nextSeasonRelease after mapping:', {
+            next_season_release: itemData.next_season_release,
+            type: typeof itemData.next_season_release,
+            is_null: itemData.next_season_release === null,
+            is_undefined: itemData.next_season_release === undefined
+          })
           delete itemData.nextSeasonRelease
         }
         // Handle rating - prioritize personal rating over API rating
@@ -807,17 +916,55 @@ export default {
           delete itemData.imageUrl
         }
         if (itemData.extraLink !== undefined) {
-          itemData.extra_link = itemData.extraLink
+          console.log('🔍 ULTRA DEBUG - extraLink processing:', {
+            original_extraLink: itemData.extraLink,
+            type: typeof itemData.extraLink,
+            is_empty: itemData.extraLink === '',
+            is_null: itemData.extraLink === null,
+            is_undefined: itemData.extraLink === undefined,
+            mapped_to: 'extra_link'
+          })
+          
+          // Only set extra_link if it's not empty
+          if (itemData.extraLink && itemData.extraLink.trim() !== '') {
+            itemData.extra_link = itemData.extraLink
+          } else {
+            itemData.extra_link = null
+          }
+          
           delete itemData.extraLink
+          console.log('🔍 ULTRA DEBUG - extraLink after mapping:', {
+            extra_link: itemData.extra_link,
+            type: typeof itemData.extra_link,
+            is_null: itemData.extra_link === null,
+            is_undefined: itemData.extra_link === undefined
+          })
         }
         
         
         // Use store methods to ensure proper state updates
         if (isEditing.value && props.item) {
-          console.log('DEBUG: Calling updateMediaItem with data:', {
+          console.log('🔍 ULTRA DEBUG - Final data being sent to store:', {
             id: props.item.id,
-            itemData: itemData,
-            is_airing: itemData.is_airing
+            watchlist_release_date: itemData.watchlist_release_date,
+            next_season_release: itemData.next_season_release,
+            watchlist_number: itemData.watchlist_number,
+            extra_link: itemData.extra_link,
+            is_airing: itemData.is_airing,
+            watchlist_type: itemData.watchlist_type,
+            type_watchlist_release: typeof itemData.watchlist_release_date,
+            type_next_season: typeof itemData.next_season_release,
+            type_watchlist_number: typeof itemData.watchlist_number,
+            type_extra_link: typeof itemData.extra_link,
+            is_null_watchlist: itemData.watchlist_release_date === null,
+            is_null_next: itemData.next_season_release === null,
+            is_null_watchlist_number: itemData.watchlist_number === null,
+            is_null_extra_link: itemData.extra_link === null,
+            is_undefined_watchlist: itemData.watchlist_release_date === undefined,
+            is_undefined_next: itemData.next_season_release === undefined,
+            is_undefined_watchlist_number: itemData.watchlist_number === undefined,
+            is_undefined_extra_link: itemData.extra_link === undefined,
+            FULL_ITEM_DATA: itemData
           })
           await mediaStore.updateMediaItem(props.item.id, itemData)
         } else {
@@ -990,6 +1137,12 @@ export default {
         // Clear image fields if no image URL from API
         form.imageUrl = ''
         form.path = ''
+      }
+      
+      // Auto-fetch TMDB info for series
+      if (form.category === 'series') {
+        console.log('🔍 Auto-fetching TMDB info for series:', form.title)
+        await checkSeriesAPI()
       }
       
       apiResults.value = []
@@ -1202,6 +1355,10 @@ export default {
       apiResults.value = []
     }
     
+    const toggleSeriesDetails = () => {
+      seriesDetailsExpanded.value = !seriesDetailsExpanded.value
+    }
+    
     // TMDB API check function
     const checkSeriesAPI = async () => {
       if (!form.title || form.title.trim() === '') {
@@ -1313,6 +1470,7 @@ export default {
       apiLoading,
       apiError,
       apiSuccess,
+      seriesDetailsExpanded,
       handleSave,
       closeModal,
       deleteItem,
@@ -1333,6 +1491,7 @@ export default {
       removeUploadedImage,
       shouldShowImagePreview,
       handlePreferencesChanged,
+      toggleSeriesDetails,
       checkSeriesAPI
     }
   }
@@ -1375,15 +1534,23 @@ export default {
 
 .modal-content {
   background: #2d2d2d;
-  padding: 24px;
+  padding: 20px;
   border-radius: 12px;
   animation: slideInUp 0.3s ease-out;
   max-width: 1000px;
   width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
+  height: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid #404040;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 769px) {
+  .modal-content {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 @keyframes slideInUp {
@@ -1401,6 +1568,7 @@ export default {
   .modal-content {
     padding: 16px;
     max-height: 95vh;
+    overflow-y: auto;
     margin: 0;
     border-radius: 8px 8px 0 0;
     width: 100%;
@@ -1409,24 +1577,220 @@ export default {
 }
 
 .modal-content h2 {
-  margin: 0 0 20px 0;
+  margin: 0 0 16px 0;
   text-align: center;
   color: #e0e0e0;
+  font-size: 1.3rem;
 }
 
-.form-header {
+/* Top Control Panel */
+.top-control-panel {
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #404040;
+}
+
+.control-row-1 {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 120px 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.control-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+.control-row-3 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #404040;
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-buttons button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s;
+  min-height: 44px;
+  min-width: 100px;
+}
+
+.save-btn {
+  background: #e8f4fd;
+  color: #1a1a1a;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #d1e7f7;
+}
+
+.cancel-btn {
+  background: #404040;
+  color: #d0d0d0;
+  border: 1px solid #555;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.delete-btn {
+  background: #e74c3c;
+  color: #1a1a1a;
+  border: 1px solid #c0392b;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+/* Main Form Area */
+.main-form-area {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.form-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
-  margin-bottom: 20px;
-  align-items: start;
+}
+
+.form-column-left,
+.form-column-right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Watchlist and Game Fields */
+.watchlist-fields,
+.game-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  border: 1px solid #404040;
+}
+
+/* Collapsible Sections */
+.collapsible-sections {
+  margin-top: 16px;
+}
+
+.collapsible-section {
+  margin-bottom: 12px;
+}
+
+.collapsible-header {
+  width: 100%;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: #e0e0e0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.collapsible-header:hover {
+  background: #2a2a2a;
+  border-color: #555;
+}
+
+.collapsible-header.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+
+.collapsible-content {
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 16px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+/* Image Input Group */
+.image-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.image-input-group input {
+  flex: 1;
+}
+
+.upload-btn {
+  background: #e8f4fd;
+  color: #1a1a1a;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #d1e7f7;
+}
+
+.upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .form-group {
@@ -1438,18 +1802,18 @@ export default {
   margin-bottom: 4px;
   font-weight: 500;
   color: #d0d0d0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .form-group input,
 .form-group select {
-  padding: 12px; /* Larger for touch */
+  padding: 8px;
   border: 1px solid #555;
   border-radius: 4px;
-  font-size: 16px; /* Prevent zoom on iOS */
+  font-size: 14px;
   background: #3a3a3a;
   color: #e0e0e0;
-  min-height: 44px; /* Touch-friendly */
+  min-height: 36px;
 }
 
 .form-group input:focus,
@@ -1465,15 +1829,15 @@ export default {
 }
 
 .form-group textarea {
-  padding: 12px;
+  padding: 8px;
   border: 1px solid #555;
   border-radius: 4px;
-  font-size: 16px;
+  font-size: 14px;
   background: #3a3a3a;
   color: #fff;
   font-family: inherit;
   resize: vertical;
-  min-height: 80px;
+  min-height: 60px;
 }
 
 .error-message {
@@ -1486,70 +1850,48 @@ export default {
   border: 1px solid #e74c3c;
 }
 
-.modal-buttons {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-.modal-buttons button {
-  padding: 12px 20px; /* Larger for touch */
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px; /* Prevent zoom on iOS */
-  transition: background 0.2s;
-  min-height: 44px; /* Touch-friendly */
-}
-
-.modal-buttons button[type="submit"] {
-  background: #e8f4fd;
-  color: #1a1a1a;
-}
-
-.modal-buttons button[type="submit"]:hover:not(:disabled) {
-  background: #d1e7f7;
-}
-
-.modal-buttons button[type="button"] {
-  background: #3a3a3a;
-  color: #d0d0d0;
-  border: 1px solid #555;
-}
-
-.modal-buttons button[type="button"]:hover:not(:disabled) {
-  background: #4a4a4a;
-}
-
-.modal-buttons .delete-btn {
-  background: #e74c3c;
-  color: #1a1a1a;
-  border: 1px solid #c0392b;
-}
-
-.modal-buttons .delete-btn:hover:not(:disabled) {
-  background: #c0392b;
-  border-color: #a93226;
-}
-
-.modal-buttons .check-btn {
-  background: #27ae60;
-  color: #1a1a1a;
-  border: 1px solid #229954;
-  font-size: 18px;
-  font-weight: bold;
-  padding: 12px 16px;
-}
-
-.modal-buttons .check-btn:hover:not(:disabled) {
-  background: #229954;
-  border-color: #1e8449;
-}
-
-.modal-buttons button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 16px;
+    max-height: 95vh;
+  }
+  
+  .control-row-1 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .control-row-2 {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .form-columns {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .watchlist-fields,
+  .game-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .control-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .control-buttons button {
+    width: 100%;
+  }
 }
 
 .search-container {
@@ -1783,35 +2125,6 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .modal-content {
-    width: 100%;
-    max-width: 100%;
-    padding: 16px;
-    max-height: 95vh;
-  }
-  
-  .form-header {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-  
-  .modal-buttons {
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 16px;
-  }
-  
-  .modal-buttons button {
-    width: 100%;
-  }
-  
   .search-results {
     max-height: 250px;
   }

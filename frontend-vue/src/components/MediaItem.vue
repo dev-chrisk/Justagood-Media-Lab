@@ -13,68 +13,53 @@
     </div>
     
     <div class="media-info">
-      <h3 class="media-title">{{ item.title }}</h3>
-      
-      <!-- Watchlist Series Type Tags -->
-      <div v-if="isWatchlistItem && item.watchlist_series_type" class="watchlist-tags">
-        <span v-if="item.watchlist_series_type === 'new_series'" class="watchlist-tag new-series">
-          🆕 New Series
-        </span>
-        <span v-else-if="item.watchlist_series_type === 'new_season'" class="watchlist-tag new-season">
+      <!-- Labels Container - All labels in one row above title -->
+      <div class="labels-container">
+        <!-- Watchlist Series Type Tags -->
+        <div v-if="isWatchlistItem && item.watchlist_series_type === 'new_season'" class="watchlist-tag new-season">
           📺 {{ item.watchlist_season_info || 'New Season' }}
-        </span>
+        </div>
+        
+        <!-- Airing Status -->
+        <div v-if="isSeries && item.is_airing" class="status-badge airing">
+          🔴 Airing
+        </div>
+        <div v-else-if="isSeries && item.series_status" class="status-badge finished">
+          {{ getStatusIcon() }} {{ item.series_status }}
+        </div>
+        
+        <!-- Season Information -->
+        <div v-if="isSeries && item.is_airing && item.next_season" class="season-info">
+          📺 S{{ item.next_season }}
+        </div>
+        
+        <!-- Days Left Counter -->
+        <div v-if="isWatchlistItem && item.release" class="days-left">
+          ⏰ {{ getWatchlistDaysLeft() }}
+        </div>
+        <div v-else-if="isSeries && item.is_airing && item.next_season_release" class="days-left">
+          ⏰ {{ getDaysLeftText() }}
+        </div>
       </div>
       
-      <!-- Series Season Information -->
-      <div v-if="isSeries" class="series-info">
-        <!-- Airing Status -->
-        <div v-if="item.is_airing" class="airing-status">
-          <span class="status-badge airing">🔴 Airing</span>
-        </div>
-        <div v-else-if="item.series_status" class="airing-status">
-          <span class="status-badge finished">{{ getStatusIcon() }} {{ item.series_status }}</span>
-        </div>
-        
-        <!-- Next Season Info -->
-        <div v-if="item.is_airing && item.next_season" class="next-season-info">
-          <div class="season-label">
-            <span class="season-icon">📺</span>
-            <span class="season-text">Season {{ item.next_season }}</span>
-            <span v-if="item.next_season_name" class="season-name">- {{ item.next_season_name }}</span>
-          </div>
-          
-          <!-- Days Left Counter -->
-          <div v-if="item.next_season_release" class="days-left">
-            <span class="days-icon">⏰</span>
-            <span class="days-text">{{ getDaysLeftText() }}</span>
-          </div>
-        </div>
-        
-        <!-- Series Stats -->
-        <div v-if="item.total_seasons || item.total_episodes" class="series-stats">
-          <span v-if="item.total_seasons" class="stat">
-            <span class="stat-icon">📚</span>
-            {{ item.total_seasons }} Season{{ item.total_seasons > 1 ? 's' : '' }}
-          </span>
-          <span v-if="item.total_episodes" class="stat">
-            <span class="stat-icon">🎬</span>
-            {{ item.total_episodes }} Episode{{ item.total_episodes > 1 ? 's' : '' }}
-          </span>
-        </div>
-        
-        <!-- Networks -->
-        <div v-if="item.networks" class="networks">
-          <span class="network-icon">📡</span>
-          <span class="network-text">{{ item.networks }}</span>
-        </div>
+      <!-- Title Container - Always stays at bottom -->
+      <div class="title-container">
+        <h3 class="media-title">{{ item.title }}</h3>
       </div>
     </div>
     
     <!-- Series Extra Link Button -->
-    <div v-if="isSeries && item.extra_link" class="series-extra-button" @click.stop="openExtraLink">
+    <div v-if="isSeries && !isWatchlistItem && item.extra_link" class="series-extra-button" @click.stop="openExtraLink">
       <span class="extra-link-icon">🔗</span>
       <span class="extra-link-text">Extra Link</span>
     </div>
+    
+    <!-- Watchlist Extra Link Button -->
+    <div v-if="isWatchlistItem && item.extra_link" class="watchlist-extra-button" @click.stop="openExtraLink">
+      <span class="extra-link-icon">🔗</span>
+      <span class="extra-link-text">Go to Link</span>
+    </div>
+    
     
     <!-- Heart Toggle Button for Airing Series -->
     <div v-if="shouldShowHeartButton" class="heart-toggle-button" @click.stop="handleHeartClick">
@@ -141,19 +126,17 @@ export default {
     
     isInWatchlist() {
       // Check if this series is already in the watchlist
-      // For now, always return false for debugging
-      return false
+      // For watchlist category items, they are always in watchlist
+      if (this.item.category === 'watchlist') {
+        return true
+      }
+      // For series category, check if they have watchlist properties
+      return this.item.is_in_watchlist || false
     },
     
     shouldShowHeartButton() {
-      const shouldShow = this.isSeries && this.item.is_airing
-      console.log('💖 Should show heart button:', {
-        isSeries: this.isSeries,
-        is_airing: this.item.is_airing,
-        shouldShow: shouldShow,
-        item: this.item
-      })
-      return shouldShow
+      // Show heart button for all series (both in series and watchlist categories)
+      return this.isSeries
     }
   },
   methods: {
@@ -284,10 +267,20 @@ export default {
         }
       } catch (error) {
         console.error('❌ Watchlist toggle error:', error)
-        this.$emit('show-message', {
-          type: 'error',
-          text: 'Failed to toggle watchlist'
-        })
+        
+        // Check if it's a 400 error with specific message
+        if (error.response && error.response.status === 400) {
+          const errorMessage = error.response.data?.error || 'Only airing series can be added to watchlist'
+          this.$emit('show-message', {
+            type: 'error',
+            text: errorMessage
+          })
+        } else {
+          this.$emit('show-message', {
+            type: 'error',
+            text: 'Failed to toggle watchlist'
+          })
+        }
       }
     },
     
@@ -318,6 +311,27 @@ export default {
       }
     },
     
+  getWatchlistDaysLeft() {
+    // Use watchlist_release_date if available, otherwise fallback to release
+    const releaseDate = this.item.watchlist_release_date 
+      ? new Date(this.item.watchlist_release_date)
+      : (this.item.release ? new Date(this.item.release) : null)
+    
+    if (!releaseDate) return ''
+    
+    const today = new Date()
+    const timeDiff = releaseDate.getTime() - today.getTime()
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+    
+    if (daysDiff > 0) {
+      return `${daysDiff} day${daysDiff > 1 ? 's' : ''} left`
+    } else if (daysDiff === 0) {
+      return 'Releases today!'
+    } else {
+      return `Released ${Math.abs(daysDiff)} day${Math.abs(daysDiff) > 1 ? 's' : ''} ago`
+    }
+  },
+
     getWatchlistReleaseStatus() {
       if (!this.item.release) return ''
       
@@ -622,8 +636,30 @@ export default {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: flex-start;
+  min-height: 80px;
+}
+
+.labels-container {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  width: 100%;
+  max-width: 100%;
+  min-height: 20px;
+}
+
+.title-container {
+  margin-top: auto;
+  width: 100%;
 }
 
 /* Responsive behavior for image overlay layout */
@@ -674,6 +710,12 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Adjust thumbnail positioning for series and watchlist items (portrait images) */
+.category-series .media-image img,
+.category-watchlist .media-image img {
+  object-position: center 25%;
 }
 
 .no-image {
@@ -861,6 +903,47 @@ export default {
   }
 }
 
+/* Watchlist Extra Link Button */
+.watchlist-extra-button {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 193, 7, 0.9);
+  color: #1a1a1a;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  z-index: 3;
+  opacity: 0;
+  transform: translateY(-4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.media-item:hover .watchlist-extra-button {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.watchlist-extra-button:hover {
+  background: rgba(255, 193, 7, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Always show watchlist extra button on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .watchlist-extra-button {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ===========================================
    HEART TOGGLE BUTTON STYLES
    =========================================== */
@@ -880,8 +963,8 @@ export default {
   align-items: center;
   gap: 4px;
   transition: all 0.3s ease;
-  opacity: 1; /* Temporarily always visible for debugging */
-  transform: translateY(0); /* Temporarily always visible for debugging */
+  opacity: 0;
+  transform: translateY(-4px);
   backdrop-filter: blur(4px);
   z-index: 10;
 }
@@ -928,186 +1011,174 @@ export default {
 }
 
 /* ===========================================
-   WATCHLIST TAGS STYLES
+   LABELS CONTAINER - SINGLE ROW LAYOUT
    =========================================== */
 
-.watchlist-tags {
-  margin-top: 6px;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+.labels-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
+
+/* ===========================================
+   WATCHLIST TAGS STYLES
+   =========================================== */
 
 .watchlist-tag {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .watchlist-tag.new-series {
   background: rgba(40, 167, 69, 0.9);
   color: white;
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
 }
 
 .watchlist-tag.new-season {
   background: rgba(255, 193, 7, 0.9);
   color: #000;
-  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+  box-shadow: 0 1px 4px rgba(255, 193, 7, 0.3);
 }
 
 /* ===========================================
    SERIES INFORMATION STYLES
    =========================================== */
 
-.series-info {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.airing-status {
-  display: flex;
-  align-items: center;
-}
+/* Removed old series-info styles - now using single row layout */
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-badge.airing {
   background: rgba(220, 53, 69, 0.9);
   color: white;
-  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+  box-shadow: 0 1px 4px rgba(220, 53, 69, 0.3);
 }
 
 .status-badge.finished {
   background: rgba(40, 167, 69, 0.9);
   color: white;
-  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  box-shadow: 0 1px 4px rgba(40, 167, 69, 0.3);
 }
 
-.next-season-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
-}
-
-.season-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.season-icon {
-  font-size: 14px;
-}
-
-.season-text {
-  color: #fff;
-}
-
-.season-name {
-  color: #ccc;
-  font-weight: 400;
-}
+/* Removed old next-season-info styles - now using single row layout */
 
 .days-left {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #ffd700;
-  font-weight: 500;
+  gap: 2px;
+  padding: 2px 6px;
+  background: rgba(255, 215, 0, 0.9);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #000;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.days-icon {
-  font-size: 12px;
-}
-
-.series-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.stat {
-  display: flex;
+.season-info {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #ccc;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 3px 6px;
-  border-radius: 6px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.stat-icon {
-  font-size: 11px;
-}
+/* Removed old series-stats styles - now using single row layout */
 
 .networks {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  color: #aaa;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 3px 6px;
-  border-radius: 6px;
-  align-self: flex-start;
+  display: none; /* Hide networks as requested */
 }
 
 .network-icon {
   font-size: 11px;
 }
 
-/* Responsive adjustments for series info */
+/* Responsive adjustments for labels container */
 @media (max-width: 768px) {
-  .series-info {
-    gap: 4px;
+  .labels-container {
+    gap: 3px;
+    margin-bottom: 6px;
   }
   
-  .next-season-info {
-    padding: 4px 6px;
+  .watchlist-tag,
+  .status-badge,
+  .days-left,
+  .season-info {
+    font-size: 8px;
+    padding: 1px 4px;
+    max-width: 100px;
   }
   
-  .season-label {
-    font-size: 11px;
+  .season-info {
+    max-width: 60px;
   }
   
   .days-left {
-    font-size: 10px;
+    max-width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .labels-container {
+    gap: 2px;
+    margin-bottom: 4px;
   }
   
-  .stat {
-    font-size: 9px;
-    padding: 2px 4px;
+  .watchlist-tag,
+  .status-badge,
+  .days-left,
+  .season-info {
+    font-size: 7px;
+    padding: 1px 3px;
+    max-width: 80px;
   }
   
-  .networks {
-    font-size: 9px;
-    padding: 2px 4px;
+  .season-info {
+    max-width: 50px;
+  }
+  
+  .days-left {
+    max-width: 80px;
   }
 }
 

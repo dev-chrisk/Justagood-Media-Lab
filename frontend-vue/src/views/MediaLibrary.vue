@@ -14,6 +14,7 @@
       :category-counts="categoryCounts"
       :categories="categories"
       :selected-genres="selectedGenres"
+      :excluded-genres="excludedGenres"
       :genres="genres"
       :genre-loading="genreLoading"
       :genre-error="genreError"
@@ -28,6 +29,7 @@
       @show-admin-login="showAdminLogin"
       @logout="logout"
       @genres-updated="handleGenresUpdated"
+      @genres-excluded="handleGenresExcluded"
       @genres-cleared="handleGenresCleared"
       @load-genres="loadGenres"
     />
@@ -780,6 +782,10 @@ export default {
       try {
         await mediaStore.updateItemRating(ratingData.itemId, ratingData.rating)
         console.log('✅ Rating updated successfully:', ratingData)
+        showMessage({
+          type: 'success',
+          text: `Rating updated to ${ratingData.rating}/10`
+        })
       } catch (error) {
         console.error('❌ Failed to update rating:', error)
         showMessage({
@@ -1169,8 +1175,13 @@ export default {
       mediaStore.setGenres(genres)
     }
 
+    const handleGenresExcluded = (genres) => {
+      mediaStore.setExcludedGenres(genres)
+    }
+
     const handleGenresCleared = () => {
       mediaStore.clearGenres()
+      mediaStore.clearExcludedGenres()
     }
     
     const handleWatchlistToggled = (data) => {
@@ -1534,6 +1545,7 @@ export default {
       processTxtContent,
       closeTxtImportResults,
       handleGenresUpdated,
+      handleGenresExcluded,
       handleGenresCleared,
       loadGenres,
       toggleEditMode,

@@ -498,10 +498,6 @@ export const mediaApi = {
         transformedData.spielzeit = itemData.spielzeit ? parseInt(itemData.spielzeit) : 0
       }
       if (itemData.is_airing !== undefined) {
-        console.log('DEBUG: API service using is_airing:', {
-          is_airing: itemData.is_airing,
-          type: typeof itemData.is_airing
-        })
         transformedData.is_airing = itemData.is_airing
       }
       
@@ -534,13 +530,84 @@ export const mediaApi = {
         transformedData.next_season = itemData.nextSeason ? parseInt(itemData.nextSeason) : null
       }
       if (itemData.nextSeasonRelease !== undefined) {
+        console.log('🔍 ULTRA DEBUG - API service nextSeasonRelease:', {
+          nextSeasonRelease: itemData.nextSeasonRelease,
+          type: typeof itemData.nextSeasonRelease,
+          is_null: itemData.nextSeasonRelease === null,
+          is_undefined: itemData.nextSeasonRelease === undefined,
+          is_empty: itemData.nextSeasonRelease === '',
+          is_falsy: !itemData.nextSeasonRelease,
+          is_truthy: !!itemData.nextSeasonRelease
+        })
         transformedData.next_season_release = itemData.nextSeasonRelease
+        console.log('🔍 ULTRA DEBUG - API service nextSeasonRelease after assignment:', {
+          transformed_next_season_release: transformedData.next_season_release,
+          type: typeof transformedData.next_season_release,
+          is_null: transformedData.next_season_release === null,
+          is_undefined: transformedData.next_season_release === undefined
+        })
+      }
+      if (itemData.next_season_release !== undefined) {
+        console.log('🔍 ULTRA DEBUG - API service next_season_release:', {
+          next_season_release: itemData.next_season_release,
+          type: typeof itemData.next_season_release,
+          is_null: itemData.next_season_release === null,
+          is_undefined: itemData.next_season_release === undefined,
+          is_empty: itemData.next_season_release === '',
+          is_falsy: !itemData.next_season_release,
+          is_truthy: !!itemData.next_season_release
+        })
+        transformedData.next_season_release = itemData.next_season_release
+        console.log('🔍 ULTRA DEBUG - API service next_season_release after assignment:', {
+          transformed_next_season_release: transformedData.next_season_release,
+          type: typeof transformedData.next_season_release,
+          is_null: transformedData.next_season_release === null,
+          is_undefined: transformedData.next_season_release === undefined
+        })
       }
       if (itemData.externalId !== undefined) {
         transformedData.external_id = itemData.externalId
       }
       if (itemData.watchlist_type !== undefined) {
         transformedData.watchlist_type = itemData.watchlist_type || null
+      }
+      if (itemData.watchlist_release_date !== undefined) {
+        console.log('🔍 ULTRA DEBUG - API service watchlist_release_date:', {
+          watchlist_release_date: itemData.watchlist_release_date,
+          type: typeof itemData.watchlist_release_date,
+          is_null: itemData.watchlist_release_date === null,
+          is_undefined: itemData.watchlist_release_date === undefined,
+          is_empty: itemData.watchlist_release_date === '',
+          is_falsy: !itemData.watchlist_release_date,
+          is_truthy: !!itemData.watchlist_release_date
+        })
+        // Always send the value, even if it's null (to clear the field)
+        transformedData.watchlist_release_date = itemData.watchlist_release_date
+        console.log('🔍 ULTRA DEBUG - API service watchlist_release_date after assignment:', {
+          transformed_watchlist_release_date: transformedData.watchlist_release_date,
+          type: typeof transformedData.watchlist_release_date,
+          is_null: transformedData.watchlist_release_date === null,
+          is_undefined: transformedData.watchlist_release_date === undefined
+        })
+      }
+      if (itemData.watchlist_number !== undefined) {
+        console.log('🔍 ULTRA DEBUG - API service watchlist_number:', {
+          watchlist_number: itemData.watchlist_number,
+          type: typeof itemData.watchlist_number,
+          is_null: itemData.watchlist_number === null,
+          is_undefined: itemData.watchlist_number === undefined,
+          is_empty: itemData.watchlist_number === '',
+          is_falsy: !itemData.watchlist_number,
+          is_truthy: !!itemData.watchlist_number
+        })
+        // Always send the value, even if it's null (to clear the field)
+        transformedData.watchlist_number = itemData.watchlist_number
+        console.log('🔍 ULTRA DEBUG - API service watchlist_number after assignment:', {
+          transformed_watchlist_number: transformedData.watchlist_number,
+          type: typeof transformedData.watchlist_number,
+          is_null: transformedData.watchlist_number === null,
+          is_undefined: transformedData.watchlist_number === undefined
+        })
       }
       if (itemData.imageUrl !== undefined) {
         // Only send image_url if it's not null (null means "don't update this field")
@@ -561,22 +628,29 @@ export const mediaApi = {
         }
       }
       
-      console.log('DEBUG: API service sending data to backend:', {
+      console.log('🔍 ULTRA DEBUG - API service sending data to backend:', {
         id: id,
-        transformedData: transformedData,
-        is_airing: transformedData.is_airing,
-        tmdb_id: transformedData.tmdb_id,
-        next_season_name: transformedData.next_season_name,
-        last_air_date: transformedData.last_air_date,
-        total_seasons: transformedData.total_seasons,
-        total_episodes: transformedData.total_episodes,
-        series_status: transformedData.series_status,
-        networks: transformedData.networks,
-        created_by: transformedData.created_by
+        watchlist_release_date: transformedData.watchlist_release_date,
+        next_season_release: transformedData.next_season_release,
+        watchlist_number: transformedData.watchlist_number,
+        original_watchlist_release_date: itemData.watchlist_release_date,
+        original_next_season_release: itemData.nextSeasonRelease,
+        original_next_season_release_alt: itemData.next_season_release,
+        original_watchlist_number: itemData.watchlist_number,
+        type_watchlist: typeof transformedData.watchlist_release_date,
+        type_next: typeof transformedData.next_season_release,
+        type_watchlist_number: typeof transformedData.watchlist_number,
+        is_null_watchlist: transformedData.watchlist_release_date === null,
+        is_null_next: transformedData.next_season_release === null,
+        is_null_watchlist_number: transformedData.watchlist_number === null,
+        is_undefined_watchlist: transformedData.watchlist_release_date === undefined,
+        is_undefined_next: transformedData.next_season_release === undefined,
+        is_undefined_watchlist_number: transformedData.watchlist_number === undefined,
+        FULL_TRANSFORMED_DATA: transformedData
       })
       
       const response = await api.put(`/media/${id}`, transformedData)
-      console.log('DEBUG: API service received response:', response.data)
+      console.log('🔍 COMPREHENSIVE DEBUG - API service received response:', response.data)
       return response.data
     } catch (error) {
       throw error

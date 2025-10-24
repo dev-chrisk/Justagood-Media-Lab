@@ -1,0 +1,5 @@
+alwaysApply: true
+---
+never use && in powershell commands
+we using mysql
+you cannot read the .env file

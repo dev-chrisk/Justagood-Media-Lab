@@ -79,6 +79,19 @@ class MediaController extends Controller
 
         $mediaItems = $query->get();
 
+        // Add is_in_watchlist field for series items
+        $mediaItems->each(function ($item) use ($request) {
+            if ($item->category === 'series' && $request->user()) {
+                // Check if this series is already in the watchlist
+                $inWatchlist = MediaItem::where('user_id', $request->user()->id)
+                    ->where('category', 'watchlist')
+                    ->where('watchlist_type', 'series')
+                    ->where('title', $item->title)
+                    ->exists();
+                
+                $item->is_in_watchlist = $inWatchlist;
+            }
+        });
 
         return response()->json($mediaItems);
     }
@@ -119,6 +132,8 @@ class MediaController extends Controller
             'watchlist_series_type' => 'nullable|string|in:new_series,new_season',
             'watchlist_original_series_id' => 'nullable|integer|exists:media_items,id',
             'watchlist_season_info' => 'nullable|string',
+            'watchlist_release_date' => 'nullable|date',
+            'watchlist_number' => 'nullable|integer|min:1',
         ]);
 
         if ($validator->fails()) {
@@ -215,9 +230,20 @@ class MediaController extends Controller
         }
 
         // DEBUG: Log the incoming data
-        \Log::info('MediaController update - Incoming data:', [
+        \Log::info('🔍 ULTRA DEBUG - MediaController update - Incoming data:', [
             'id' => $id,
             'raw_data' => $request->all(),
+            'watchlist_release_date' => $request->get('watchlist_release_date'),
+            'next_season_release' => $request->get('next_season_release'),
+            'watchlist_type' => $request->get('watchlist_type'),
+            'type_watchlist_release' => gettype($request->get('watchlist_release_date')),
+            'type_next_season' => gettype($request->get('next_season_release')),
+            'is_null_watchlist' => $request->get('watchlist_release_date') === null,
+            'is_null_next' => $request->get('next_season_release') === null,
+            'is_undefined_watchlist' => $request->get('watchlist_release_date') === null,
+            'is_undefined_next' => $request->get('next_season_release') === null,
+            'is_empty_watchlist' => $request->get('watchlist_release_date') === '',
+            'is_empty_next' => $request->get('next_season_release') === '',
             'is_airing_raw' => $request->get('is_airing'),
             'is_airing_type' => gettype($request->get('is_airing')),
             'is_airing_boolean' => $request->boolean('is_airing'),
@@ -262,6 +288,8 @@ class MediaController extends Controller
             'watchlist_series_type' => 'nullable|string|in:new_series,new_season',
             'watchlist_original_series_id' => 'nullable|integer|exists:media_items,id',
             'watchlist_season_info' => 'nullable|string',
+            'watchlist_release_date' => 'nullable|date',
+            'watchlist_number' => 'nullable|integer|min:1',
         ]);
 
         if ($validator->fails()) {
@@ -295,10 +323,26 @@ class MediaController extends Controller
             }
         }
         
+        // Fix count field - ensure it's not null
+        if (array_key_exists('count', $data) && ($data['count'] === null || $data['count'] === '')) {
+            $data['count'] = 1; // Default value
+        }
+        
         // DEBUG: Log processed data before update
-        \Log::info('MediaController update - Processed data before update:', [
+        \Log::info('🔍 ULTRA DEBUG - MediaController update - Processed data before update:', [
             'id' => $id,
             'processed_data' => $data,
+            'watchlist_release_date' => $data['watchlist_release_date'] ?? 'not_set',
+            'next_season_release' => $data['next_season_release'] ?? 'not_set',
+            'watchlist_type' => $data['watchlist_type'] ?? 'not_set',
+            'type_watchlist_release' => gettype($data['watchlist_release_date'] ?? 'not_set'),
+            'type_next_season' => gettype($data['next_season_release'] ?? 'not_set'),
+            'is_null_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === null,
+            'is_null_next' => ($data['next_season_release'] ?? 'not_set') === null,
+            'is_undefined_watchlist' => !isset($data['watchlist_release_date']),
+            'is_undefined_next' => !isset($data['next_season_release']),
+            'is_empty_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === '',
+            'is_empty_next' => ($data['next_season_release'] ?? 'not_set') === '',
             'is_airing_processed' => $data['is_airing'] ?? 'not_set',
             'is_airing_type' => gettype($data['is_airing'] ?? 'not_set'),
             'tmdb_id' => $data['tmdb_id'] ?? 'not_set',
@@ -331,12 +375,48 @@ class MediaController extends Controller
             }
         }
 
-        $mediaItem->update($data);
+        // DEBUG: Log before update attempt
+        \Log::info('🔍 ULTRA DEBUG - MediaController update - About to update with data:', [
+            'id' => $id,
+            'update_data' => $data,
+            'watchlist_release_date' => $data['watchlist_release_date'] ?? 'not_set',
+            'next_season_release' => $data['next_season_release'] ?? 'not_set',
+            'watchlist_type' => $data['watchlist_type'] ?? 'not_set',
+            'type_watchlist_release' => gettype($data['watchlist_release_date'] ?? 'not_set'),
+            'type_next_season' => gettype($data['next_season_release'] ?? 'not_set'),
+            'is_null_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === null,
+            'is_null_next' => ($data['next_season_release'] ?? 'not_set') === null,
+            'is_undefined_watchlist' => !isset($data['watchlist_release_date']),
+            'is_undefined_next' => !isset($data['next_season_release']),
+            'is_empty_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === '',
+            'is_empty_next' => ($data['next_season_release'] ?? 'not_set') === '',
+            'data_types' => array_map('gettype', $data)
+        ]);
+
+        try {
+            $mediaItem->update($data);
+            \Log::info('MediaController update - Update successful');
+        } catch (\Exception $e) {
+            \Log::error('MediaController update - Update failed:', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'data' => $data
+            ]);
+            throw $e;
+        }
         
         // DEBUG: Log the updated item
-        \Log::info('MediaController update - After update:', [
+        \Log::info('🔍 ULTRA DEBUG - MediaController update - After update:', [
             'id' => $id,
             'updated_item' => $mediaItem->toArray(),
+            'watchlist_release_date_final' => $mediaItem->watchlist_release_date,
+            'next_season_release_final' => $mediaItem->next_season_release,
+            'watchlist_type_final' => $mediaItem->watchlist_type,
+            'type_watchlist_release_final' => gettype($mediaItem->watchlist_release_date),
+            'type_next_season_final' => gettype($mediaItem->next_season_release),
+            'is_null_watchlist_final' => $mediaItem->watchlist_release_date === null,
+            'is_null_next_final' => $mediaItem->next_season_release === null,
             'is_airing_final' => $mediaItem->is_airing,
             'is_airing_type' => gettype($mediaItem->is_airing),
             'tmdb_id_final' => $mediaItem->tmdb_id,
@@ -377,10 +457,7 @@ class MediaController extends Controller
             $existingWatchlistItem = MediaItem::where('user_id', $request->user()->id)
                 ->where('category', 'watchlist')
                 ->where('watchlist_type', 'series')
-                ->where(function($query) use ($mediaItem) {
-                    $query->where('title', $mediaItem->title)
-                          ->orWhere('tmdb_id', $mediaItem->tmdb_id);
-                })
+                ->where('title', $mediaItem->title)
                 ->first();
 
             if ($existingWatchlistItem) {
@@ -424,6 +501,7 @@ class MediaController extends Controller
                 'watchlist_season_info' => $seasonInfo,
                 'title' => $mediaItem->title,
                 'release' => $mediaItem->next_season_release ?? $mediaItem->release,
+                'watchlist_release_date' => $mediaItem->next_season_release ?? null,
                 'description' => $mediaItem->description,
                 'image_url' => $mediaItem->image_url,
                 'path' => $mediaItem->path,
@@ -1540,22 +1618,94 @@ class MediaController extends Controller
      */
     private function normalizeDateFields($data)
     {
-        $dateFields = ['release', 'discovered', 'next_season_release'];
+        $dateFields = ['release', 'discovered', 'next_season_release', 'last_air_date', 'watchlist_release_date'];
+        
+        \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Input data:', [
+            'input_data' => $data,
+            'watchlist_release_date' => $data['watchlist_release_date'] ?? 'not_set',
+            'next_season_release' => $data['next_season_release'] ?? 'not_set',
+            'type_watchlist' => gettype($data['watchlist_release_date'] ?? 'not_set'),
+            'type_next' => gettype($data['next_season_release'] ?? 'not_set'),
+            'is_null_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === null,
+            'is_null_next' => ($data['next_season_release'] ?? 'not_set') === null,
+            'is_undefined_watchlist' => !isset($data['watchlist_release_date']),
+            'is_undefined_next' => !isset($data['next_season_release']),
+            'is_empty_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === '',
+            'is_empty_next' => ($data['next_season_release'] ?? 'not_set') === ''
+        ]);
         
         foreach ($dateFields as $field) {
-            if (isset($data[$field]) && !empty($data[$field])) {
+            if (array_key_exists($field, $data)) {
                 $value = $data[$field];
                 
+                \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Processing field:', [
+                    'field' => $field,
+                    'value' => $value,
+                    'type' => gettype($value),
+                    'is_null' => $value === null,
+                    'is_empty' => $value === '',
+                    'is_numeric' => is_numeric($value),
+                    'is_string' => is_string($value)
+                ]);
+                
+                // If value is null, keep it as null (to clear the field)
+                if ($value === null) {
+                    $data[$field] = null;
+                    \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Set to null:', [
+                        'field' => $field,
+                        'result' => $data[$field]
+                    ]);
+                }
                 // If it's just a year (4 digits), convert to YYYY-01-01
-                if (is_numeric($value) && strlen($value) === 4 && $value >= 1900 && $value <= 2100) {
+                elseif (is_numeric($value) && strlen($value) === 4 && $value >= 1900 && $value <= 2100) {
                     $data[$field] = $value . '-01-01';
+                    \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Converted year to date:', [
+                        'field' => $field,
+                        'original' => $value,
+                        'result' => $data[$field]
+                    ]);
                 }
                 // If it's a string that's just a year
                 elseif (is_string($value) && preg_match('/^\d{4}$/', $value) && $value >= 1900 && $value <= 2100) {
                     $data[$field] = $value . '-01-01';
+                    \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Converted string year to date:', [
+                        'field' => $field,
+                        'original' => $value,
+                        'result' => $data[$field]
+                    ]);
+                }
+                // If it's empty string, convert to null
+                elseif ($value === '') {
+                    $data[$field] = null;
+                    \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Converted empty string to null:', [
+                        'field' => $field,
+                        'original' => $value,
+                        'result' => $data[$field]
+                    ]);
+                }
+                else {
+                    \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - No change needed:', [
+                        'field' => $field,
+                        'value' => $value,
+                        'result' => $data[$field]
+                    ]);
                 }
             }
         }
+        
+        \Log::info('🔍 ULTRA DEBUG - normalizeDateFields - Output data:', [
+            'output_data' => $data,
+            'watchlist_release_date' => $data['watchlist_release_date'] ?? 'not_set',
+            'next_season_release' => $data['next_season_release'] ?? 'not_set',
+            'type_watchlist' => gettype($data['watchlist_release_date'] ?? 'not_set'),
+            'type_next' => gettype($data['next_season_release'] ?? 'not_set'),
+            'is_null_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === null,
+            'is_null_next' => ($data['next_season_release'] ?? 'not_set') === null,
+            'is_undefined_watchlist' => !isset($data['watchlist_release_date']),
+            'is_undefined_next' => !isset($data['next_season_release']),
+            'is_empty_watchlist' => ($data['watchlist_release_date'] ?? 'not_set') === '',
+            'is_empty_next' => ($data['next_season_release'] ?? 'not_set') === ''
+        ]);
         
         return $data;
     }
