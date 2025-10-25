@@ -1,132 +1,133 @@
-biem <template>
+<template>
   <div class="modal" @click="closeModal">
     <div class="modal-content" @click.stop>
       <h2>{{ isEditing ? 'Edit Item' : 'Add Item' }}</h2>
       
       <form @submit.prevent="handleSave">
-        <!-- Top Control Panel -->
-        <div class="top-control-panel">
-          <div class="control-row-1">
-            <div class="form-group category-group">
-              <label for="category">Category:</label>
-              <select id="category" v-model="form.category" required>
-                <option value="watchlist">Watchlist</option>
-                <option value="game">Game</option>
-                <option value="series">Series</option>
-                <option value="movie">Movie</option>
-                <option value="buecher">Bücher</option>
-              </select>
-            </div>
-             
-            <div class="form-group title-group">
-              <label for="title">Title:</label>
-              <div class="search-container">
-                <input 
-                  type="text" 
-                  id="title"
-                  v-model="form.title" 
-                  @input="searchApi"
-                  required
-                  :placeholder="isWatchlist ? 'Enter title (API search + manual input available)' : 'Enter title'"
-                  :disabled="loading"
-                />
-                <div v-if="apiResults.length > 0" class="search-results">
-                  <div 
-                    v-for="result in apiResults" 
-                    :key="result.title"
-                    class="search-result-item"
-                    @click="selectApiResult(result)"
-                  >
-                    <div class="result-thumbnail">
-                      <img v-if="result.imageUrl" :src="ensureHttpsUrl(result.imageUrl)" :alt="result.title" />
-                      <div v-else class="no-image">
-                        <span>{{ result.title.charAt(0).toUpperCase() }}</span>
-                      </div>
+        <!-- Category Bereich -->
+        <div class="form-area category-area">
+          <div class="form-group">
+            <label for="category">Category:</label>
+            <select id="category" v-model="form.category" required>
+              <option value="watchlist">Watchlist</option>
+              <option value="game">Game</option>
+              <option value="series">Series</option>
+              <option value="movie">Movie</option>
+              <option value="buecher">Bücher</option>
+            </select>
+          </div>
+        </div>
+        
+        <!-- Title Bereich -->
+        <div class="form-area title-area">
+          <div class="form-group">
+            <label for="title">Title:</label>
+            <div class="search-container">
+              <input 
+                type="text" 
+                id="title"
+                v-model="form.title" 
+                @input="searchApi"
+                required
+                :placeholder="isWatchlist ? 'Enter title (API search + manual input available)' : 'Enter title'"
+                :disabled="loading"
+              />
+              <div v-if="apiResults.length > 0" class="search-results">
+                <div 
+                  v-for="result in apiResults" 
+                  :key="result.title"
+                  class="search-result-item"
+                  @click="selectApiResult(result)"
+                >
+                  <div class="result-thumbnail">
+                    <img v-if="result.imageUrl" :src="ensureHttpsUrl(result.imageUrl)" :alt="result.title" />
+                    <div v-else class="no-image">
+                      <span>{{ result.title.charAt(0).toUpperCase() }}</span>
                     </div>
-                    <div class="result-content">
-                      <div class="result-title">{{ result.title }}</div>
-                      <div class="result-meta">
-                        <span v-if="result.release">{{ formatDate(result.release) }}</span>
-                        <span v-if="result.genre">{{ result.genre }}</span>
-                        <span v-if="result.rating" class="rating">⭐ {{ result.rating }}</span>
-                      </div>
+                  </div>
+                  <div class="result-content">
+                    <div class="result-title">{{ result.title }}</div>
+                    <div class="result-meta">
+                      <span v-if="result.release">{{ formatDate(result.release) }}</span>
+                      <span v-if="result.genre">{{ result.genre }}</span>
+                      <span v-if="result.rating" class="rating">⭐ {{ result.rating }}</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            
+          </div>
+        </div>
+        
+        <!-- Details Bereich -->
+        <div class="form-area details-area">
+          <div class="form-group">
+            <label for="release">
+              {{ isWatchlist ? 'Release Date:' : 'Release:' }}
+              <span v-if="isWatchlist" class="required">*</span>
+            </label>
+            <input 
+              type="date" 
+              id="release"
+              v-model="form.release"
+              :required="isWatchlist"
+            />
           </div>
           
-          <div class="control-row-2">
-            <div class="form-group">
-              <label for="release">
-                {{ isWatchlist ? 'Release Date:' : 'Release:' }}
-                <span v-if="isWatchlist" class="required">*</span>
-              </label>
-              <input 
-                type="date" 
-                id="release"
-                v-model="form.release"
-                :required="isWatchlist"
-              />
-            </div>
-            
-            <div class="form-group">
-              <label for="personalRating">Personal Rating:</label>
-              <input 
-                type="number" 
-                id="personalRating"
-                v-model="form.personalRating" 
-                step="0.1" 
-                min="0" 
-                max="10"
-                placeholder="0-10"
-              />
-            </div>
-            
-            <div v-if="isSeries" class="form-group">
-              <label for="isAiring">Status:</label>
-              <select id="isAiring" v-model="form.isAiring">
-                <option :value="false">Finished</option>
-                <option :value="true">Airing</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="apiRating">API Rating:</label>
-              <input 
-                type="number" 
-                id="apiRating"
-                v-model="form.apiRating" 
-                step="0.1" 
-                min="0" 
-                max="10"
-                placeholder="0-10"
-                readonly
-              />
-            </div>
+          <div class="form-group">
+            <label for="personalRating">Personal Rating:</label>
+            <input 
+              type="number" 
+              id="personalRating"
+              v-model="form.personalRating" 
+              step="0.1" 
+              min="0" 
+              max="10"
+              placeholder="0-10"
+            />
           </div>
           
-          <!-- Button Row -->
-          <div class="control-row-3">
-            <div class="control-buttons">
-              <button type="submit" :disabled="loading" class="save-btn">
-                {{ loading ? 'Saving...' : '💾 Save' }}
-              </button>
-              <button type="button" @click="closeModal" :disabled="loading" class="cancel-btn">
-                ✕ Cancel
-              </button>
-              <button 
-                v-if="isEditing" 
-                type="button" 
-                @click="deleteItem" 
-                :disabled="loading"
-                class="delete-btn"
-              >
-                🗑️ Delete
-              </button>
-            </div>
+          <div v-if="isSeries" class="form-group">
+            <label for="isAiring">Status:</label>
+            <select id="isAiring" v-model="form.isAiring">
+              <option :value="false">Finished</option>
+              <option :value="true">Airing</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="apiRating">API Rating:</label>
+            <input 
+              type="number" 
+              id="apiRating"
+              v-model="form.apiRating" 
+              step="0.1" 
+              min="0" 
+              max="10"
+              placeholder="0-10"
+              readonly
+            />
+          </div>
+        </div>
+        
+        <!-- Button Area -->
+        <div class="form-area button-area">
+          <div class="control-buttons">
+            <button type="submit" :disabled="loading" class="save-btn">
+              {{ loading ? 'Saving...' : '💾 Save' }}
+            </button>
+            <button type="button" @click="closeModal" :disabled="loading" class="cancel-btn">
+              ✕ Cancel
+            </button>
+            <button 
+              v-if="isEditing" 
+              type="button" 
+              @click="deleteItem" 
+              :disabled="loading"
+              class="delete-btn"
+            >
+              🗑️ Delete
+            </button>
           </div>
         </div>
         
@@ -460,6 +461,7 @@ import { downloadAndSaveImage, processImageUrl } from '@/utils/imageDownloader'
 import { simpleGoogleBooksApi } from '@/services/simpleApi'
 import { unifiedBooksApiService } from '@/services/unifiedBooksApi'
 import BooksApiControlPanel from '@/components/BooksApiControlPanel.vue'
+import { onMounted, onUnmounted } from 'vue'
 
 export default {
   name: 'EditModal',
@@ -991,6 +993,25 @@ export default {
       emit('close')
     }
     
+    // Body scroll lock functionality
+    const lockBodyScroll = () => {
+      document.body.style.overflow = 'hidden'
+    }
+    
+    const unlockBodyScroll = () => {
+      document.body.style.overflow = ''
+    }
+    
+    // Lock body scroll when modal mounts
+    onMounted(() => {
+      lockBodyScroll()
+    })
+    
+    // Unlock body scroll when modal unmounts
+    onUnmounted(() => {
+      unlockBodyScroll()
+    })
+    
     const deleteItem = () => {
       emit('delete', props.item)
       closeModal()
@@ -1510,7 +1531,7 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 20px;
   animation: fadeIn 0.3s ease-out;
 }
@@ -1534,7 +1555,7 @@ export default {
 
 .modal-content {
   background: #2d2d2d;
-  padding: 20px;
+  padding: 12px;
   border-radius: 12px;
   animation: slideInUp 0.3s ease-out;
   max-width: 1000px;
@@ -1549,7 +1570,7 @@ export default {
 @media (min-width: 769px) {
   .modal-content {
     max-height: none;
-    overflow-y: visible;
+    overflow: visible;
   }
 }
 
@@ -1567,8 +1588,8 @@ export default {
 @media (max-width: 768px) {
   .modal-content {
     padding: 16px;
-    max-height: 95vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
     margin: 0;
     border-radius: 8px 8px 0 0;
     width: 100%;
@@ -1583,28 +1604,57 @@ export default {
   font-size: 1.3rem;
 }
 
-/* Top Control Panel */
-.top-control-panel {
+/* Form Areas */
+.form-area {
   background: #1a1a1a;
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 8px;
+  margin-bottom: 8px;
   border: 1px solid #404040;
 }
 
-.control-row-1 {
+.category-area {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  min-height: 30px;
+  margin-bottom: 4px;
+}
+
+.title-area {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  min-height: 30px;
+  margin-bottom: 4px;
+}
+
+.details-area {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.2);
   display: grid;
-  grid-template-columns: 120px 1fr auto;
-  gap: 12px;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
   align-items: end;
-  margin-bottom: 12px;
+  padding: 8px;
+}
+
+.button-area {
+  background: rgba(156, 39, 176, 0.1);
+  border: 1px solid rgba(156, 39, 176, 0.2);
+  text-align: center;
+  padding: 8px;
 }
 
 .control-row-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 12px;
+  display: flex;
+  justify-content: center;
   align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .control-row-3 {
@@ -1827,6 +1877,8 @@ export default {
 .form-group.full-width {
   grid-column: 1 / -1;
 }
+
+
 
 .form-group textarea {
   padding: 8px;

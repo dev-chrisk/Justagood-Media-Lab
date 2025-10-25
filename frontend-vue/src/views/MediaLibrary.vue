@@ -39,11 +39,12 @@
       <!-- Header -->
       <MainHeader
         v-model:search-query="searchQuery"
-        v-model:sort-by="sortBy"
+        :sort-by="sortBy"
         :edit-mode="editMode"
         @toggle-mobile-sidebar="safeSidebarStore.toggleMobileSidebar"
         @clear-search="clearSearch"
         @toggle-edit-mode="toggleEditMode"
+        @update:sort-by="updateSortBy"
       />
 
       <!-- Content Area -->
@@ -742,6 +743,7 @@ export default {
       // Methods
       setCategory,
       clearSearch,
+      updateSortBy,
       editItem,
       closeEditModal,
       closeBulkAddModal,
@@ -1515,6 +1517,7 @@ export default {
       // Methods
       setCategory,
       clearSearch,
+      updateSortBy,
       navigateToCalendar,
       navigateToProfile,
       addItemFromSidebar,

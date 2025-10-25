@@ -40,6 +40,8 @@
           <option value="personal_rating_desc">Personal Rating ↓</option>
           <option value="airing_desc">Airing first</option>
           <option value="airing_asc">Finished first</option>
+          <option value="days_left_asc">Days left ↑</option>
+          <option value="days_left_desc">Days left ↓</option>
         </select>
       </div>
     </div>

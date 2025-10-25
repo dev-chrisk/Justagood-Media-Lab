@@ -759,15 +759,14 @@ export default {
 /* Genre Checkbox Styles */
 .genre-checkbox-item {
   padding: 8px 12px 8px 20px;
-  display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  display: flex;
   align-items: center;
-  gap: 8px;
   margin: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
   border-radius: 6px;
   position: relative;
+  min-height: 36px;
 }
 
 .genre-checkbox-item:hover {
@@ -786,6 +785,8 @@ export default {
   width: 20px;
   height: 20px;
   justify-content: center;
+  flex-shrink: 0;
+  margin-right: 4px;
 }
 
 .genre-checkbox-label:hover {
@@ -818,6 +819,8 @@ export default {
   min-height: 20px;
   display: flex;
   align-items: center;
+  flex: 1;
+  margin-right: 8px;
 }
 
 .genre-count {
@@ -829,7 +832,8 @@ export default {
   font-weight: 500;
   min-width: 24px;
   text-align: center;
-  justify-self: end;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Selected state for checkbox labels */
@@ -988,8 +992,8 @@ export default {
 /* Mobile adjustments for genre items */
 @media (max-width: 768px) {
   .genre-checkbox-item {
-    gap: 6px;
     padding: 6px 8px 6px 16px;
+    min-height: 32px;
   }
   
   .genre-checkbox {
@@ -997,12 +1001,14 @@ export default {
     height: 14px;
   }
   
-  .genre-checkbox-text {
-    font-size: 13px;
-    padding: 2px 4px;
+  .genre-checkbox-label {
+    width: 18px;
+    height: 18px;
+    margin-right: 3px;
   }
   
   .genre-name {
+    font-size: 13px;
     margin-right: 6px;
   }
   

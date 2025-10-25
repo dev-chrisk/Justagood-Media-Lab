@@ -605,9 +605,9 @@ export default {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: all 0.3s ease;
+  transition: opacity 0.2s ease, border 0.2s ease;
   cursor: pointer;
-  border: none;
+  border: 2px solid transparent;
   aspect-ratio: 16/9;
   min-height: 120px;
   width: 100%;
@@ -615,27 +615,25 @@ export default {
 }
 
 .media-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+  opacity: 0.9;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .media-item:active {
-  transform: scale(1.02);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  opacity: 0.8;
+  border: 2px solid rgba(255, 255, 255, 0.5);
 }
 
 /* Touch device optimizations */
 @media (hover: none) and (pointer: coarse) {
   .media-item:hover {
-    transform: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    border-color: #404040;
-    background: #2d2d2d;
+    opacity: 0.9;
+    border: 2px solid rgba(255, 255, 255, 0.3);
   }
   
   .media-item:active {
-    transform: scale(0.98);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    opacity: 0.8;
+    border: 2px solid rgba(255, 255, 255, 0.5);
   }
   
   /* Disable category-specific hover effects on touch devices */
@@ -645,8 +643,8 @@ export default {
   .category-games:hover,
   .category-watchlist:hover,
   .category-default:hover {
-    transform: none;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0.9;
+    border: 2px solid rgba(255, 255, 255, 0.3);
   }
 }
 
@@ -818,11 +816,15 @@ export default {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.2s, background 0.2s;
+  transform: scale(0.8);
+  transition: opacity 0.15s ease, 
+              transform 0.15s ease,
+              background 0.15s ease;
 }
 
 .media-item:hover .edit-indicator {
   opacity: 1;
+  transform: scale(1);
   background: rgba(232, 244, 253, 0.9);
 }
 
@@ -844,10 +846,11 @@ export default {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.9);
   z-index: 10;
   opacity: 0;
-  transition: all 0.3s ease;
+  transition: opacity 0.15s ease, 
+              transform 0.15s ease;
   pointer-events: none;
   max-width: 90%;
   max-height: 90%;
@@ -855,6 +858,7 @@ export default {
 
 .media-item:hover .star-rating-overlay {
   opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
   pointer-events: auto;
 }
 
@@ -870,8 +874,8 @@ export default {
 }
 
 .media-item.edit-mode:hover {
-  transform: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  opacity: 0.9;
+  border: 2px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Mobile optimizations for star rating */
@@ -902,21 +906,24 @@ export default {
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease, 
+              transform 0.15s ease,
+              background 0.15s ease,
+              box-shadow 0.15s ease;
   z-index: 3;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px) scale(0.9);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .media-item:hover .series-extra-button {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .series-extra-button:hover {
   background: rgba(33, 150, 243, 1);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
@@ -953,21 +960,24 @@ export default {
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease, 
+              transform 0.15s ease,
+              background 0.15s ease,
+              box-shadow 0.15s ease;
   z-index: 3;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px) scale(0.9);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .media-item:hover .watchlist-extra-button {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .watchlist-extra-button:hover {
   background: rgba(255, 193, 7, 1);
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.05);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
@@ -997,27 +1007,30 @@ export default {
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: all 0.3s ease;
+  transition: opacity 0.15s ease, 
+              transform 0.15s ease,
+              background 0.15s ease,
+              box-shadow 0.15s ease;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px) scale(0.9);
   backdrop-filter: blur(4px);
   z-index: 10;
 }
 
 .media-item:hover .heart-toggle-button {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .heart-toggle-button:hover {
   background: rgba(220, 53, 69, 0.9);
-  transform: translateY(-2px);
+  transform: translateY(-2px) scale(1.05);
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
 }
 
 .heart-icon {
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: transform 0.15s ease;
 }
 
 .heart-icon.active {
@@ -1061,18 +1074,18 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 2px;
+  border-radius: 4px;
+  font-size: 16px;
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 24px;
-  width: 24px;
-  height: 24px;
-  background: rgba(108, 117, 125, 0.9);
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
+  background: transparent;
   color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  box-shadow: none;
 }
 
 /* ===========================================
@@ -1198,9 +1211,9 @@ export default {
   }
   
   .category-type-tag {
-    width: 20px;
-    height: 20px;
-    font-size: 10px;
+    width: 26px;
+    height: 26px;
+    font-size: 15px;
     padding: 2px;
   }
   
@@ -1229,9 +1242,9 @@ export default {
   }
   
   .category-type-tag {
-    width: 18px;
-    height: 18px;
-    font-size: 9px;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
     padding: 1px;
   }
   

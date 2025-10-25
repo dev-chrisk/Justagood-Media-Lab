@@ -33,8 +33,34 @@ export function useMediaLibrary() {
     return 8 // Default to desktop value for SSR
   }
   const gridColumns = ref(getDefaultGridColumns())
-  const sortBy = ref('order_asc')
+  
+  // Load sortBy from localStorage or use default
+  const getStoredSortBy = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('mediaLibrary_sortBy')
+      return stored || 'order_asc'
+    }
+    return 'order_asc'
+  }
+  
+  const sortBy = ref(getStoredSortBy())
   const txtImportResults = ref(null)
+
+  // Helper function to calculate days left until release
+  const getDaysLeft = (item) => {
+    // For watchlist items, use watchlist_release_date or release
+    const releaseDate = item.watchlist_release_date 
+      ? new Date(item.watchlist_release_date)
+      : (item.release ? new Date(item.release) : null)
+    
+    if (!releaseDate) return Infinity // Items without release date go to end
+    
+    const today = new Date()
+    const timeDiff = releaseDate.getTime() - today.getTime()
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+    
+    return daysDiff
+  }
 
   // Update grid columns on window resize
   const updateGridColumns = () => {
@@ -171,6 +197,10 @@ export function useMediaLibrary() {
           // Sort by title - handle null/undefined
           aVal = a.title || ''
           bVal = b.title || ''
+        } else if (field === 'days_left') {
+          // Sort by days left - calculate days until release
+          aVal = getDaysLeft(a)
+          bVal = getDaysLeft(b)
         }
         
         // Handle null/undefined values
@@ -211,6 +241,14 @@ export function useMediaLibrary() {
 
   const clearSearch = () => {
     mediaStore.setSearchQuery('')
+  }
+
+  // Function to update sortBy and save to localStorage
+  const updateSortBy = (newSortBy) => {
+    sortBy.value = newSortBy
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mediaLibrary_sortBy', newSortBy)
+    }
   }
 
 
@@ -575,6 +613,7 @@ export function useMediaLibrary() {
     // Methods
     setCategory,
     clearSearch,
+    updateSortBy,
     editItem,
     closeEditModal,
     closeBulkAddModal,

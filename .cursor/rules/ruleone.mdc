@@ -3,3 +3,6 @@ alwaysApply: true
 never use && in powershell commands
 we using mysql
 you cannot read the .env file
+
+if you want to do a npm run build, dont use 2 commands at once because powershell doesent support statements like && and ;
+instead of 2 commands do them one by one
