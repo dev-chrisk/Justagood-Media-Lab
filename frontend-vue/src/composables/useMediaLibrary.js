@@ -48,12 +48,25 @@ export function useMediaLibrary() {
 
   // Helper function to calculate days left until release
   const getDaysLeft = (item) => {
-    // For watchlist items, use watchlist_release_date or release
-    const releaseDate = item.watchlist_release_date 
-      ? new Date(item.watchlist_release_date)
-      : (item.release ? new Date(item.release) : null)
+    let releaseDate = null
     
-    if (!releaseDate) return Infinity // Items without release date go to end
+    // Determine which date field to use based on media type
+    if (item.category === 'watchlist') {
+      // For watchlist items, use watchlist_release_date or fallback to release
+      releaseDate = item.watchlist_release_date 
+        ? new Date(item.watchlist_release_date)
+        : (item.release ? new Date(item.release) : null)
+    } else if (item.category === 'series' && item.is_airing && item.next_season_release) {
+      // For airing series, use next_season_release
+      releaseDate = new Date(item.next_season_release)
+    } else {
+      // For other media types, use release date
+      releaseDate = item.release ? new Date(item.release) : null
+    }
+    
+    if (!releaseDate || isNaN(releaseDate.getTime())) {
+      return Infinity // Items without valid release date go to end
+    }
     
     const today = new Date()
     const timeDiff = releaseDate.getTime() - today.getTime()
@@ -201,11 +214,19 @@ export function useMediaLibrary() {
           // Sort by days left - calculate days until release
           aVal = getDaysLeft(a)
           bVal = getDaysLeft(b)
+          
+          // For days_left, handle Infinity values (items without release dates)
+          // These should go to the end when sorting ascending, or beginning when descending
+          if (aVal === Infinity && bVal === Infinity) return 0
+          if (aVal === Infinity) return order === 'asc' ? 1 : -1
+          if (bVal === Infinity) return order === 'asc' ? -1 : 1
         }
         
-        // Handle null/undefined values
-        if (aVal === null || aVal === undefined) aVal = 0
-        if (bVal === null || bVal === undefined) bVal = 0
+        // Handle null/undefined values (but not for days_left as it's handled above)
+        if (field !== 'days_left') {
+          if (aVal === null || aVal === undefined) aVal = 0
+          if (bVal === null || bVal === undefined) bVal = 0
+        }
         
         if (typeof aVal === 'string') {
           aVal = aVal.toLowerCase()
