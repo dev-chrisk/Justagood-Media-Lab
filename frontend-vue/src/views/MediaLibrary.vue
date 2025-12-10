@@ -1498,6 +1498,71 @@ export default {
         window.location.reload()
       }
     }
+
+    // Account deletion state
+    const deleteAccountLoading = ref(false)
+
+    const deleteAccount = async () => {
+      const confirmed = confirm('⚠️ WARNING: This will permanently delete your account and ALL associated data (media items, collections, etc.). This action CANNOT be undone!\n\nAre you absolutely sure you want to delete your account?')
+      
+      if (!confirmed) {
+        return
+      }
+
+      // Double confirmation
+      const doubleConfirmed = confirm('This is your last chance! Are you REALLY sure you want to delete your account?')
+      
+      if (!doubleConfirmed) {
+        return
+      }
+
+      deleteAccountLoading.value = true
+
+      try {
+        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin)
+        const token = authStore.token
+
+        const response = await fetch(`${baseUrl}/api/account`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          // Logout and clear local data
+          await authStore.logout()
+          
+          // Show success message
+          showMessage({
+            type: 'success',
+            text: 'Account deleted successfully. You will be redirected...'
+          })
+
+          // Redirect to home after a short delay
+          setTimeout(() => {
+            window.location.href = '/'
+          }, 2000)
+        } else {
+          showMessage({
+            type: 'error',
+            text: `Failed to delete account: ${data.error || 'Unknown error'}`
+          })
+        }
+      } catch (error) {
+        console.error('❌ Account deletion failed:', error)
+        showMessage({
+          type: 'error',
+          text: `Failed to delete account: ${error.message || 'Unknown error'}`
+        })
+      } finally {
+        deleteAccountLoading.value = false
+      }
+    }
     
     const saveProfileData = () => {
       localStorage.setItem('profileData', JSON.stringify(profileData))
@@ -1682,6 +1747,8 @@ export default {
       clearCache,
       resetSettings,
       clearAllData,
+      deleteAccount,
+      deleteAccountLoading,
       saveProfileData,
       saveAllChanges,
       
@@ -2938,6 +3005,21 @@ export default {
 
 .danger-btn .btn-text {
   color: #ff6b6b;
+}
+
+.danger-btn.delete-account-btn {
+  border-color: #e74c3c;
+  background: #5a2a2a;
+}
+
+.danger-btn.delete-account-btn:hover:not(:disabled) {
+  background: #6a3a3a;
+  border-color: #ff6b6b;
+}
+
+.danger-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Checkbox styles */

@@ -99,6 +99,44 @@ class AuthController extends Controller
     }
 
     /**
+     * Delete the authenticated user's account and all associated data
+     */
+    public function deleteAccount(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            $userId = $user->id;
+            $userEmail = $user->email;
+
+            // Delete all user's media items
+            MediaItem::where('user_id', $userId)->delete();
+
+            // Delete all user's collections
+            \App\Models\Collection::where('user_id', $userId)->delete();
+
+            // Delete all user's tokens
+            $user->tokens()->delete();
+
+            // Delete the user account
+            $user->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Account and all associated data deleted successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to delete account: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get all users with login data (email, username, password hash)
      * Public route for debugging purposes (only used in logged out state)
      */
