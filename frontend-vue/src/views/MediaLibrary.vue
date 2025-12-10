@@ -28,6 +28,7 @@
       @show-register="showRegisterModal = true"
       @show-admin-login="showAdminLogin"
       @logout="logout"
+      @change-password="showChangePasswordModal = true"
       @delete-account="deleteAccount"
       @genres-updated="handleGenresUpdated"
       @genres-excluded="handleGenresExcluded"
@@ -584,6 +585,13 @@
       @success="handleRegisterSuccess"
     />
 
+    <!-- Change Password Modal -->
+    <ChangePasswordModal 
+      v-if="showChangePasswordModal" 
+      @close="showChangePasswordModal = false"
+      @success="handlePasswordChangeSuccess"
+    />
+
     <EditModal 
       v-if="showEditModal" 
       :item="editingItem"
@@ -678,6 +686,7 @@ import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import LoginModal from '@/components/LoginModal.vue'
 import RegisterModal from '@/components/RegisterModal.vue'
 import EditModal from '@/components/EditModal.vue'
+import ChangePasswordModal from '@/components/ChangePasswordModal.vue'
 import BulkAddModal from '@/components/BulkAddModal.vue'
 import TxtImportModal from '@/components/TxtImportModal.vue'
 import TxtImportResultsModal from '@/components/TxtImportResultsModal.vue'
@@ -697,6 +706,7 @@ export default {
     LoginModal,
     RegisterModal,
     EditModal,
+    ChangePasswordModal,
     BulkAddModal,
     TxtImportModal,
     TxtImportResultsModal,
@@ -1036,6 +1046,17 @@ export default {
     const handleRegisterSuccess = () => {
       showRegisterModal.value = false
       loadMedia()
+    }
+
+    // Change Password Modal state
+    const showChangePasswordModal = ref(false)
+
+    const handlePasswordChangeSuccess = () => {
+      showChangePasswordModal.value = false
+      showMessage({
+        type: 'success',
+        text: 'Password changed successfully!'
+      })
     }
 
     const handleAdminSetup = async () => {
@@ -1647,6 +1668,7 @@ export default {
       showLoginModal,
       showRegisterModal,
       showEditModal,
+      showChangePasswordModal,
       showFloatingMenu,
       showBulkAddModal,
       showTxtImportModal,
@@ -1705,6 +1727,7 @@ export default {
       showAdminLogin,
       handleLoginSuccess,
       handleRegisterSuccess,
+      handlePasswordChangeSuccess,
       handleAdminSetup,
       handleCheckDb,
       debugNavigateToAdmin,

@@ -99,6 +99,43 @@ class AuthController extends Controller
     }
 
     /**
+     * Change password for authenticated user (no old password required)
+     */
+    public function changePassword(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['error' => 'User not authenticated'], 401);
+            }
+
+            $request->validate([
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            // Update password without checking old password
+            $user->password = Hash::make($request->password);
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password changed successfully'
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to change password: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Delete the authenticated user's account and all associated data
      */
     public function deleteAccount(Request $request)

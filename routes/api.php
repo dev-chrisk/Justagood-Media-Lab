@@ -49,6 +49,7 @@ Route::get('series/{filename}', [ImageController::class, 'serveImage']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('auth:sanctum');
 Route::delete('/account', [AuthController::class, 'deleteAccount'])->middleware('auth:sanctum');
 
 // Public route to check all users (for debugging - only in logged out state)
