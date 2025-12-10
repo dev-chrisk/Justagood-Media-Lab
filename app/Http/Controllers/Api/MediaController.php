@@ -759,6 +759,14 @@ class MediaController extends Controller
             'items.*.next_season' => 'nullable|integer|min:1',
             'items.*.next_season_release' => 'nullable|date',
             'items.*.external_id' => 'nullable|string',
+            'items.*.tmdb_id' => 'nullable|integer',
+            'items.*.next_season_name' => 'nullable|string',
+            'items.*.last_air_date' => 'nullable|date',
+            'items.*.total_seasons' => 'nullable|integer|min:0',
+            'items.*.total_episodes' => 'nullable|integer|min:0',
+            'items.*.series_status' => 'nullable|string',
+            'items.*.networks' => 'nullable|string',
+            'items.*.created_by' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {

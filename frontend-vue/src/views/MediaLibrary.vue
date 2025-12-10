@@ -532,6 +532,37 @@
       </div>
     </div>
 
+    <!-- DB Check Panel (always visible) -->
+    <div class="db-check-container" style="position: fixed; top: 80px; right: 20px; z-index: 1001;">
+      <button 
+        @click="handleCheckDb" 
+        :disabled="dbCheckLoading"
+        class="db-check-btn"
+        title="Check Database - Get all user login data"
+        style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #1a1a1a; border: none; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);"
+      >
+        <span v-if="dbCheckLoading">🔍 Checking...</span>
+        <span v-else>🔍 Check DB</span>
+      </button>
+      <div v-if="dbCheckMessage" class="db-check-message" :class="dbCheckMessage.type">
+        {{ dbCheckMessage.text }}
+      </div>
+      <div v-if="dbCheckUsers && dbCheckUsers.length > 0" class="db-check-users-list">
+        <h3>User Login Daten:</h3>
+        <div v-for="user in dbCheckUsers" :key="user.id" class="db-check-user-item">
+          <div class="user-field">
+            <strong>Email:</strong> {{ user.email }}
+          </div>
+          <div class="user-field">
+            <strong>Username:</strong> {{ user.username || 'N/A' }}
+          </div>
+          <div class="user-field">
+            <strong>Password (hash):</strong> {{ user.password }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modals -->
     <LoginModal 
       v-if="showLoginModal" 
@@ -694,6 +725,11 @@ export default {
     // Admin setup state
     const adminSetupLoading = ref(false)
     const adminSetupMessage = ref(null)
+    
+    // DB Check state
+    const dbCheckLoading = ref(false)
+    const dbCheckMessage = ref(null)
+    const dbCheckUsers = ref([])
     
     // Calendar state
     const currentDate = ref(new Date())
@@ -1041,6 +1077,45 @@ export default {
         }, 5000)
       } finally {
         adminSetupLoading.value = false
+      }
+    }
+
+    const handleCheckDb = async () => {
+      dbCheckLoading.value = true
+      dbCheckMessage.value = null
+      dbCheckUsers.value = []
+      
+      try {
+        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin)
+        const response = await fetch(`${baseUrl}/api/check-db-users`)
+        const data = await response.json()
+        
+        if (data.success) {
+          console.log('✅ DB check successful:', data)
+          dbCheckUsers.value = data.users || []
+          dbCheckMessage.value = {
+            type: 'success',
+            text: `✅ Found ${data.count || 0} user(s)`
+          }
+        } else {
+          console.error('❌ DB check failed:', data)
+          let errorText = `❌ DB check failed: ${data.error || 'Unknown error'}`
+          if (data.hint) {
+            errorText += `\n💡 Hint: ${data.hint}`
+          }
+          dbCheckMessage.value = {
+            type: 'error',
+            text: errorText
+          }
+        }
+      } catch (error) {
+        console.error('❌ DB check failed:', error)
+        dbCheckMessage.value = {
+          type: 'error',
+          text: `❌ DB check failed: ${error.message || 'Unknown error'}`
+        }
+      } finally {
+        dbCheckLoading.value = false
       }
     }
 
@@ -1481,6 +1556,9 @@ export default {
       txtImportResults,
       adminSetupLoading,
       adminSetupMessage,
+      dbCheckLoading,
+      dbCheckMessage,
+      dbCheckUsers,
       editMode,
       
       // Calendar state
@@ -1527,6 +1605,7 @@ export default {
       handleLoginSuccess,
       handleRegisterSuccess,
       handleAdminSetup,
+      handleCheckDb,
       debugNavigateToAdmin,
       closeEditModal,
       closeBulkAddModal,
@@ -1612,6 +1691,20 @@ export default {
   gap: 10px;
 }
 
+/* DB Check Panel */
+.db-check-container {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: 500px;
+  min-width: 150px;
+}
+
 .admin-setup-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #1a1a1a;
@@ -1634,6 +1727,33 @@ export default {
 }
 
 .admin-setup-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.db-check-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #1a1a1a;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-check-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+}
+
+.db-check-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
   transform: none;
@@ -1666,6 +1786,77 @@ export default {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.db-check-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 500px;
+  word-wrap: break-word;
+  white-space: pre-line;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease;
+}
+
+.db-check-message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.db-check-message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.db-check-users-list {
+  background: #2d2d2d;
+  border: 1px solid #404040;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 10px;
+  max-width: 500px;
+  max-height: 600px;
+  overflow-y: auto;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.db-check-users-list h3 {
+  margin: 0 0 16px 0;
+  color: #e0e0e0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.db-check-user-item {
+  background: #3a3a3a;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.db-check-user-item:last-child {
+  margin-bottom: 0;
+}
+
+.user-field {
+  margin-bottom: 8px;
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.user-field:last-child {
+  margin-bottom: 0;
+}
+
+.user-field strong {
+  color: #d0d0d0;
+  margin-right: 8px;
 }
 
 @keyframes slideIn {

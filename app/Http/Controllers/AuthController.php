@@ -103,8 +103,56 @@ class AuthController extends Controller
         }
     }
 
+    /**
+     * Get all users with login data (email, username, password hash)
+     * Public route for debugging purposes (only used in logged out state)
+     */
+    public function getAllUsersForCheck()
+    {
+        try {
+            // Check database connection first
+            try {
+                \DB::connection()->getPdo();
+            } catch (\Exception $dbError) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Database connection failed: ' . $dbError->getMessage(),
+                    'hint' => 'Please check your database configuration in .env file'
+                ], 500);
+            }
 
+            $users = User::all();
+            
+            $userData = $users->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'username' => $user->username,
+                    'password' => $user->password, // Gehashtes Passwort wie in DB gespeichert
+                    'name' => $user->name,
+                ];
+            });
 
+            return response()->json([
+                'success' => true,
+                'users' => $userData,
+                'count' => $userData->count()
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Database error: ' . $e->getMessage(),
+                'hint' => 'The database might not exist or the connection is misconfigured. Check your .env file.'
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to fetch users: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    }
 
     /**
      * Check and cleanup duplicate categories and media items

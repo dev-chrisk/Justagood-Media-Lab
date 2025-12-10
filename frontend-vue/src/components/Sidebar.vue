@@ -91,27 +91,30 @@
             <!-- Genre Name -->
             <span class="genre-name">{{ genre.name }}</span>
             
-            <!-- Include Checkbox (Blue) -->
-            <label class="genre-checkbox-label include-checkbox">
-              <input
-                type="checkbox"
-                :value="genre.name"
-                :checked="genre.isIncluded"
-                @change="toggleGenreInclude(genre.name)"
-                class="genre-checkbox include-checkbox-input"
-              />
-            </label>
-            
-            <!-- Exclude Checkbox (Red) -->
-            <label class="genre-checkbox-label exclude-checkbox">
-              <input
-                type="checkbox"
-                :value="genre.name"
-                :checked="genre.isExcluded"
-                @change="toggleGenreExclude(genre.name)"
-                class="genre-checkbox exclude-checkbox-input"
-              />
-            </label>
+            <!-- Checkbox Container with Dividers -->
+            <div class="checkbox-container">
+              <!-- Include Checkbox (Blue) -->
+              <label class="genre-checkbox-label include-checkbox">
+                <input
+                  type="checkbox"
+                  :value="genre.name"
+                  :checked="genre.isIncluded"
+                  @change="toggleGenreInclude(genre.name)"
+                  class="genre-checkbox include-checkbox-input"
+                />
+              </label>
+              
+              <!-- Exclude Checkbox (Red) -->
+              <label class="genre-checkbox-label exclude-checkbox">
+                <input
+                  type="checkbox"
+                  :value="genre.name"
+                  :checked="genre.isExcluded"
+                  @change="toggleGenreExclude(genre.name)"
+                  class="genre-checkbox exclude-checkbox-input"
+                />
+              </label>
+            </div>
             
             <!-- Genre Count -->
             <span class="genre-count">{{ genre.count }}</span>
@@ -758,9 +761,11 @@ export default {
 
 /* Genre Checkbox Styles */
 .genre-checkbox-item {
-  padding: 8px 12px 8px 20px;
-  display: flex;
+  padding: 8px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
+  gap: 12px;
   margin: 2px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s ease;
@@ -786,7 +791,6 @@ export default {
   height: 20px;
   justify-content: center;
   flex-shrink: 0;
-  margin-right: 4px;
 }
 
 .genre-checkbox-label:hover {
@@ -819,8 +823,19 @@ export default {
   min-height: 20px;
   display: flex;
   align-items: center;
-  flex: 1;
-  margin-right: 8px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  height: 100%;
+  width: 70px;
+  flex-shrink: 0;
+  justify-content: center;
 }
 
 .genre-count {
@@ -833,7 +848,7 @@ export default {
   min-width: 24px;
   text-align: center;
   flex-shrink: 0;
-  margin-left: auto;
+  justify-self: end;
 }
 
 /* Selected state for checkbox labels */

@@ -50,6 +50,9 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
+// Public route to check all users (for debugging - only in logged out state)
+Route::get('/check-db-users', [AuthController::class, 'getAllUsersForCheck']);
+
 
 
 // Google Books API configuration (no authentication required)
