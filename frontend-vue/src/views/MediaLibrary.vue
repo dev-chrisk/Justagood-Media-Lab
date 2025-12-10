@@ -344,6 +344,12 @@
                       <span class="btn-text">Clear All Data</span>
                       <span class="btn-description">Permanently delete all your data</span>
                     </button>
+                    
+                    <button class="danger-btn delete-account-btn" @click="deleteAccount" :disabled="deleteAccountLoading">
+                      <span class="btn-icon">⚠️</span>
+                      <span class="btn-text">{{ deleteAccountLoading ? 'Deleting...' : 'Delete Account' }}</span>
+                      <span class="btn-description">Permanently delete your account and all associated data</span>
+                    </button>
                   </div>
                 </div>
               </div>
