@@ -29,14 +29,9 @@ Route::post('api/login', [\App\Http\Controllers\AuthController::class, 'login'])
 
 Route::post('api/register', [\App\Http\Controllers\AuthController::class, 'register'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 Route::post('api/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-Route::post('api/change-password', [\App\Http\Controllers\AuthController::class, 'changePassword'])->middleware('auth:sanctum')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-Route::delete('api/account', [\App\Http\Controllers\AuthController::class, 'deleteAccount'])->middleware('auth:sanctum')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 Route::get('api/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
-
-// DB Check route (public, for debugging)
-Route::get('api/check-db-users', [\App\Http\Controllers\AuthController::class, 'getAllUsersForCheck'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
 // Google Books API routes
 Route::get('api/google-books-config', function () {

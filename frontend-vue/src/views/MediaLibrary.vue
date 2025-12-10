@@ -28,8 +28,6 @@
       @show-register="showRegisterModal = true"
       @show-admin-login="showAdminLogin"
       @logout="logout"
-      @change-password="showChangePasswordModal = true"
-      @delete-account="deleteAccount"
       @genres-updated="handleGenresUpdated"
       @genres-excluded="handleGenresExcluded"
       @genres-cleared="handleGenresCleared"
@@ -346,12 +344,6 @@
                       <span class="btn-text">Clear All Data</span>
                       <span class="btn-description">Permanently delete all your data</span>
                     </button>
-                    
-                    <button class="danger-btn delete-account-btn" @click="deleteAccount" :disabled="deleteAccountLoading">
-                      <span class="btn-icon">⚠️</span>
-                      <span class="btn-text">{{ deleteAccountLoading ? 'Deleting...' : 'Delete Account' }}</span>
-                      <span class="btn-description">Permanently delete your account and all associated data</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -540,37 +532,6 @@
       </div>
     </div>
 
-    <!-- DB Check Panel (always visible) -->
-    <div class="db-check-container" style="position: fixed; top: 80px; right: 20px; z-index: 1001;">
-      <button 
-        @click="handleCheckDb" 
-        :disabled="dbCheckLoading"
-        class="db-check-btn"
-        title="Check Database - Get all user login data"
-        style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #1a1a1a; border: none; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);"
-      >
-        <span v-if="dbCheckLoading">🔍 Checking...</span>
-        <span v-else>🔍 Check DB</span>
-      </button>
-      <div v-if="dbCheckMessage" class="db-check-message" :class="dbCheckMessage.type">
-        {{ dbCheckMessage.text }}
-      </div>
-      <div v-if="dbCheckUsers && dbCheckUsers.length > 0" class="db-check-users-list">
-        <h3>User Login Daten:</h3>
-        <div v-for="user in dbCheckUsers" :key="user.id" class="db-check-user-item">
-          <div class="user-field">
-            <strong>Email:</strong> {{ user.email }}
-          </div>
-          <div class="user-field">
-            <strong>Username:</strong> {{ user.username || 'N/A' }}
-          </div>
-          <div class="user-field">
-            <strong>Password (hash):</strong> {{ user.password }}
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Modals -->
     <LoginModal 
       v-if="showLoginModal" 
@@ -583,13 +544,6 @@
       v-if="showRegisterModal" 
       @close="showRegisterModal = false"
       @success="handleRegisterSuccess"
-    />
-
-    <!-- Change Password Modal -->
-    <ChangePasswordModal 
-      v-if="showChangePasswordModal" 
-      @close="showChangePasswordModal = false"
-      @success="handlePasswordChangeSuccess"
     />
 
     <EditModal 
@@ -686,7 +640,6 @@ import FloatingActionButton from '@/components/FloatingActionButton.vue'
 import LoginModal from '@/components/LoginModal.vue'
 import RegisterModal from '@/components/RegisterModal.vue'
 import EditModal from '@/components/EditModal.vue'
-import ChangePasswordModal from '@/components/ChangePasswordModal.vue'
 import BulkAddModal from '@/components/BulkAddModal.vue'
 import TxtImportModal from '@/components/TxtImportModal.vue'
 import TxtImportResultsModal from '@/components/TxtImportResultsModal.vue'
@@ -706,7 +659,6 @@ export default {
     LoginModal,
     RegisterModal,
     EditModal,
-    ChangePasswordModal,
     BulkAddModal,
     TxtImportModal,
     TxtImportResultsModal,
@@ -742,11 +694,6 @@ export default {
     // Admin setup state
     const adminSetupLoading = ref(false)
     const adminSetupMessage = ref(null)
-    
-    // DB Check state
-    const dbCheckLoading = ref(false)
-    const dbCheckMessage = ref(null)
-    const dbCheckUsers = ref([])
     
     // Calendar state
     const currentDate = ref(new Date())
@@ -1048,17 +995,6 @@ export default {
       loadMedia()
     }
 
-    // Change Password Modal state
-    const showChangePasswordModal = ref(false)
-
-    const handlePasswordChangeSuccess = () => {
-      showChangePasswordModal.value = false
-      showMessage({
-        type: 'success',
-        text: 'Password changed successfully!'
-      })
-    }
-
     const handleAdminSetup = async () => {
       adminSetupLoading.value = true
       adminSetupMessage.value = null
@@ -1105,74 +1041,6 @@ export default {
         }, 5000)
       } finally {
         adminSetupLoading.value = false
-      }
-    }
-
-    const handleCheckDb = async () => {
-      dbCheckLoading.value = true
-      dbCheckMessage.value = null
-      dbCheckUsers.value = []
-      
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin)
-        const response = await fetch(`${baseUrl}/api/check-db-users`, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        })
-        
-        // Check if response is OK
-        if (!response.ok) {
-          const text = await response.text()
-          console.error('❌ Response not OK:', response.status, text)
-          dbCheckMessage.value = {
-            type: 'error',
-            text: `❌ HTTP Error ${response.status}: ${text.substring(0, 200)}`
-          }
-          return
-        }
-        
-        // Try to parse JSON
-        let data
-        try {
-          data = await response.json()
-        } catch (parseError) {
-          const text = await response.text()
-          console.error('❌ JSON parse error:', parseError, 'Response text:', text)
-          dbCheckMessage.value = {
-            type: 'error',
-            text: `❌ Invalid JSON response: ${text.substring(0, 200)}`
-          }
-          return
-        }
-        
-        if (data.success) {
-          console.log('✅ DB check successful:', data)
-          dbCheckUsers.value = data.users || []
-          dbCheckMessage.value = {
-            type: 'success',
-            text: `✅ Found ${data.count || 0} user(s)`
-          }
-        } else {
-          console.error('❌ DB check failed:', data)
-          let errorText = `❌ DB check failed: ${data.error || 'Unknown error'}`
-          if (data.hint) {
-            errorText += `\n💡 Hint: ${data.hint}`
-          }
-          dbCheckMessage.value = {
-            type: 'error',
-            text: errorText
-          }
-        }
-      } catch (error) {
-        console.error('❌ DB check failed:', error)
-        dbCheckMessage.value = {
-          type: 'error',
-          text: `❌ DB check failed: ${error.message || 'Unknown error'}`
-        }
-      } finally {
-        dbCheckLoading.value = false
       }
     }
 
@@ -1526,71 +1394,6 @@ export default {
         window.location.reload()
       }
     }
-
-    // Account deletion state
-    const deleteAccountLoading = ref(false)
-
-    const deleteAccount = async () => {
-      const confirmed = confirm('⚠️ WARNING: This will permanently delete your account and ALL associated data (media items, collections, etc.). This action CANNOT be undone!\n\nAre you absolutely sure you want to delete your account?')
-      
-      if (!confirmed) {
-        return
-      }
-
-      // Double confirmation
-      const doubleConfirmed = confirm('This is your last chance! Are you REALLY sure you want to delete your account?')
-      
-      if (!doubleConfirmed) {
-        return
-      }
-
-      deleteAccountLoading.value = true
-
-      try {
-        const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin)
-        const token = authStore.token
-
-        const response = await fetch(`${baseUrl}/api/account`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        })
-
-        const data = await response.json()
-
-        if (data.success) {
-          // Logout and clear local data
-          await authStore.logout()
-          
-          // Show success message
-          showMessage({
-            type: 'success',
-            text: 'Account deleted successfully. You will be redirected...'
-          })
-
-          // Redirect to home after a short delay
-          setTimeout(() => {
-            window.location.href = '/'
-          }, 2000)
-        } else {
-          showMessage({
-            type: 'error',
-            text: `Failed to delete account: ${data.error || 'Unknown error'}`
-          })
-        }
-      } catch (error) {
-        console.error('❌ Account deletion failed:', error)
-        showMessage({
-          type: 'error',
-          text: `Failed to delete account: ${error.message || 'Unknown error'}`
-        })
-      } finally {
-        deleteAccountLoading.value = false
-      }
-    }
     
     const saveProfileData = () => {
       localStorage.setItem('profileData', JSON.stringify(profileData))
@@ -1668,7 +1471,6 @@ export default {
       showLoginModal,
       showRegisterModal,
       showEditModal,
-      showChangePasswordModal,
       showFloatingMenu,
       showBulkAddModal,
       showTxtImportModal,
@@ -1679,9 +1481,6 @@ export default {
       txtImportResults,
       adminSetupLoading,
       adminSetupMessage,
-      dbCheckLoading,
-      dbCheckMessage,
-      dbCheckUsers,
       editMode,
       
       // Calendar state
@@ -1727,9 +1526,7 @@ export default {
       showAdminLogin,
       handleLoginSuccess,
       handleRegisterSuccess,
-      handlePasswordChangeSuccess,
       handleAdminSetup,
-      handleCheckDb,
       debugNavigateToAdmin,
       closeEditModal,
       closeBulkAddModal,
@@ -1777,8 +1574,6 @@ export default {
       clearCache,
       resetSettings,
       clearAllData,
-      deleteAccount,
-      deleteAccountLoading,
       saveProfileData,
       saveAllChanges,
       
@@ -1817,20 +1612,6 @@ export default {
   gap: 10px;
 }
 
-/* DB Check Panel */
-.db-check-container {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  z-index: 1001;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
-  max-width: 500px;
-  min-width: 150px;
-}
-
 .admin-setup-btn {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #1a1a1a;
@@ -1853,33 +1634,6 @@ export default {
 }
 
 .admin-setup-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.db-check-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: #1a1a1a;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.db-check-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
-}
-
-.db-check-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
   transform: none;
@@ -1912,77 +1666,6 @@ export default {
   background: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
-}
-
-.db-check-message {
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  max-width: 500px;
-  word-wrap: break-word;
-  white-space: pre-line;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  animation: slideIn 0.3s ease;
-}
-
-.db-check-message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.db-check-message.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.db-check-users-list {
-  background: #2d2d2d;
-  border: 1px solid #404040;
-  border-radius: 8px;
-  padding: 16px;
-  margin-top: 10px;
-  max-width: 500px;
-  max-height: 600px;
-  overflow-y: auto;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-}
-
-.db-check-users-list h3 {
-  margin: 0 0 16px 0;
-  color: #e0e0e0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.db-check-user-item {
-  background: #3a3a3a;
-  border: 1px solid #555;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-
-.db-check-user-item:last-child {
-  margin-bottom: 0;
-}
-
-.user-field {
-  margin-bottom: 8px;
-  color: #e0e0e0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.user-field:last-child {
-  margin-bottom: 0;
-}
-
-.user-field strong {
-  color: #d0d0d0;
-  margin-right: 8px;
 }
 
 @keyframes slideIn {
@@ -3035,21 +2718,6 @@ export default {
 
 .danger-btn .btn-text {
   color: #ff6b6b;
-}
-
-.danger-btn.delete-account-btn {
-  border-color: #e74c3c;
-  background: #5a2a2a;
-}
-
-.danger-btn.delete-account-btn:hover:not(:disabled) {
-  background: #6a3a3a;
-  border-color: #ff6b6b;
-}
-
-.danger-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Checkbox styles */
