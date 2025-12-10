@@ -62,9 +62,9 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  async login(email, password) {
+  async login(email) {
     try {
-      const response = await api.post('/login', { email, password })
+      const response = await api.post('/login', { email })
       return response.data
     } catch (error) {
       // Check if it's a server error (500)
