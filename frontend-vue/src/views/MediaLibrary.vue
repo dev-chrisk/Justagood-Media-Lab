@@ -1087,8 +1087,37 @@ export default {
       
       try {
         const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : window.location.origin)
-        const response = await fetch(`${baseUrl}/api/check-db-users`)
-        const data = await response.json()
+        const response = await fetch(`${baseUrl}/api/check-db-users`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        // Check if response is OK
+        if (!response.ok) {
+          const text = await response.text()
+          console.error('❌ Response not OK:', response.status, text)
+          dbCheckMessage.value = {
+            type: 'error',
+            text: `❌ HTTP Error ${response.status}: ${text.substring(0, 200)}`
+          }
+          return
+        }
+        
+        // Try to parse JSON
+        let data
+        try {
+          data = await response.json()
+        } catch (parseError) {
+          const text = await response.text()
+          console.error('❌ JSON parse error:', parseError, 'Response text:', text)
+          dbCheckMessage.value = {
+            type: 'error',
+            text: `❌ Invalid JSON response: ${text.substring(0, 200)}`
+          }
+          return
+        }
         
         if (data.success) {
           console.log('✅ DB check successful:', data)

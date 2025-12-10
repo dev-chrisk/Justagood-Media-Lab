@@ -33,6 +33,9 @@ Route::get('api/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
+// DB Check route (public, for debugging)
+Route::get('api/check-db-users', [\App\Http\Controllers\AuthController::class, 'getAllUsersForCheck'])->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+
 // Google Books API routes
 Route::get('api/google-books-config', function () {
     $apiKey = config('services.google_books.api_key');
