@@ -28,6 +28,7 @@
       @show-register="showRegisterModal = true"
       @show-admin-login="showAdminLogin"
       @logout="logout"
+      @delete-account="deleteAccount"
       @genres-updated="handleGenresUpdated"
       @genres-excluded="handleGenresExcluded"
       @genres-cleared="handleGenresCleared"

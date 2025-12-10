@@ -160,6 +160,7 @@
             <button class="account-btn" @click="$emit('navigateToProfile')">⚙️</button>
           </div>
           <button class="auth-btn" @click="$emit('logout')">Logout</button>
+          <button class="delete-account-btn" @click="$emit('deleteAccount')">DELETE ACCOUNT</button>
         </div>
       </div>
     </div>
@@ -242,6 +243,7 @@ export default {
     'showLogin',
     'showRegister',
     'logout',
+    'deleteAccount',
     'genres-updated',
     'genres-excluded',
     'genres-cleared',
@@ -608,11 +610,46 @@ export default {
   font-size: 14px;
   transition: all 0.2s;
   min-height: 44px;
+  margin-bottom: 10px;
 }
 
 .auth-btn:hover {
   background: #e8f4fd;
   color: #1a1a1a;
+}
+
+.delete-account-btn {
+  padding: 16px 20px;
+  border: 2px solid #e74c3c;
+  background: #5a2a2a;
+  color: #ff6b6b;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  min-height: 50px;
+  width: 100%;
+  margin-top: 10px;
+  text-align: left;
+}
+
+.delete-account-btn:hover:not(:disabled) {
+  background: #6a3a3a;
+  border-color: #ff6b6b;
+  color: #ff9999;
+  transform: scale(1.02);
+}
+
+.delete-account-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sidebar.collapsed .delete-account-btn {
+  display: none;
 }
 
 
