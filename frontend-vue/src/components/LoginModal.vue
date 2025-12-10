@@ -11,7 +11,17 @@
             v-model="form.email" 
             required
             :disabled="loading"
-            placeholder="Enter your email address"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input 
+            type="password" 
+            id="password"
+            v-model="form.password" 
+            required
+            :disabled="loading"
           />
         </div>
         
@@ -45,7 +55,8 @@ export default {
     const authStore = useAuthStore()
     
     const form = reactive({
-      email: ''
+      email: '',
+      password: ''
     })
     
     const loading = ref(false)
@@ -56,7 +67,7 @@ export default {
       error.value = ''
       
       try {
-        const result = await authStore.login(form.email)
+        const result = await authStore.login(form.email, form.password)
         
         if (result.success) {
           emit('success', result)

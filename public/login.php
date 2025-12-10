@@ -27,24 +27,30 @@ try {
     // Get request data
     $input = json_decode(file_get_contents('php://input'), true);
     
-    if (!$input || !isset($input['email'])) {
+    if (!$input || !isset($input['email']) || !isset($input['password'])) {
         http_response_code(400);
-        echo json_encode(['error' => 'Email is required']);
+        echo json_encode(['error' => 'Email and password are required']);
         exit();
     }
     
     $email = $input['email'];
+    $password = $input['password'];
     
     // Find user
     $user = \App\Models\User::where('email', $email)->first();
     
     if (!$user) {
         http_response_code(401);
-        echo json_encode(['error' => 'User not found with this email']);
+        echo json_encode(['error' => 'Invalid credentials']);
         exit();
     }
     
-    // No password check - login with email only
+    // Check password
+    if (!\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Invalid credentials']);
+        exit();
+    }
     
     // Create token
     $token = $user->createToken('auth-token')->plainTextToken;

@@ -39,10 +39,10 @@ class AuthController extends Controller
     {
         try {
 
-            // Simple validation - only email required, no password needed
-            if (empty($request->email)) {
+            // Simple validation without Laravel validation to avoid issues
+            if (empty($request->email) || empty($request->password)) {
                 return response()->json([
-                    'error' => 'Email is required'
+                    'error' => 'Email and password are required'
                 ], 400);
             }
 
@@ -51,11 +51,16 @@ class AuthController extends Controller
 
             if (!$user) {
                 return response()->json([
-                    'error' => 'User not found with this email'
+                    'error' => 'Invalid credentials'
                 ], 401);
             }
 
-            // No password check - login with email only
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json([
+                    'error' => 'Invalid credentials'
+                ], 401);
+            }
+
             $token = $user->createToken('auth-token')->plainTextToken;
 
             // Prüfe und bereinige Duplikate beim Login
